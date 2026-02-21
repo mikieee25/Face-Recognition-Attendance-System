@@ -4,14 +4,24 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
 } from "typeorm";
 import { Personnel } from "./personnel.entity";
 import { User } from "./user.entity";
 
-export type AttendanceStatus = "PRESENT" | "LATE" | "ABSENT" | "ON_LEAVE";
+export enum AttendanceType {
+  TimeIn = "time_in",
+  TimeOut = "time_out",
+}
 
-@Entity("attendance")
-export class Attendance {
+export enum AttendanceStatus {
+  Confirmed = "confirmed",
+  Pending = "pending",
+  Rejected = "rejected",
+}
+
+@Entity("attendance_record")
+export class AttendanceRecord {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -22,54 +32,38 @@ export class Attendance {
   @JoinColumn({ name: "personnel_id" })
   personnel: Personnel;
 
-  @Column({ type: "date" })
-  date: string;
-
-  @Column({ type: "datetime", nullable: true, name: "time_in" })
-  timeIn: Date | null;
-
-  @Column({ type: "datetime", nullable: true, name: "time_out" })
-  timeOut: Date | null;
+  @Column({ type: "enum", enum: AttendanceType })
+  type: AttendanceType;
 
   @Column({
     type: "enum",
-    enum: ["PRESENT", "LATE", "ABSENT", "ON_LEAVE"],
-    nullable: true,
+    enum: AttendanceStatus,
+    default: AttendanceStatus.Confirmed,
   })
-  status: AttendanceStatus | null;
+  status: AttendanceStatus;
 
-  @Column({ type: "float", nullable: true, name: "confidence_score" })
-  confidenceScore: number | null;
+  @Column({ type: "float", nullable: true })
+  confidence: number | null;
 
-  @Column({ type: "tinyint", nullable: true, name: "is_auto_captured" })
-  isAutoCaptured: boolean | null;
+  @Column({ type: "varchar", length: 255, nullable: true, name: "image_path" })
+  imagePath: string | null;
 
-  @Column({ type: "tinyint", nullable: true, name: "is_approved" })
-  isApproved: boolean | null;
+  @Column({ type: "tinyint", default: 0, name: "is_manual" })
+  isManual: boolean;
 
-  @Column({ type: "int", nullable: true, name: "approved_by" })
-  approvedBy: number | null;
+  @Column({ type: "int", nullable: true, name: "created_by" })
+  createdBy: number | null;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: "approved_by" })
-  approvedByUser: User | null;
+  @JoinColumn({ name: "created_by" })
+  createdByUser: User | null;
 
-  @Column({
-    type: "varchar",
-    length: 255,
-    nullable: true,
-    name: "time_in_image",
-  })
-  timeInImage: string | null;
+  @CreateDateColumn({ name: "created_at" })
+  createdAt: Date;
 
-  @Column({
-    type: "varchar",
-    length: 255,
-    nullable: true,
-    name: "time_out_image",
-  })
-  timeOutImage: string | null;
+  @Column({ type: "int", nullable: true, name: "modified_by" })
+  modifiedBy: number | null;
 
-  @Column({ type: "datetime", nullable: true, name: "date_created" })
-  dateCreated: Date | null;
+  @Column({ type: "datetime", nullable: true, name: "modified_at" })
+  modifiedAt: Date | null;
 }

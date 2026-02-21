@@ -14,7 +14,7 @@ import { User } from "../database/entities/user.entity";
 
 const SALT_ROUNDS = 12;
 
-export type SafeUser = Omit<User, "password">;
+export type SafeUser = Omit<User, "passwordHash">;
 
 @Injectable()
 export class AuthService {
@@ -79,7 +79,7 @@ export class AuthService {
 
   private stripPassword(user: User): SafeUser {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...safe } = user as any;
+    const { passwordHash, ...safe } = user as any;
     return safe as SafeUser;
   }
 
@@ -104,7 +104,7 @@ export class AuthService {
       throw new UnauthorizedException("Account is deactivated");
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) {
       throw new UnauthorizedException("Invalid credentials");
     }
@@ -194,7 +194,7 @@ export class AuthService {
       const user = this.userRepo.create({
         username,
         email,
-        password: hash,
+        passwordHash: hash,
         ...extra,
       } as DeepPartial<User>);
       const saved = await this.userRepo.save(user);

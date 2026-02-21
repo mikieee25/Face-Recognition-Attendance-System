@@ -9,7 +9,7 @@ import { ConflictException } from "@nestjs/common";
 import { Repository } from "typeorm";
 import { UsersService } from "./users.service";
 import { User } from "../database/entities/user.entity";
-import { Attendance } from "../database/entities/attendance.entity";
+import { AttendanceRecord } from "../database/entities/attendance.entity";
 
 const SALT_ROUNDS = 12;
 
@@ -156,7 +156,7 @@ describe("Property 13: Unique Username and Email Constraint", () => {
           },
         },
         {
-          provide: getRepositoryToken(Attendance),
+          provide: getRepositoryToken(AttendanceRecord),
           useValue: { count: jest.fn() },
         },
       ],

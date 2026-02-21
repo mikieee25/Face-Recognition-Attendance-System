@@ -4,9 +4,8 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
-  OneToMany,
 } from "typeorm";
-import { User } from "./user.entity";
+import { Station } from "../../stations/station.entity";
 
 @Entity("personnel")
 export class Personnel {
@@ -25,9 +24,9 @@ export class Personnel {
   @Column({ type: "int", name: "station_id" })
   stationId: number;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => Station)
   @JoinColumn({ name: "station_id" })
-  station: User;
+  station: Station;
 
   @Column({ type: "datetime", nullable: true, name: "date_created" })
   dateCreated: Date | null;

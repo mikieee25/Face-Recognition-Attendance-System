@@ -44,8 +44,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
     if (!user || !user.isActive) throw new UnauthorizedException();
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...safe } = user as any;
-    // Map isAdmin boolean to role string for RolesGuard compatibility
-    return { ...safe, role: user.isAdmin ? "admin" : "station_user" };
+    const { passwordHash, ...safe } = user as any;
+    // role is already stored as enum on the user entity
+    return { ...safe, role: user.role };
   }
 }

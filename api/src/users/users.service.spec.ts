@@ -8,8 +8,8 @@ import {
 import { Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 import { UsersService } from "./users.service";
-import { User } from "../database/entities/user.entity";
-import { Attendance } from "../database/entities/attendance.entity";
+import { User, UserRole } from "../database/entities/user.entity";
+import { AttendanceRecord } from "../database/entities/attendance.entity";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 
@@ -18,21 +18,20 @@ const mockUser = (overrides: Partial<User> = {}): User =>
     id: 1,
     username: "testuser",
     email: "test@bfp.gov.ph",
-    password: "$2b$12$hashedpassword",
-    isAdmin: false,
+    passwordHash: "$2b$12$hashedpassword",
+    role: UserRole.StationUser,
+    stationId: 1,
     isActive: true,
-    dateCreated: new Date(),
-    stationType: "CENTRAL",
+    createdAt: new Date(),
     profilePicture: null,
     mustChangePassword: false,
-    isKiosk: false,
     ...overrides,
   } as User);
 
 describe("UsersService", () => {
   let service: UsersService;
   let userRepo: jest.Mocked<Repository<User>>;
-  let attendanceRepo: jest.Mocked<Repository<Attendance>>;
+  let attendanceRepo: jest.Mocked<Repository<AttendanceRecord>>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -50,7 +49,7 @@ describe("UsersService", () => {
           },
         },
         {
-          provide: getRepositoryToken(Attendance),
+          provide: getRepositoryToken(AttendanceRecord),
           useValue: {
             count: jest.fn(),
           },
@@ -60,13 +59,13 @@ describe("UsersService", () => {
 
     service = module.get<UsersService>(UsersService);
     userRepo = module.get(getRepositoryToken(User));
-    attendanceRepo = module.get(getRepositoryToken(Attendance));
+    attendanceRepo = module.get(getRepositoryToken(AttendanceRecord));
   });
 
   // ─── findAll ───────────────────────────────────────────────────────────────
 
   describe("findAll", () => {
-    it("returns all users without passwords", async () => {
+    it("returns all users without passwordHash", async () => {
       const users = [
         mockUser({ id: 1 }),
         mockUser({ id: 2, username: "admin" }),
@@ -76,7 +75,7 @@ describe("UsersService", () => {
       const result = await service.findAll();
 
       expect(result).toHaveLength(2);
-      result.forEach((u) => expect((u as any).password).toBeUndefined());
+      result.forEach((u) => expect((u as any).passwordHash).toBeUndefined());
     });
   });
 
@@ -99,7 +98,7 @@ describe("UsersService", () => {
       const result = await service.create(dto);
 
       expect(userRepo.save).toHaveBeenCalled();
-      expect((result as any).password).toBeUndefined();
+      expect((result as any).passwordHash).toBeUndefined();
     });
 
     it("hashes the password with bcrypt", async () => {
@@ -111,8 +110,11 @@ describe("UsersService", () => {
       await service.create(dto);
 
       const createCall = userRepo.create.mock.calls[0][0] as any;
-      expect(createCall.password).not.toBe(dto.password);
-      const isHashed = await bcrypt.compare(dto.password, createCall.password);
+      expect(createCall.passwordHash).not.toBe(dto.password);
+      const isHashed = await bcrypt.compare(
+        dto.password,
+        createCall.passwordHash,
+      );
       expect(isHashed).toBe(true);
     });
 
@@ -132,28 +134,28 @@ describe("UsersService", () => {
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
     });
 
-    it("maps role=admin to isAdmin=true", async () => {
+    it("sets role=admin correctly", async () => {
       userRepo.findOne.mockResolvedValue(null);
-      const created = mockUser({ isAdmin: true });
+      const created = mockUser({ role: UserRole.Admin });
       userRepo.create.mockReturnValue(created);
       userRepo.save.mockResolvedValue(created);
 
       await service.create({ ...dto, role: "admin" });
 
       const createCall = userRepo.create.mock.calls[0][0] as any;
-      expect(createCall.isAdmin).toBe(true);
+      expect(createCall.role).toBe(UserRole.Admin);
     });
 
-    it("maps role=station_user to isAdmin=false", async () => {
+    it("sets role=station_user correctly", async () => {
       userRepo.findOne.mockResolvedValue(null);
-      const created = mockUser({ isAdmin: false });
+      const created = mockUser({ role: UserRole.StationUser });
       userRepo.create.mockReturnValue(created);
       userRepo.save.mockResolvedValue(created);
 
       await service.create({ ...dto, role: "station_user" });
 
       const createCall = userRepo.create.mock.calls[0][0] as any;
-      expect(createCall.isAdmin).toBe(false);
+      expect(createCall.role).toBe(UserRole.StationUser);
     });
   });
 
@@ -175,7 +177,7 @@ describe("UsersService", () => {
       const result = await service.update(1, dto);
 
       expect(userRepo.save).toHaveBeenCalled();
-      expect((result as any).password).toBeUndefined();
+      expect((result as any).passwordHash).toBeUndefined();
     });
 
     it("hashes new password on update", async () => {
@@ -186,8 +188,11 @@ describe("UsersService", () => {
       await service.update(1, { password: "NewPass1!" });
 
       const savedUser = userRepo.save.mock.calls[0][0] as any;
-      expect(savedUser.password).not.toBe("NewPass1!");
-      const isHashed = await bcrypt.compare("NewPass1!", savedUser.password);
+      expect(savedUser.passwordHash).not.toBe("NewPass1!");
+      const isHashed = await bcrypt.compare(
+        "NewPass1!",
+        savedUser.passwordHash,
+      );
       expect(isHashed).toBe(true);
     });
 

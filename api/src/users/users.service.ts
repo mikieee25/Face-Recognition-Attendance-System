@@ -7,29 +7,29 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
-import { User } from "../database/entities/user.entity";
-import { Attendance } from "../database/entities/attendance.entity";
+import { User, UserRole } from "../database/entities/user.entity";
+import { AttendanceRecord } from "../database/entities/attendance.entity";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 
 const SALT_ROUNDS = 12;
 
-export type SafeUser = Omit<User, "password">;
+export type SafeUser = Omit<User, "passwordHash">;
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    @InjectRepository(Attendance)
-    private readonly attendanceRepo: Repository<Attendance>,
+    @InjectRepository(AttendanceRecord)
+    private readonly attendanceRepo: Repository<AttendanceRecord>,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   private stripPassword(user: User): SafeUser {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...safe } = user as any;
+    const { passwordHash, ...safe } = user as any;
     return safe as SafeUser;
   }
 
@@ -70,19 +70,18 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    // Map role to isAdmin boolean (existing schema uses isAdmin)
-    const isAdmin = dto.role === "admin" ? true : false;
+    const role = (dto.role as UserRole) ?? UserRole.StationUser;
 
     const user = this.userRepo.create({
       username: dto.username,
       email: dto.email,
-      password: passwordHash,
-      isAdmin,
+      passwordHash,
+      role,
+      stationId: dto.stationId ?? null,
       isActive: true,
-      dateCreated: new Date(),
-    } as any);
+    });
 
-    const saved = (await this.userRepo.save(user)) as unknown as User;
+    const saved = await this.userRepo.save(user);
     return this.stripPassword(saved);
   }
 
@@ -98,16 +97,14 @@ export class UsersService {
     if (dto.username !== undefined) user.username = dto.username;
     if (dto.email !== undefined) user.email = dto.email;
     if (dto.isActive !== undefined) user.isActive = dto.isActive;
-
-    if (dto.role !== undefined) {
-      (user as any).isAdmin = dto.role === "admin";
-    }
+    if (dto.role !== undefined) user.role = dto.role as UserRole;
+    if (dto.stationId !== undefined) user.stationId = dto.stationId;
 
     if (dto.password !== undefined) {
-      user.password = await bcrypt.hash(dto.password, SALT_ROUNDS);
+      user.passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     }
 
-    const saved = (await this.userRepo.save(user)) as unknown as User;
+    const saved = await this.userRepo.save(user);
     return this.stripPassword(saved);
   }
 
@@ -118,9 +115,9 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException(`User #${id} not found`);
 
-    // Block deletion if user has attendance records (as approver/creator)
+    // Block deletion if user has attendance records (as creator)
     const attendanceCount = await this.attendanceRepo.count({
-      where: { approvedBy: id },
+      where: { createdBy: id },
     });
 
     if (attendanceCount > 0) {

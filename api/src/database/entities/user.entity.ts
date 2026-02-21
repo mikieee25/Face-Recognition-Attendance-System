@@ -3,10 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  OneToMany,
 } from "typeorm";
 
-export type StationType = "CENTRAL" | "TALISAY" | "BACON" | "ABUYOG";
+export enum UserRole {
+  Admin = "admin",
+  StationUser = "station_user",
+  Kiosk = "kiosk",
+}
 
 @Entity("user")
 export class User {
@@ -19,45 +22,30 @@ export class User {
   @Column({ type: "varchar", length: 150, unique: true })
   email: string;
 
-  @Column({ type: "varchar", length: 255 })
-  password: string;
+  @Column({ type: "varchar", length: 255, name: "password_hash" })
+  passwordHash: string;
 
-  @Column({
-    type: "enum",
-    enum: ["CENTRAL", "TALISAY", "BACON", "ABUYOG"],
-    name: "station_type",
-  })
-  stationType: StationType;
+  @Column({ type: "enum", enum: UserRole })
+  role: UserRole;
 
-  @Column({ type: "tinyint", nullable: true, name: "is_admin" })
-  isAdmin: boolean | null;
+  @Column({ type: "int", nullable: true, name: "station_id" })
+  stationId: number | null;
 
-  @Column({
-    type: "datetime",
-    nullable: true,
-    name: "date_created",
-  })
-  dateCreated: Date | null;
+  @Column({ type: "tinyint", default: 1, name: "is_active" })
+  isActive: boolean;
+
+  @CreateDateColumn({ name: "created_at" })
+  createdAt: Date;
 
   @Column({
     type: "varchar",
     length: 255,
     nullable: true,
-    default: "images/profile-placeholder.jpg",
     name: "profile_picture",
+    default: "images/profile-placeholder.jpg",
   })
   profilePicture: string | null;
 
-  @Column({
-    type: "tinyint",
-    default: 0,
-    name: "must_change_password",
-  })
+  @Column({ type: "tinyint", default: 0, name: "must_change_password" })
   mustChangePassword: boolean;
-
-  @Column({ type: "tinyint", default: 1, name: "is_active" })
-  isActive: boolean;
-
-  @Column({ type: "tinyint", default: 0, name: "is_kiosk" })
-  isKiosk: boolean;
 }

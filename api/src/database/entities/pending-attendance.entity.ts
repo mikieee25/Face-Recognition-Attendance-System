@@ -4,13 +4,19 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
 } from "typeorm";
 import { Personnel } from "./personnel.entity";
+import { User } from "./user.entity";
 
-export type AttendanceType = "TIME_IN" | "TIME_OUT";
+export enum PendingReviewStatus {
+  Pending = "pending",
+  Approved = "approved",
+  Rejected = "rejected",
+}
 
-@Entity("pending_attendance")
-export class PendingAttendance {
+@Entity("pending_approval")
+export class PendingApproval {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -21,22 +27,37 @@ export class PendingAttendance {
   @JoinColumn({ name: "personnel_id" })
   personnel: Personnel;
 
-  @Column({ type: "date" })
-  date: string;
-
   @Column({
     type: "enum",
     enum: ["TIME_IN", "TIME_OUT"],
     name: "attendance_type",
   })
-  attendanceType: AttendanceType;
+  attendanceType: "TIME_IN" | "TIME_OUT";
+
+  @Column({ type: "float", nullable: true })
+  confidence: number | null;
 
   @Column({ type: "varchar", length: 255, name: "image_path" })
   imagePath: string;
 
-  @Column({ type: "text", nullable: true })
-  notes: string | null;
+  @Column({ type: "int", nullable: true, name: "reviewed_by" })
+  reviewedBy: number | null;
 
-  @Column({ type: "datetime", nullable: true, name: "date_created" })
-  dateCreated: Date | null;
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: "reviewed_by" })
+  reviewedByUser: User | null;
+
+  @Column({
+    type: "enum",
+    enum: PendingReviewStatus,
+    default: PendingReviewStatus.Pending,
+    name: "review_status",
+  })
+  reviewStatus: PendingReviewStatus;
+
+  @Column({ type: "datetime", nullable: true, name: "reviewed_at" })
+  reviewedAt: Date | null;
+
+  @CreateDateColumn({ name: "created_at" })
+  createdAt: Date;
 }

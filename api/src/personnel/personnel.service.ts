@@ -22,6 +22,7 @@ const ALLOWED_MIME_PREFIXES = [
 export interface AuthenticatedUser {
   id: number;
   role: string;
+  stationId: number | null;
 }
 
 @Injectable()
@@ -46,9 +47,12 @@ export class PersonnelService {
       return this.personnelRepo.find({ order: { id: "ASC" } });
     }
 
-    // station_user: filter by their own user id as station_id
+    // station_user: filter by their assigned stationId
+    if (!currentUser.stationId) {
+      return [];
+    }
     return this.personnelRepo.find({
-      where: { stationId: currentUser.id },
+      where: { stationId: currentUser.stationId },
       order: { id: "ASC" },
     });
   }
@@ -67,7 +71,7 @@ export class PersonnelService {
 
     if (
       currentUser.role !== "admin" &&
-      personnel.stationId !== currentUser.id
+      personnel.stationId !== currentUser.stationId
     ) {
       throw new ForbiddenException("Access denied");
     }
@@ -85,8 +89,13 @@ export class PersonnelService {
     dto: CreatePersonnelDto,
     currentUser: AuthenticatedUser,
   ): Promise<Personnel> {
+    if (currentUser.role !== "admin" && !currentUser.stationId) {
+      throw new BadRequestException("User has no assigned station");
+    }
     const stationId =
-      currentUser.role === "admin" ? dto.station_id : currentUser.id;
+      currentUser.role === "admin"
+        ? dto.station_id
+        : currentUser.stationId ?? undefined;
 
     const personnel = this.personnelRepo.create({
       firstName: dto.first_name,
