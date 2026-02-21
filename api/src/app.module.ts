@@ -10,6 +10,7 @@ import { PersonnelModule } from "./personnel/personnel.module";
 import { StationsModule } from "./stations/stations.module";
 import { AttendanceModule } from "./attendance/attendance.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { ReportsModule } from "./reports/reports.module";
 import { KioskGuard } from "./common/guards/kiosk.guard";
 
 @Module({
@@ -31,6 +32,7 @@ import { KioskGuard } from "./common/guards/kiosk.guard";
     StationsModule,
     AttendanceModule,
     DashboardModule,
+    ReportsModule,
   ],
   providers: [
     // KioskGuard runs globally after JWT auth resolves the user.
