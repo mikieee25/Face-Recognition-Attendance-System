@@ -33,8 +33,8 @@ const mockFaceService = () => ({
   registerFace: jest.fn(),
 });
 
-const adminUser = { id: 1, role: "admin" };
-const stationUser = { id: 2, role: "station_user" };
+const adminUser = { id: 1, role: "admin", stationId: null };
+const stationUser = { id: 2, role: "station_user", stationId: 1 };
 
 const makePersonnel = (overrides: Partial<Personnel> = {}): Personnel =>
   ({
@@ -109,13 +109,13 @@ describe("PersonnelService", () => {
     });
 
     it("station_user gets only their station personnel", async () => {
-      const list = [makePersonnel({ stationId: 2 })];
+      const list = [makePersonnel({ stationId: stationUser.stationId })];
       personnelRepo.find.mockResolvedValue(list);
 
       const result = await service.findAll(stationUser);
 
       expect(personnelRepo.find).toHaveBeenCalledWith({
-        where: { stationId: stationUser.id },
+        where: { stationId: stationUser.stationId },
         order: { id: "ASC" },
       });
       expect(result).toHaveLength(1);
@@ -148,7 +148,7 @@ describe("PersonnelService", () => {
     });
 
     it("station_user can access their own station personnel", async () => {
-      const p = makePersonnel({ stationId: stationUser.id });
+      const p = makePersonnel({ stationId: stationUser.stationId });
       personnelRepo.findOne.mockResolvedValue(p);
       const result = await service.findOne(10, stationUser);
       expect(result).toBe(p);
@@ -186,7 +186,7 @@ describe("PersonnelService", () => {
       await service.create(dto, stationUser);
 
       expect(personnelRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stationId: stationUser.id }),
+        expect.objectContaining({ stationId: stationUser.stationId }),
       );
     });
 
