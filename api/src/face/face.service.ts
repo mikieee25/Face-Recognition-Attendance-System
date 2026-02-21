@@ -1,41 +1,97 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import axios, { AxiosInstance } from "axios";
+
+export interface RecognizeResult {
+  personnelId: number;
+  confidence: number;
+}
 
 export interface RegisterFaceResult {
   embeddings: number[][];
 }
 
-/**
- * FaceService stub — placeholder until task 9.1 implements the full HTTP client.
- * Currently throws ServiceUnavailableException to signal the face service is not yet wired.
- */
 @Injectable()
 export class FaceService {
-  /**
-   * Forward base64 images to the Face Service for embedding generation.
-   * Returns an array of embedding vectors (one per image).
-   * (Requirements 15.1, 15.2, 15.5)
-   */
+  private readonly logger = new Logger(FaceService.name);
+  private readonly client: AxiosInstance;
+  private readonly baseUrl: string;
+
+  constructor(private readonly configService: ConfigService) {
+    this.baseUrl =
+      this.configService.get<string>("faceServiceUrl") ??
+      "http://localhost:8000";
+    this.client = axios.create({
+      baseURL: this.baseUrl,
+      timeout: 30_000,
+    });
+  }
+
+  async recognize(image: string, stationId: number): Promise<RecognizeResult> {
+    return this.withRetry(() =>
+      this.client.post<{
+        success: boolean;
+        personnel_id: number;
+        confidence: number;
+        message?: string;
+      }>("/recognize", {
+        image,
+        station_id: stationId,
+      }),
+    ).then((res) => ({
+      personnelId: res.data.personnel_id,
+      confidence: res.data.confidence,
+    }));
+  }
+
   async registerFace(
     personnelId: number,
     images: string[],
   ): Promise<RegisterFaceResult> {
-    // TODO (task 9.1): implement HTTP POST to FACE_SERVICE_URL/register
+    return this.withRetry(() =>
+      this.client.post<{ success: boolean; embeddings: number[][] }>(
+        "/register",
+        {
+          personnel_id: personnelId,
+          images,
+        },
+      ),
+    ).then((res) => ({ embeddings: res.data.embeddings }));
+  }
+
+  /** Retry up to 2 additional times on network errors (3 total attempts). */
+  private async withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+    let lastError: unknown;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (err: unknown) {
+        lastError = err;
+        const isNetworkError = axios.isAxiosError(err) && !err.response;
+        if (!isNetworkError) throw err; // non-network errors bubble immediately
+        this.logger.warn(
+          `Face service attempt ${i + 1} failed, ${
+            i + 1 < attempts ? "retrying..." : "giving up."
+          }`,
+        );
+      }
+    }
     throw new ServiceUnavailableException(
       "Face recognition service unavailable",
     );
   }
 
-  /**
-   * Send a single image to the Face Service for recognition.
-   * (Requirements 15.3, 15.4)
-   */
-  async recognize(
-    image: string,
-    stationId: number,
-  ): Promise<{ personnelId: number; confidence: number }> {
-    // TODO (task 9.1): implement HTTP POST to FACE_SERVICE_URL/recognize
-    throw new ServiceUnavailableException(
-      "Face recognition service unavailable",
-    );
+  /** Ping the face service — used by health check. */
+  async ping(): Promise<boolean> {
+    try {
+      await this.client.get("/health", { timeout: 5_000 });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
