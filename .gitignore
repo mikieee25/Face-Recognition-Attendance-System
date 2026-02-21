@@ -1,0 +1,92 @@
+# Node / NestJS
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.test
+.env.production
+secrets
+config/*.local.js
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# TypeScript
+*.tsbuildinfo
+*.d.ts
+
+# Coverage
+coverage/
+nyc_output/
+
+# Build outputs / temporary
+tmp/
+temp/
+public/uploads/
+uploads/
+*.sqlite
+*.sqlite3
+
+# Dependency directories
+jspm_packages/
+
+# Package manager lockfiles (optional to ignore — keep if you prefer)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Docker
+docker-compose.override.yml
+docker-compose.*.local.yml
+.env.docker
+
+# Misc
+*.local
+*.log.*
+.cache/
+.cache-loader/
+.idea_modules/
+.kiro/
+
+# SQL dumps
+*.sql
+*.sql.gz
+
+# Swagger generated files
+swagger/
+openapi/
+
+# IDE / OS specific
+.vagrant/
+*.swp
+*.swo
+
+# Prevent committing compiled frontend assets if present
+app/dist/
+app/build/

@@ -1,0 +1,31 @@
+# Prettier ignore for the NestJS API
+# Ignore dependencies and build artifacts
+node_modules
+dist
+build
+coverage
+
+# Environment and secret files
+.env
+.env.local
+.env.*.local
+secrets
+
+# Lockfiles & DB artifacts
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+*.sqlite
+*.sqlite3
+*.log
+
+# Editor & OS files
+.idea
+.vscode
+.DS_Store
+
+# Misc
+*.min.js
+public/uploads
+uploads
+docker-compose.override.yml
