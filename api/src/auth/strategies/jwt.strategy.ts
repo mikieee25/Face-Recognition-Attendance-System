@@ -37,7 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
     });
   }
 
-  async validate(payload: any): Promise<SafeUser> {
+  async validate(payload: any): Promise<SafeUser & { role: string }> {
     if (!payload?.sub) throw new UnauthorizedException();
 
     const user = await this.userRepo.findOne({ where: { id: payload.sub } });
@@ -45,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...safe } = user as any;
-    return safe as SafeUser;
+    // Map isAdmin boolean to role string for RolesGuard compatibility
+    return { ...safe, role: user.isAdmin ? "admin" : "station_user" };
   }
 }
