@@ -13,7 +13,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import apiClient from "@/lib/api-client";
-import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
+import type { ApiEnvelope } from "@/types/api";
 import type { Personnel, Station } from "@/types/models";
 
 export interface ReportFilterValues {
@@ -50,13 +50,8 @@ async function fetchStations(): Promise<Station[]> {
 
 async function fetchPersonnel(): Promise<Personnel[]> {
   const res =
-    await apiClient.get<
-      ApiEnvelope<Personnel[] | PaginatedResponse<Personnel>>
-    >("/api/v1/personnel");
-  const payload = res.data.data;
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  return (payload as PaginatedResponse<Personnel>).items ?? [];
+    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  return res.data.data ?? [];
 }
 
 export default function ReportFilters({ value, onChange }: ReportFiltersProps) {

@@ -94,14 +94,19 @@ export class PersonnelService {
     }
     const stationId =
       currentUser.role === "admin"
-        ? dto.station_id
+        ? dto.stationId
         : currentUser.stationId ?? undefined;
 
     const personnel = this.personnelRepo.create({
-      firstName: dto.first_name,
-      lastName: dto.last_name,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       rank: dto.rank,
       stationId,
+      shiftStartTime: dto.shiftStartTime ?? "08:00",
+      shiftEndTime: dto.shiftEndTime ?? "17:00",
+      isShifting: dto.isShifting ?? false,
+      shiftStartDate: dto.shiftStartDate ?? null,
+      shiftDurationDays: dto.shiftDurationDays ?? 15,
       dateCreated: new Date(),
       isActive: true,
     });
@@ -120,19 +125,28 @@ export class PersonnelService {
   ): Promise<Personnel> {
     const personnel = await this.findOne(id, currentUser);
 
-    if (dto.first_name !== undefined) personnel.firstName = dto.first_name;
-    if (dto.last_name !== undefined) personnel.lastName = dto.last_name;
+    if (dto.firstName !== undefined) personnel.firstName = dto.firstName;
+    if (dto.lastName !== undefined) personnel.lastName = dto.lastName;
     if (dto.rank !== undefined) personnel.rank = dto.rank;
-    if (dto.is_active !== undefined) personnel.isActive = dto.is_active;
+    if (dto.isActive !== undefined) personnel.isActive = dto.isActive;
+    if (dto.shiftStartTime !== undefined)
+      personnel.shiftStartTime = dto.shiftStartTime;
+    if (dto.shiftEndTime !== undefined)
+      personnel.shiftEndTime = dto.shiftEndTime;
+    if (dto.isShifting !== undefined) personnel.isShifting = dto.isShifting;
+    if (dto.shiftStartDate !== undefined)
+      personnel.shiftStartDate = dto.shiftStartDate;
+    if (dto.shiftDurationDays !== undefined)
+      personnel.shiftDurationDays = dto.shiftDurationDays;
 
-    // Only admin can change station_id
-    if (dto.station_id !== undefined) {
+    // Only admin can change stationId
+    if (dto.stationId !== undefined) {
       if (currentUser.role !== "admin") {
         throw new ForbiddenException(
           "Only admin can change station assignment",
         );
       }
-      personnel.stationId = dto.station_id;
+      personnel.stationId = dto.stationId;
     }
 
     return this.personnelRepo.save(personnel);

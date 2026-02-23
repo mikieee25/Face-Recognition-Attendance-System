@@ -39,8 +39,7 @@ export class PersonnelController {
   @Get()
   @ApiOperation({ summary: "List personnel (filtered by role)" })
   async findAll(@Request() req: any) {
-    const personnel = await this.personnelService.findAll(req.user);
-    return { personnel };
+    return this.personnelService.findAll(req.user);
   }
 
   /**
@@ -49,8 +48,7 @@ export class PersonnelController {
   @Get(":id")
   @ApiOperation({ summary: "Get a single personnel record" })
   async findOne(@Param("id", ParseIntPipe) id: number, @Request() req: any) {
-    const personnel = await this.personnelService.findOne(id, req.user);
-    return { personnel };
+    return this.personnelService.findOne(id, req.user);
   }
 
   /**
@@ -61,8 +59,7 @@ export class PersonnelController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create personnel" })
   async create(@Body() dto: CreatePersonnelDto, @Request() req: any) {
-    const personnel = await this.personnelService.create(dto, req.user);
-    return { personnel };
+    return this.personnelService.create(dto, req.user);
   }
 
   /**
@@ -75,8 +72,7 @@ export class PersonnelController {
     @Body() dto: UpdatePersonnelDto,
     @Request() req: any,
   ) {
-    const personnel = await this.personnelService.update(id, dto, req.user);
-    return { personnel };
+    return this.personnelService.update(id, dto, req.user);
   }
 
   /**

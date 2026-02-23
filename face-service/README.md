@@ -38,7 +38,7 @@ No separate YOLO model is required.
 
 The service supports optional face anti-spoofing to detect printed photos and screen replays.
 
-1. Download a MiniFASNet ONNX model and place it at `models/anti_spoof.onnx` (or set `ANTISPOOF_MODEL_PATH`).
+1. Download a MiniFASNet ONNX model and place it at `models/minifasnet_v2.onnx` (or set `ANTISPOOF_MODEL_PATH`).
 2. Set `ANTISPOOF_ENABLED=true` in your `.env` file (enabled by default).
 3. The `/recognize` endpoint will automatically check liveness before matching.
 

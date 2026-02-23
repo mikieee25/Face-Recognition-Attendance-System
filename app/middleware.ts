@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const KIOSK_ALLOWED_PATHS = ["/attendance/capture", "/attendance/manual"];
+const KIOSK_ALLOWED_PATHS = ["/kiosk"];
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -30,8 +30,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Token exists and on login page → redirect to dashboard
+  // Token exists and on login page → redirect based on role
   if (token && isLoginPage) {
+    const payload = decodeJwtPayload(token);
+    const role = payload?.role as string | undefined;
+    if (role === "kiosk") {
+      return NextResponse.redirect(new URL("/kiosk", request.url));
+    }
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -44,7 +49,7 @@ export function middleware(request: NextRequest) {
       role === "kiosk" &&
       !KIOSK_ALLOWED_PATHS.some((p) => pathname.startsWith(p))
     ) {
-      return NextResponse.redirect(new URL("/attendance/capture", request.url));
+      return NextResponse.redirect(new URL("/kiosk", request.url));
     }
   }
 

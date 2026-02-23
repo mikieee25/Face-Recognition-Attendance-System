@@ -18,7 +18,7 @@ import Typography from "@mui/material/Typography";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import type { User, Station, Role } from "@/types/models";
-import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
+import type { ApiEnvelope } from "@/types/api";
 
 interface UserFormProps {
   open: boolean;
@@ -142,12 +142,8 @@ export default function UserForm({
     queryKey: ["stations"],
     queryFn: async () => {
       const res =
-        await apiClient.get<
-          ApiEnvelope<PaginatedResponse<Station> | Station[]>
-        >("/api/v1/stations");
-      const payload = res.data.data;
-      if (Array.isArray(payload)) return payload as Station[];
-      return (payload as PaginatedResponse<Station>).items ?? [];
+        await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+      return res.data.data ?? [];
     },
     enabled: open,
   });

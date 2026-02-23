@@ -28,8 +28,8 @@ def load_model():
     if not model_path:
         # Try to find the model in common locations
         candidates = [
-            "models/anti_spoof.onnx",
-            "anti_spoof.onnx",
+            "models/minifasnet_v2.onnx",
+            "minifasnet_v2.onnx",
         ]
         for c in candidates:
             if os.path.exists(c):

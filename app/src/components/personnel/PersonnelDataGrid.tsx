@@ -23,8 +23,8 @@ import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import EditIcon from "@mui/icons-material/Edit";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import type { Personnel } from "@/types/models";
-import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
+import type { Personnel, Station } from "@/types/models";
+import type { ApiEnvelope } from "@/types/api";
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -34,15 +34,10 @@ interface PersonnelDataGridProps {
   onAdd?: () => void;
 }
 
-async function fetchPersonnel(
-  page: number,
-  limit: number,
-): Promise<PaginatedResponse<Personnel>> {
-  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<Personnel>>>(
-    "/api/v1/personnel",
-    { params: { page: page + 1, limit } },
-  );
-  return res.data.data!;
+async function fetchPersonnel(): Promise<Personnel[]> {
+  const res =
+    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  return res.data.data ?? [];
 }
 
 export default function PersonnelDataGrid({
@@ -53,13 +48,24 @@ export default function PersonnelDataGrid({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
 
+  const { data: stationsData } = useQuery({
+    queryKey: ["stations"],
+    queryFn: async () => {
+      const res =
+        await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+      return res.data.data ?? [];
+    },
+  });
+  const stationMap = new Map((stationsData ?? []).map((s) => [s.id, s.name]));
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["personnel", { page, limit: rowsPerPage }],
-    queryFn: () => fetchPersonnel(page, rowsPerPage),
+    queryKey: ["personnel"],
+    queryFn: () => fetchPersonnel(),
   });
 
-  const rows = data?.items ?? [];
-  const total = data?.total ?? 0;
+  const allRows = data ?? [];
+  const total = allRows.length;
+  const rows = allRows.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -135,7 +141,9 @@ export default function PersonnelDataGrid({
                           {person.firstName} {person.lastName}
                         </TableCell>
                         <TableCell>{person.rank}</TableCell>
-                        <TableCell>{person.stationId}</TableCell>
+                        <TableCell>
+                          {stationMap.get(person.stationId) ?? person.stationId}
+                        </TableCell>
                         <TableCell align="center">
                           <Stack
                             direction="row"

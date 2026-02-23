@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -32,18 +33,46 @@ export default function DashboardAppBar({ onMenuClick }: DashboardAppBarProps) {
           <MenuIcon />
         </IconButton>
 
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          BFP Attendance System
-        </Typography>
+        <Box
+          component={Link}
+          href="/"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            flexGrow: 1,
+            textDecoration: "none",
+            color: "inherit",
+            cursor: "pointer",
+          }}
+        >
+          <Box
+            component="img"
+            src="/bfp-logo.png"
+            alt="BFP Logo"
+            sx={{ height: 36, width: 36, objectFit: "contain" }}
+          />
+          <Typography variant="h6" component="div">
+            BFP Attendance System
+          </Typography>
+        </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           {user && (
-            <Typography
-              variant="body2"
-              sx={{ display: { xs: "none", sm: "block" } }}
+            <Box
+              sx={{
+                display: { xs: "none", sm: "flex" },
+                alignItems: "center",
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 2,
+                backgroundColor: "rgba(255,255,255,0.15)",
+              }}
             >
-              {user.username}
-            </Typography>
+              <Typography variant="body2" fontWeight={500}>
+                {user.username}
+              </Typography>
+            </Box>
           )}
           <IconButton color="inherit" aria-label="logout" onClick={logout}>
             <LogoutIcon />

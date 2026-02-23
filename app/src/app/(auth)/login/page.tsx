@@ -10,7 +10,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { LocalFireDepartment } from "@mui/icons-material";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope } from "@/types/api";
 import type { User } from "@/types/models";
@@ -75,35 +74,45 @@ export default function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "background.default",
+        position: "relative",
+        overflow: "hidden",
         p: 2,
       }}
     >
+      {/* Background image with blur + darken */}
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "url(/station.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "blur(4px) brightness(0.45)",
+          transform: "scale(1.05)",
+          zIndex: 0,
+        }}
+      />
+
       <Paper
-        elevation={3}
+        elevation={6}
         sx={{
           width: "100%",
           maxWidth: 420,
           p: 4,
           borderRadius: 2,
+          position: "relative",
+          zIndex: 1,
         }}
       >
         <Stack spacing={3} component="form" onSubmit={handleSubmit} noValidate>
-          {/* BFP Branding */}
+          {/* BFP Branding with logo */}
           <Stack alignItems="center" spacing={1}>
             <Box
-              sx={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                bgcolor: "primary.main",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <LocalFireDepartment sx={{ color: "white", fontSize: 36 }} />
-            </Box>
+              component="img"
+              src="/bfp-logo.png"
+              alt="BFP Logo"
+              sx={{ width: 72, height: 72, objectFit: "contain" }}
+            />
             <Typography variant="h5" color="primary" fontWeight={700}>
               BFP Sorsogon
             </Typography>

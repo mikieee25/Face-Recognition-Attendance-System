@@ -13,8 +13,9 @@ export function useAuth() {
   const { data: user = null, isLoading } = useQuery<User | null>({
     queryKey: ME_QUERY_KEY,
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<User>>("/api/v1/auth/me");
-      return res.data.data ?? null;
+      const res =
+        await apiClient.get<ApiEnvelope<{ user: User }>>("/api/v1/auth/me");
+      return res.data.data?.user ?? null;
     },
     retry: false,
     // Treat a 401 as "not logged in" rather than an error
@@ -22,12 +23,20 @@ export function useAuth() {
   });
 
   async function login(username: string, password: string): Promise<void> {
-    await apiClient.post<ApiEnvelope<User>>("/api/v1/auth/login", {
-      username,
-      password,
-    });
+    const res = await apiClient.post<ApiEnvelope<{ user: User }>>(
+      "/api/v1/auth/login",
+      {
+        username,
+        password,
+      },
+    );
     await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
-    router.push("/");
+    const loggedInUser = res.data.data?.user;
+    if (loggedInUser?.role === "kiosk") {
+      router.push("/kiosk");
+    } else {
+      router.push("/");
+    }
   }
 
   async function logout(): Promise<void> {

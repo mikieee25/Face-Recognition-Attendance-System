@@ -1,5 +1,21 @@
 import { createTheme } from "@mui/material/styles";
 
+const HEADING_FONT = [
+  '"Helvetica Neue"',
+  "Helvetica",
+  "Arial",
+  "sans-serif",
+].join(",");
+
+const BODY_FONT = [
+  "var(--font-inter)",
+  "Inter",
+  "Roboto",
+  '"Helvetica Neue"',
+  "Arial",
+  "sans-serif",
+].join(",");
+
 const theme = createTheme({
   palette: {
     primary: {
@@ -48,39 +64,39 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: [
-      "Inter",
-      "Roboto",
-      '"Helvetica Neue"',
-      "Arial",
-      "sans-serif",
-    ].join(","),
+    fontFamily: BODY_FONT,
     h1: {
+      fontFamily: HEADING_FONT,
       fontSize: "2.5rem",
       fontWeight: 700,
       lineHeight: 1.2,
     },
     h2: {
+      fontFamily: HEADING_FONT,
       fontSize: "2rem",
       fontWeight: 700,
       lineHeight: 1.3,
     },
     h3: {
+      fontFamily: HEADING_FONT,
       fontSize: "1.75rem",
       fontWeight: 600,
       lineHeight: 1.3,
     },
     h4: {
+      fontFamily: HEADING_FONT,
       fontSize: "1.5rem",
       fontWeight: 600,
       lineHeight: 1.4,
     },
     h5: {
+      fontFamily: HEADING_FONT,
       fontSize: "1.25rem",
       fontWeight: 600,
       lineHeight: 1.4,
     },
     h6: {
+      fontFamily: HEADING_FONT,
       fontSize: "1rem",
       fontWeight: 600,
       lineHeight: 1.5,

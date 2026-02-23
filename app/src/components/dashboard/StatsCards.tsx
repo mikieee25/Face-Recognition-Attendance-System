@@ -8,8 +8,8 @@ import Skeleton from "@mui/material/Skeleton";
 import Typography from "@mui/material/Typography";
 import PeopleIcon from "@mui/icons-material/People";
 import PersonOffIcon from "@mui/icons-material/PersonOff";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope } from "@/types/api";
@@ -17,8 +17,8 @@ import type { ApiEnvelope } from "@/types/api";
 interface DashboardStats {
   present: number;
   absent: number;
-  late: number;
-  onTime: number;
+  shifting: number;
+  onLeave: number;
 }
 
 interface StatCardProps {
@@ -95,23 +95,23 @@ export default function StatsCards() {
       icon: <PersonOffIcon />,
     },
     {
-      label: "Late",
-      value: data?.late,
-      color: "#F9A825",
-      icon: <AccessTimeIcon />,
+      label: "Shifting",
+      value: data?.shifting,
+      color: "#F57C00",
+      icon: <SwapHorizIcon />,
     },
     {
-      label: "On Time",
-      value: data?.onTime,
-      color: "#0277BD",
-      icon: <CheckCircleIcon />,
+      label: "On Leave",
+      value: data?.onLeave,
+      color: "#7B1FA2",
+      icon: <EventBusyIcon />,
     },
   ];
 
   return (
     <Grid container spacing={3}>
       {cards.map((card) => (
-        <Grid item xs={12} sm={6} md={3} key={card.label}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.label}>
           <StatCard {...card} loading={isLoading} />
         </Grid>
       ))}

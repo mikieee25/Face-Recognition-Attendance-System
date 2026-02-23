@@ -17,8 +17,24 @@ export interface AuthenticatedUser {
 export interface DashboardStats {
   present: number;
   absent: number;
-  late: number;
-  onTime: number;
+  shifting: number;
+  onLeave: number;
+}
+
+export interface DailySummary {
+  date: string;
+  present: number;
+  absent: number;
+  shifting: number;
+  onLeave: number;
+}
+
+export interface PersonnelAttendanceRow {
+  personnelId: number;
+  name: string;
+  rank: string;
+  stationName: string;
+  status: "present" | "absent" | "shifting" | "on_leave";
 }
 
 export interface RecentRecord {
@@ -28,16 +44,6 @@ export interface RecentRecord {
   type: string;
   status: string;
   createdAt: Date;
-}
-
-export interface ChartDataPoint {
-  date: string;
-  count: number;
-}
-
-export interface DashboardCharts {
-  weekly: ChartDataPoint[];
-  monthly: ChartDataPoint[];
 }
 
 @Injectable()
@@ -50,9 +56,37 @@ export class DashboardService {
   ) {}
 
   /**
+   * Determine if a personnel is currently in their shifting period.
+   */
+  private isShifting(personnel: Personnel, date: Date): boolean {
+    if (!personnel.isShifting || !personnel.shiftStartDate) return false;
+    const shiftStart = new Date(personnel.shiftStartDate);
+    const durationDays = personnel.shiftDurationDays ?? 15;
+    const shiftEnd = new Date(shiftStart);
+    shiftEnd.setDate(shiftEnd.getDate() + durationDays);
+    return date >= shiftStart && date < shiftEnd;
+  }
+
+  /**
+   * Build a scoped personnel query based on user role.
+   */
+  private scopedPersonnelQb(currentUser: AuthenticatedUser) {
+    const qb = this.personnelRepo
+      .createQueryBuilder("p")
+      .leftJoinAndSelect("p.station", "station")
+      .where("p.isActive = :isActive", { isActive: true });
+
+    if (currentUser.role === "station_user" && currentUser.stationId) {
+      qb.andWhere("p.stationId = :stationId", {
+        stationId: currentUser.stationId,
+      });
+    }
+    return qb;
+  }
+
+  /**
    * GET /api/v1/dashboard/stats
-   * Returns today's present/absent/late/on-time counts scoped by role.
-   * Requirements: 8.2, 8.3, 8.4, 8.5
+   * Today's present/absent/shifting/on-leave counts scoped by role.
    */
   async getStats(currentUser: AuthenticatedUser): Promise<DashboardStats> {
     const today = new Date();
@@ -74,88 +108,186 @@ export class DashboardService {
       999,
     );
 
-    // Build personnel query scoped by role (Requirements 8.4, 8.5)
-    const personnelQb = this.personnelRepo
-      .createQueryBuilder("p")
-      .where("p.isActive = :isActive", { isActive: true });
-
-    if (currentUser.role === "station_user" && currentUser.stationId) {
-      personnelQb.andWhere("p.stationId = :stationId", {
-        stationId: currentUser.stationId,
-      });
-    }
-
-    const allPersonnel = await personnelQb.getMany();
-    const totalPersonnel = allPersonnel.length;
-
-    if (totalPersonnel === 0) {
-      return { present: 0, absent: 0, late: 0, onTime: 0 };
+    const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
+    if (allPersonnel.length === 0) {
+      return { present: 0, absent: 0, shifting: 0, onLeave: 0 };
     }
 
     const personnelIds = allPersonnel.map((p) => p.id);
 
     // Get today's confirmed time_in records
-    const todayRecordsQb = this.attendanceRepo
+    const todayRecords = await this.attendanceRepo
       .createQueryBuilder("ar")
       .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
       .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
       .andWhere("ar.status = :status", { status: AttendanceStatus.Confirmed })
       .andWhere("ar.createdAt >= :startOfDay", { startOfDay })
-      .andWhere("ar.createdAt <= :endOfDay", { endOfDay });
+      .andWhere("ar.createdAt <= :endOfDay", { endOfDay })
+      .getMany();
 
-    const todayRecords = await todayRecordsQb.getMany();
+    const presentIds = new Set(todayRecords.map((r) => r.personnelId));
 
-    // Build a map of personnelId -> earliest time_in today
-    const presentMap = new Map<number, Date>();
-    for (const record of todayRecords) {
-      const existing = presentMap.get(record.personnelId);
-      if (!existing || record.createdAt < existing) {
-        presentMap.set(record.personnelId, record.createdAt);
-      }
-    }
+    let present = 0;
+    let absent = 0;
+    let shifting = 0;
+    let onLeave = 0;
 
-    const present = presentMap.size;
-    const absent = totalPersonnel - present;
-
-    // Determine late/on-time by comparing time_in against shift_start_time
-    let late = 0;
-    let onTime = 0;
-
-    for (const [personnelId, timeIn] of presentMap.entries()) {
-      const personnel = allPersonnel.find((p) => p.id === personnelId);
-      if (!personnel || !personnel.shiftStartTime) {
-        // No shift defined — count as on-time
-        onTime++;
-        continue;
-      }
-
-      // Parse shift start time (format: "HH:MM:SS" or "HH:MM")
-      const [shiftHour, shiftMinute] = personnel.shiftStartTime
-        .split(":")
-        .map(Number);
-      const shiftStart = new Date(
-        timeIn.getFullYear(),
-        timeIn.getMonth(),
-        timeIn.getDate(),
-        shiftHour,
-        shiftMinute,
-        0,
-      );
-
-      if (timeIn > shiftStart) {
-        late++;
+    for (const p of allPersonnel) {
+      if (presentIds.has(p.id)) {
+        present++;
+      } else if (this.isShifting(p, today)) {
+        shifting++;
       } else {
-        onTime++;
+        // TODO: when on_leave status is tracked, count it here
+        absent++;
       }
     }
 
-    return { present, absent, late, onTime };
+    return { present, absent, shifting, onLeave };
+  }
+
+  /**
+   * GET /api/v1/dashboard/summary
+   * Daily attendance summary for a date range (default: this week).
+   */
+  async getSummary(
+    currentUser: AuthenticatedUser,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Promise<DailySummary[]> {
+    const now = new Date();
+    const to = dateTo ? new Date(dateTo) : now;
+    const from = dateFrom
+      ? new Date(dateFrom)
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
+
+    const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
+    if (allPersonnel.length === 0) return [];
+
+    const personnelIds = allPersonnel.map((p) => p.id);
+
+    const records = await this.attendanceRepo
+      .createQueryBuilder("ar")
+      .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
+      .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
+      .andWhere("ar.status = :status", { status: AttendanceStatus.Confirmed })
+      .andWhere("ar.createdAt >= :from", { from })
+      .andWhere("ar.createdAt <= :to", { to })
+      .getMany();
+
+    // Group records by date
+    const recordsByDate = new Map<string, Set<number>>();
+    for (const r of records) {
+      const key = r.createdAt.toISOString().slice(0, 10);
+      if (!recordsByDate.has(key)) recordsByDate.set(key, new Set());
+      recordsByDate.get(key)!.add(r.personnelId);
+    }
+
+    const summaries: DailySummary[] = [];
+    const cursor = new Date(from);
+    while (cursor <= to) {
+      const dateKey = cursor.toISOString().slice(0, 10);
+      const presentIds = recordsByDate.get(dateKey) ?? new Set();
+
+      let present = 0;
+      let absent = 0;
+      let shifting = 0;
+      let onLeave = 0;
+
+      for (const p of allPersonnel) {
+        if (presentIds.has(p.id)) {
+          present++;
+        } else if (this.isShifting(p, cursor)) {
+          shifting++;
+        } else {
+          absent++;
+        }
+      }
+
+      summaries.push({ date: dateKey, present, absent, shifting, onLeave });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return summaries;
+  }
+
+  /**
+   * GET /api/v1/dashboard/personnel-status
+   * Personnel list with their status for a given date.
+   */
+  async getPersonnelStatus(
+    currentUser: AuthenticatedUser,
+    date?: string,
+    status?: string,
+  ): Promise<PersonnelAttendanceRow[]> {
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate(),
+      0,
+      0,
+      0,
+    );
+    const endOfDay = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
+    if (allPersonnel.length === 0) return [];
+
+    const personnelIds = allPersonnel.map((p) => p.id);
+
+    const records = await this.attendanceRepo
+      .createQueryBuilder("ar")
+      .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
+      .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
+      .andWhere("ar.status = :status", { status: AttendanceStatus.Confirmed })
+      .andWhere("ar.createdAt >= :startOfDay", { startOfDay })
+      .andWhere("ar.createdAt <= :endOfDay", { endOfDay })
+      .getMany();
+
+    const presentIds = new Set(records.map((r) => r.personnelId));
+
+    const rows: PersonnelAttendanceRow[] = allPersonnel.map((p) => {
+      let personnelStatus: PersonnelAttendanceRow["status"];
+      if (presentIds.has(p.id)) {
+        personnelStatus = "present";
+      } else if (this.isShifting(p, targetDate)) {
+        personnelStatus = "shifting";
+      } else {
+        personnelStatus = "absent";
+      }
+
+      return {
+        personnelId: p.id,
+        name: `${p.firstName} ${p.lastName}`,
+        rank: p.rank,
+        stationName: (p as any).station?.name ?? "Unknown",
+        status: personnelStatus,
+      };
+    });
+
+    // Filter by status if provided
+    if (status) {
+      return rows.filter((r) => r.status === status);
+    }
+
+    return rows;
   }
 
   /**
    * GET /api/v1/dashboard/recent
-   * Returns last 10 confirmed attendance records scoped by role.
-   * Requirement: 8.8
+   * Last 10 confirmed attendance records scoped by role.
    */
   async getRecent(currentUser: AuthenticatedUser): Promise<RecentRecord[]> {
     const qb = this.attendanceRepo
@@ -165,7 +297,6 @@ export class DashboardService {
       .orderBy("ar.createdAt", "DESC")
       .take(10);
 
-    // Scope by role (Requirements 8.4, 8.5)
     if (currentUser.role === "station_user" && currentUser.stationId) {
       qb.andWhere("personnel.stationId = :stationId", {
         stationId: currentUser.stationId,
@@ -184,81 +315,5 @@ export class DashboardService {
       status: r.status,
       createdAt: r.createdAt,
     }));
-  }
-
-  /**
-   * GET /api/v1/dashboard/charts
-   * Returns weekly (last 7 days) and monthly (last 30 days) attendance data scoped by role.
-   * Requirement: 8.10
-   */
-  async getCharts(currentUser: AuthenticatedUser): Promise<DashboardCharts> {
-    const now = new Date();
-
-    // Last 7 days
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - 6);
-    weekStart.setHours(0, 0, 0, 0);
-
-    // Last 30 days
-    const monthStart = new Date(now);
-    monthStart.setDate(monthStart.getDate() - 29);
-    monthStart.setHours(0, 0, 0, 0);
-
-    const endOfToday = new Date(now);
-    endOfToday.setHours(23, 59, 59, 999);
-
-    const buildQuery = (from: Date) => {
-      const qb = this.attendanceRepo
-        .createQueryBuilder("ar")
-        .leftJoin("ar.personnel", "personnel")
-        .where("ar.status = :status", { status: AttendanceStatus.Confirmed })
-        .andWhere("ar.createdAt >= :from", { from })
-        .andWhere("ar.createdAt <= :to", { to: endOfToday });
-
-      if (currentUser.role === "station_user" && currentUser.stationId) {
-        qb.andWhere("personnel.stationId = :stationId", {
-          stationId: currentUser.stationId,
-        });
-      }
-
-      return qb;
-    };
-
-    const [weeklyRecords, monthlyRecords] = await Promise.all([
-      buildQuery(weekStart).getMany(),
-      buildQuery(monthStart).getMany(),
-    ]);
-
-    const aggregateByDay = (
-      records: AttendanceRecord[],
-      days: number,
-    ): ChartDataPoint[] => {
-      const countMap = new Map<string, number>();
-
-      // Pre-fill all days with 0
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const key = d.toISOString().slice(0, 10);
-        countMap.set(key, 0);
-      }
-
-      for (const record of records) {
-        const key = record.createdAt.toISOString().slice(0, 10);
-        if (countMap.has(key)) {
-          countMap.set(key, (countMap.get(key) ?? 0) + 1);
-        }
-      }
-
-      return Array.from(countMap.entries()).map(([date, count]) => ({
-        date,
-        count,
-      }));
-    };
-
-    return {
-      weekly: aggregateByDay(weeklyRecords, 7),
-      monthly: aggregateByDay(monthlyRecords, 30),
-    };
   }
 }

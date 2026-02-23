@@ -1,16 +1,24 @@
-import { IsBoolean, IsInt, IsOptional, IsString } from "class-validator";
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+} from "class-validator";
+import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 
 export class UpdatePersonnelDto {
   @ApiPropertyOptional({ example: "Juan" })
   @IsOptional()
   @IsString()
-  first_name?: string;
+  firstName?: string;
 
   @ApiPropertyOptional({ example: "Dela Cruz" })
   @IsOptional()
   @IsString()
-  last_name?: string;
+  lastName?: string;
 
   @ApiPropertyOptional({ example: "Fire Officer II" })
   @IsOptional()
@@ -19,11 +27,40 @@ export class UpdatePersonnelDto {
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
-  station_id?: number;
+  stationId?: number;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
-  is_active?: boolean;
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ example: "08:00" })
+  @IsOptional()
+  @IsString()
+  shiftStartTime?: string;
+
+  @ApiPropertyOptional({ example: "17:00" })
+  @IsOptional()
+  @IsString()
+  shiftEndTime?: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  isShifting?: boolean;
+
+  @ApiPropertyOptional({ example: "2026-03-01" })
+  @IsOptional()
+  @IsString()
+  shiftStartDate?: string;
+
+  @ApiPropertyOptional({ example: 15 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  shiftDurationDays?: number;
 }

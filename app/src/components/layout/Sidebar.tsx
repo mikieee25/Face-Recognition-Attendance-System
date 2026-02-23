@@ -105,7 +105,7 @@ function SidebarContent() {
       adminOnly: true,
     },
     {
-      label: "Users",
+      label: "Stations",
       href: "/users",
       icon: <ManageAccountsIcon />,
       adminOnly: true,

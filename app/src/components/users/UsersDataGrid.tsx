@@ -28,8 +28,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import type { User, Role } from "@/types/models";
-import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
+import type { User, Role, Station } from "@/types/models";
+import type { ApiEnvelope } from "@/types/api";
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -40,15 +40,9 @@ interface UsersDataGridProps {
   onError?: (message: string) => void;
 }
 
-async function fetchUsers(
-  page: number,
-  limit: number,
-): Promise<PaginatedResponse<User>> {
-  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<User>>>(
-    "/api/v1/users",
-    { params: { page: page + 1, limit } },
-  );
-  return res.data.data!;
+async function fetchUsers(): Promise<User[]> {
+  const res = await apiClient.get<ApiEnvelope<User[]>>("/api/v1/users");
+  return res.data.data ?? [];
 }
 
 function getRoleChipProps(role: Role) {
@@ -86,13 +80,24 @@ export default function UsersDataGrid({
 
   const [actionLoading, setActionLoading] = useState(false);
 
+  const { data: stationsData } = useQuery({
+    queryKey: ["stations"],
+    queryFn: async () => {
+      const res =
+        await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+      return res.data.data ?? [];
+    },
+  });
+  const stationMap = new Map((stationsData ?? []).map((s) => [s.id, s.name]));
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["users", { page, limit: rowsPerPage }],
-    queryFn: () => fetchUsers(page, rowsPerPage),
+    queryKey: ["users"],
+    queryFn: () => fetchUsers(),
   });
 
-  const rows = data?.items ?? [];
-  const total = data?.total ?? 0;
+  const allRows = data ?? [];
+  const total = allRows.length;
+  const rows = allRows.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
 
   function handlePageChange(_: unknown, newPage: number) {
     setPage(newPage);
@@ -170,7 +175,7 @@ export default function UsersDataGrid({
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h5">Users</Typography>
+        <Typography variant="h5">Station Accounts</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -237,7 +242,9 @@ export default function UsersDataGrid({
                               size="small"
                             />
                           </TableCell>
-                          <TableCell>{user.stationId ?? "—"}</TableCell>
+                          <TableCell>
+                            {stationMap.get(user.stationId) ?? "—"}
+                          </TableCell>
                           <TableCell>
                             <Chip
                               label={user.isActive ? "Active" : "Inactive"}

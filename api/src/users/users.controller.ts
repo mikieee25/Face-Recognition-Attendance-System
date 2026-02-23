@@ -33,8 +33,7 @@ export class UsersController {
   @Get()
   @ApiOperation({ summary: "List all users (Admin only)" })
   async findAll() {
-    const users = await this.usersService.findAll();
-    return { users };
+    return this.usersService.findAll();
   }
 
   /**
@@ -44,8 +43,7 @@ export class UsersController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a new user (Admin only)" })
   async create(@Body() dto: CreateUserDto) {
-    const user = await this.usersService.create(dto);
-    return { user };
+    return this.usersService.create(dto);
   }
 
   /**
@@ -57,8 +55,7 @@ export class UsersController {
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
   ) {
-    const user = await this.usersService.update(id, dto);
-    return { user };
+    return this.usersService.update(id, dto);
   }
 
   /**
