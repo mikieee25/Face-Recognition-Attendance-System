@@ -127,7 +127,7 @@ export default function KioskCameraModal({
     try {
       const res = await apiClient.post<ApiEnvelope<CaptureResultData>>(
         "/api/v1/attendance/capture",
-        { image: imageData, type },
+        { image: imageData },
       );
       const data = res.data.data ?? {
         success: false,

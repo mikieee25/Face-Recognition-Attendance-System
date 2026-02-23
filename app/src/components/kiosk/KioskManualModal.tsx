@@ -25,33 +25,10 @@ interface Props {
   onSuccess: () => void;
 }
 
-const STATUS_OPTIONS = [
-  { value: "PRESENT", label: "Present" },
-  { value: "LATE", label: "Late" },
-  { value: "ABSENT", label: "Absent" },
-  { value: "ON_LEAVE", label: "On Leave" },
-];
-
-const REASON_OPTIONS = [
-  "Sick Leave",
-  "Vacation Leave",
-  "Emergency Leave",
-  "Maternity / Paternity Leave",
-  "Special Privilege Leave",
-  "Forced Leave",
-  "Official Business / Mission Order",
-  "Training / Seminar",
-  "Detail to Other Unit",
-  "AWOL",
-  "Other",
-];
-
 export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
   const [personnelId, setPersonnelId] = useState("");
   const [type, setType] = useState("time_in");
-  const [status, setStatus] = useState("");
-  const [reason, setReason] = useState("");
-  const [notes, setNotes] = useState("");
+  const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,22 +46,14 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
     if (open) {
       setPersonnelId("");
       setType("time_in");
-      setStatus("");
-      setReason("");
-      setNotes("");
+      setDate(new Date().toISOString().slice(0, 16));
       setError(null);
     }
   }, [open]);
 
-  const needsReason = status === "ON_LEAVE" || status === "ABSENT";
-
   async function handleSubmit() {
-    if (!personnelId || !status) {
+    if (!personnelId || !date) {
       setError("Please fill in all required fields.");
-      return;
-    }
-    if (needsReason && !reason) {
-      setError("Please select a reason.");
       return;
     }
 
@@ -94,9 +63,7 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
       await apiClient.post("/api/v1/attendance/manual", {
         personnelId: Number(personnelId),
         type,
-        status,
-        reason: needsReason ? reason : undefined,
-        notes: notes || undefined,
+        date: new Date(date).toISOString(),
       });
       onSuccess();
       onClose();
@@ -166,46 +133,14 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
             </Select>
           </FormControl>
 
-          <FormControl fullWidth required>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={status}
-              label="Status"
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {needsReason && (
-            <FormControl fullWidth required>
-              <InputLabel>Reason</InputLabel>
-              <Select
-                value={reason}
-                label="Reason"
-                onChange={(e) => setReason(e.target.value)}
-              >
-                {REASON_OPTIONS.map((r) => (
-                  <MenuItem key={r} value={r}>
-                    {r}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-
           <TextField
-            label="Notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            multiline
-            rows={2}
-            placeholder="Additional remarks…"
+            label="Date & Time"
+            type="datetime-local"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
             fullWidth
+            required
+            slotProps={{ inputLabel: { shrink: true } }}
           />
         </Stack>
       </DialogContent>
