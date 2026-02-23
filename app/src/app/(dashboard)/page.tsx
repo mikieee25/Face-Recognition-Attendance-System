@@ -34,10 +34,10 @@ export default async function DashboardPage() {
         <Typography variant="h4">Dashboard</Typography>
         <StatsCards />
         <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <RecentAttendanceTable />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <AttendanceChart />
           </Grid>
         </Grid>
