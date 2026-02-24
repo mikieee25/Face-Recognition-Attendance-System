@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  database:
+    image: mysql:8.0
+    container_name: bfp-attendance-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-bfp_sorsogon_attendance}
+      MYSQL_USER: ${DB_USER:-bfp_user}
+      MYSQL_PASSWORD: ${DB_PASS:-bfp_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bfp-network
+
+  # Face Recognition Service (Python FastAPI)
+  face-service:
+    build:
+      context: ./face-service
+      dockerfile: Dockerfile
+    container_name: bfp-face-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-bfp_user}
+      DB_PASS: ${DB_PASS:-bfp_password}
+      DB_NAME: ${DB_NAME:-bfp_sorsogon_attendance}
+      HOST: 0.0.0.0
+      PORT: 5002
+    ports:
+      - "5002:5001"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - bfp-network
+
+  # NestJS API
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: bfp-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-bfp_user}
+      DB_PASS: ${DB_PASS:-bfp_password}
+      DB_NAME: ${DB_NAME:-bfp_sorsogon_attendance}
+      JWT_SECRET: ${JWT_SECRET:-prod-jwt-secret-change-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      FACE_SERVICE_URL: http://face-service:5001
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+    ports:
+      - "3001:3001"
+    depends_on:
+      database:
+        condition: service_healthy
+      face-service:
+        condition: service_started
+    networks:
+      - bfp-network
+
+volumes:
+  mysql_data:
+
+networks:
+  bfp-network:
+    driver: bridge
