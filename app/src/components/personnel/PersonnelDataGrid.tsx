@@ -16,10 +16,10 @@ import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-// @mui/icons-material is expected to be installed (npm install @mui/icons-material)
-// The same icons are used throughout the codebase (Sidebar, StatsCards, etc.)
 import AddIcon from "@mui/icons-material/Add";
+import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import Chip from "@mui/material/Chip";
 import EditIcon from "@mui/icons-material/Edit";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
@@ -32,6 +32,7 @@ interface PersonnelDataGridProps {
   onEdit?: (personnel: Personnel) => void;
   onFaceRegister?: (personnel: Personnel) => void;
   onAdd?: () => void;
+  onViewProfile?: (personnel: Personnel) => void;
 }
 
 async function fetchPersonnel(): Promise<Personnel[]> {
@@ -44,6 +45,7 @@ export default function PersonnelDataGrid({
   onEdit,
   onFaceRegister,
   onAdd,
+  onViewProfile,
 }: PersonnelDataGridProps) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
@@ -117,13 +119,14 @@ export default function PersonnelDataGrid({
                     <TableCell>Name</TableCell>
                     <TableCell>Rank</TableCell>
                     <TableCell>Station</TableCell>
+                    <TableCell>Schedule</TableCell>
                     <TableCell align="center">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="center">
+                      <TableCell colSpan={6} align="center">
                         <Typography
                           variant="body2"
                           color="text.secondary"
@@ -138,11 +141,45 @@ export default function PersonnelDataGrid({
                       <TableRow key={person.id} hover>
                         <TableCell>{person.id}</TableCell>
                         <TableCell>
-                          {person.firstName} {person.lastName}
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            sx={{
+                              cursor: "pointer",
+                              color: "primary.main",
+                              fontWeight: 500,
+                              "&:hover": { textDecoration: "underline" },
+                            }}
+                            onClick={() => onViewProfile?.(person)}
+                          >
+                            {person.firstName} {person.lastName}
+                          </Typography>
                         </TableCell>
                         <TableCell>{person.rank}</TableCell>
                         <TableCell>
                           {stationMap.get(person.stationId) ?? person.stationId}
+                        </TableCell>
+                        <TableCell>
+                          {!person.isActive ? (
+                            <Chip
+                              label="On Leave"
+                              size="small"
+                              color="secondary"
+                            />
+                          ) : person.isShifting ? (
+                            <Chip
+                              label="Shifting"
+                              size="small"
+                              color="warning"
+                            />
+                          ) : (
+                            <Chip
+                              label="Regular"
+                              size="small"
+                              color="success"
+                              variant="outlined"
+                            />
+                          )}
                         </TableCell>
                         <TableCell align="center">
                           <Stack

@@ -77,10 +77,13 @@ export default function FaceRegistrationDialog({
       });
       setCapturedImages([]);
       onClose();
-    } catch {
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Failed to register face images. Please try again.";
       setSnackbar({
         open: true,
-        message: "Failed to register face images. Please try again.",
+        message,
         severity: "error",
       });
     } finally {
@@ -119,6 +122,7 @@ export default function FaceRegistrationDialog({
                 ref={webcamRef}
                 screenshotFormat="image/jpeg"
                 width="100%"
+                mirrored
                 videoConstraints={{ facingMode: "user" }}
                 aria-label="Webcam feed for face capture"
               />

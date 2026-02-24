@@ -70,10 +70,10 @@ function getThisWeekRange() {
   };
 }
 
-type RangePreset = "this_week" | "this_month" | "custom";
+type RangePreset = "today" | "this_week" | "this_month" | "custom";
 
 export default function AttendanceSummaryTable() {
-  const [preset, setPreset] = useState<RangePreset>("this_week");
+  const [preset, setPreset] = useState<RangePreset>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -81,6 +81,10 @@ export default function AttendanceSummaryTable() {
   const [modalStatus, setModalStatus] = useState<StatusFilter>("present");
 
   const getRange = () => {
+    if (preset === "today") {
+      const today = new Date().toISOString().slice(0, 10);
+      return { dateFrom: today, dateTo: today };
+    }
     if (preset === "this_week") return getThisWeekRange();
     if (preset === "this_month") {
       const now = new Date();
@@ -156,6 +160,7 @@ export default function AttendanceSummaryTable() {
                 label="Range"
                 onChange={(e) => setPreset(e.target.value as RangePreset)}
               >
+                <MenuItem value="today">Today</MenuItem>
                 <MenuItem value="this_week">This Week</MenuItem>
                 <MenuItem value="this_month">This Month</MenuItem>
                 <MenuItem value="custom">Custom</MenuItem>

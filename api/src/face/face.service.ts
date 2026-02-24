@@ -32,7 +32,7 @@ export class FaceService {
   }
 
   async recognize(image: string, stationId: number): Promise<RecognizeResult> {
-    return this.withRetry(() =>
+    const res = await this.withRetry(() =>
       this.client.post<{
         success: boolean;
         personnel_id: number;
@@ -42,17 +42,23 @@ export class FaceService {
         image,
         station_id: stationId,
       }),
-    ).then((res) => ({
+    );
+
+    if (!res.data.success) {
+      throw new Error(res.data.message ?? "Face recognition failed");
+    }
+
+    return {
       personnelId: res.data.personnel_id,
       confidence: res.data.confidence,
-    }));
+    };
   }
 
   async registerFace(
     personnelId: number,
     images: string[],
   ): Promise<RegisterFaceResult> {
-    return this.withRetry(() =>
+    const res = await this.withRetry(() =>
       this.client.post<{ success: boolean; embeddings: number[][] }>(
         "/register",
         {
@@ -60,7 +66,15 @@ export class FaceService {
           images,
         },
       ),
-    ).then((res) => ({ embeddings: res.data.embeddings }));
+    );
+
+    if (!res.data.success || !res.data.embeddings?.length) {
+      throw new Error(
+        "Face service could not detect a valid face in the provided images. Please ensure the face is clearly visible and try again.",
+      );
+    }
+
+    return { embeddings: res.data.embeddings };
   }
 
   /** Retry up to 2 additional times on network errors (3 total attempts). */

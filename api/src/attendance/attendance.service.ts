@@ -108,14 +108,34 @@ export class AttendanceService {
     const stationId = dto.stationId ?? currentUser.stationId ?? 0;
 
     // Call Face Service (Requirements 5.3, 5.4, 5.5)
-    const { personnelId, confidence } = await this.faceService.recognize(
-      dto.image,
-      stationId,
-    );
+    let personnelId: number;
+    let confidence: number;
+    try {
+      const result = await this.faceService.recognize(dto.image, stationId);
+      personnelId = result.personnelId;
+      confidence = result.confidence;
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Face recognition failed";
+      throw new UnprocessableEntityException(message);
+    }
 
-    if (confidence >= 0.7) {
+    if (confidence >= 0.6) {
       // High confidence → confirmed AttendanceRecord (Requirement 5.6)
-      const type = await this.determineAttendanceType(personnelId);
+      const expectedType = await this.determineAttendanceType(personnelId);
+
+      // If the user explicitly requested a type, validate it matches the expected sequence
+      if (dto.type && dto.type !== expectedType) {
+        const label =
+          dto.type === AttendanceType.TimeIn ? "Time In" : "Time Out";
+        const expectedLabel =
+          expectedType === AttendanceType.TimeIn ? "Time In" : "Time Out";
+        throw new BadRequestException(
+          `Cannot record ${label}. You need to ${expectedLabel} first.`,
+        );
+      }
+
+      const type = dto.type ?? expectedType;
       const record = this.attendanceRepo.create({
         personnelId,
         type,
@@ -127,7 +147,7 @@ export class AttendanceService {
         createdAt: new Date(),
       });
       return this.attendanceRepo.save(record);
-    } else if (confidence >= 0.5) {
+    } else if (confidence >= 0.4) {
       // Medium confidence → PendingApproval (Requirement 5.14)
       const pending = this.pendingRepo.create({
         personnelId,
@@ -139,7 +159,11 @@ export class AttendanceService {
       return this.pendingRepo.save(pending);
     } else {
       // Low confidence → HTTP 422 (Requirement 5.7)
-      throw new UnprocessableEntityException("Low confidence recognition");
+      throw new UnprocessableEntityException(
+        `Low confidence recognition (${(confidence * 100).toFixed(
+          1,
+        )}%). Please try again with better lighting or positioning.`,
+      );
     }
   }
 

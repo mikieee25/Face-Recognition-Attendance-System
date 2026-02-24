@@ -19,6 +19,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
+import type { Personnel } from "@/types/models";
 import type { ReportFilterValues } from "./ReportFilters";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,7 +36,6 @@ interface ReportItem {
   totalHours: number | null;
   type: string;
   status: string;
-  confidence: number | null;
 }
 
 interface ReportTableProps {
@@ -117,6 +117,22 @@ export default function ReportTable({ filters }: ReportTableProps) {
   const rows = data?.items ?? [];
   const total = data?.total ?? 0;
   const summary = computeSummary(rows);
+
+  // Fetch personnel for schedule status lookup
+  const { data: personnelData } = useQuery({
+    queryKey: ["personnel", "list"],
+    queryFn: async () => {
+      const res =
+        await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+      return res.data.data ?? [];
+    },
+  });
+  const scheduleMap = new Map(
+    (personnelData ?? []).map((p) => [
+      p.id,
+      !p.isActive ? "on_leave" : p.isShifting ? "shifting" : "regular",
+    ]),
+  );
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -203,7 +219,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
                   <TableCell>Total Hours</TableCell>
                   <TableCell>Type</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Confidence</TableCell>
+                  <TableCell>Schedule</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -243,9 +259,33 @@ export default function ReportTable({ filters }: ReportTableProps) {
                         />
                       </TableCell>
                       <TableCell>
-                        {row.confidence != null
-                          ? `${(row.confidence * 100).toFixed(1)}%`
-                          : "—"}
+                        {(() => {
+                          const sched = scheduleMap.get(row.personnelId);
+                          if (sched === "on_leave")
+                            return (
+                              <Chip
+                                label="On Leave"
+                                size="small"
+                                color="secondary"
+                              />
+                            );
+                          if (sched === "shifting")
+                            return (
+                              <Chip
+                                label="Shifting"
+                                size="small"
+                                color="warning"
+                              />
+                            );
+                          return (
+                            <Chip
+                              label="Regular"
+                              size="small"
+                              color="success"
+                              variant="outlined"
+                            />
+                          );
+                        })()}
                       </TableCell>
                     </TableRow>
                   ))

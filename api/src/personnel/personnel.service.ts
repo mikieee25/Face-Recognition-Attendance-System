@@ -153,6 +153,108 @@ export class PersonnelService {
   }
 
   /**
+   * Get the number of registered face embeddings for a personnel member.
+   */
+  async getFaceCount(
+    personnelId: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<{ count: number }> {
+    await this.findOne(personnelId, currentUser);
+    const legacy = await this.faceDataRepo.count({ where: { personnelId } });
+    const modern = await this.faceEmbeddingRepo.count({
+      where: { personnelId },
+    });
+    return { count: legacy + modern };
+  }
+
+  /**
+   * List all face registrations for a personnel member.
+   * Returns a unified list from both legacy face_data and face_embeddings tables.
+   */
+  async getFaces(
+    personnelId: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<
+    { id: number; source: "legacy" | "embedding"; createdAt: string }[]
+  > {
+    await this.findOne(personnelId, currentUser);
+
+    const legacyRows = await this.faceDataRepo.find({
+      where: { personnelId },
+      order: { dateCreated: "DESC" },
+    });
+    const modernRows = await this.faceEmbeddingRepo.find({
+      where: { personnelId },
+      order: { createdAt: "DESC" },
+    });
+
+    const results: {
+      id: number;
+      source: "legacy" | "embedding";
+      createdAt: string;
+    }[] = [];
+
+    for (const row of legacyRows) {
+      results.push({
+        id: row.id,
+        source: "legacy",
+        createdAt: row.dateCreated?.toISOString() ?? new Date().toISOString(),
+      });
+    }
+    for (const row of modernRows) {
+      results.push({
+        id: row.id,
+        source: "embedding",
+        createdAt: row.createdAt.toISOString(),
+      });
+    }
+
+    results.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    return results;
+  }
+
+  /**
+   * Delete a single face registration by id and source table.
+   */
+  async deleteFace(
+    personnelId: number,
+    faceId: number,
+    source: "legacy" | "embedding",
+    currentUser: AuthenticatedUser,
+  ): Promise<void> {
+    await this.findOne(personnelId, currentUser);
+
+    if (source === "legacy") {
+      const row = await this.faceDataRepo.findOne({
+        where: { id: faceId, personnelId },
+      });
+      if (!row) throw new NotFoundException(`Face record #${faceId} not found`);
+      await this.faceDataRepo.remove(row);
+    } else {
+      const row = await this.faceEmbeddingRepo.findOne({
+        where: { id: faceId, personnelId },
+      });
+      if (!row) throw new NotFoundException(`Face record #${faceId} not found`);
+      await this.faceEmbeddingRepo.remove(row);
+    }
+  }
+
+  /**
+   * Delete ALL face registrations for a personnel member.
+   */
+  async deleteAllFaces(
+    personnelId: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<void> {
+    await this.findOne(personnelId, currentUser);
+    await this.faceDataRepo.delete({ personnelId });
+    await this.faceEmbeddingRepo.delete({ personnelId });
+  }
+
+  /**
    * Delete personnel.
    * - Requires confirmation if face images are registered (Requirement 3.9)
    * - station_user can only delete personnel in their station
@@ -213,17 +315,14 @@ export class PersonnelService {
     }
 
     // Forward to Face Service for embedding generation (Requirement 4.5)
-    const result = await this.faceService.registerFace(personnelId, images);
-
-    // Persist each returned embedding (Requirement 4.7)
-    const embeddings = result.embeddings.map((embedding) =>
-      this.faceEmbeddingRepo.create({
-        personnelId,
-        embedding,
-        createdAt: new Date(),
-      }),
-    );
-
-    await this.faceEmbeddingRepo.save(embeddings);
+    // The face service handles persistence to the face_embeddings table directly,
+    // so we don't need to save again on the NestJS side.
+    try {
+      await this.faceService.registerFace(personnelId, images);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Face registration failed";
+      throw new BadRequestException(message);
+    }
   }
 }

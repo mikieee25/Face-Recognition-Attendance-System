@@ -7,6 +7,7 @@ import Alert from "@mui/material/Alert";
 import PersonnelDataGrid from "@/components/personnel/PersonnelDataGrid";
 import PersonnelForm from "@/components/personnel/PersonnelForm";
 import FaceRegistrationDialog from "@/components/personnel/FaceRegistrationDialog";
+import PersonnelProfileModal from "@/components/personnel/PersonnelProfileModal";
 import type { Personnel } from "@/types/models";
 
 export default function PersonnelPageClient() {
@@ -16,6 +17,8 @@ export default function PersonnelPageClient() {
   );
   const [faceDialogOpen, setFaceDialogOpen] = useState(false);
   const [faceTarget, setFaceTarget] = useState<Personnel | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileTarget, setProfileTarget] = useState<Personnel | null>(null);
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
@@ -47,6 +50,11 @@ export default function PersonnelPageClient() {
     setFaceTarget(null);
   }
 
+  function handleViewProfile(personnel: Personnel) {
+    setProfileTarget(personnel);
+    setProfileOpen(true);
+  }
+
   function showToast(message: string, severity: "success" | "error") {
     setToast({ open: true, message, severity });
   }
@@ -61,6 +69,7 @@ export default function PersonnelPageClient() {
         onAdd={handleAdd}
         onEdit={handleEdit}
         onFaceRegister={handleFaceRegister}
+        onViewProfile={handleViewProfile}
       />
 
       <PersonnelForm
@@ -75,6 +84,16 @@ export default function PersonnelPageClient() {
         open={faceDialogOpen}
         onClose={handleFaceDialogClose}
         personnel={faceTarget}
+      />
+
+      <PersonnelProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        personnel={profileTarget}
+        onFaceRegister={(p) => {
+          setProfileOpen(false);
+          handleFaceRegister(p);
+        }}
       />
 
       <Snackbar

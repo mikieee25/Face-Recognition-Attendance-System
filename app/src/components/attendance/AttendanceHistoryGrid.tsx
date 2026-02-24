@@ -100,13 +100,8 @@ async function fetchAttendance(
 
 async function fetchPersonnel(): Promise<Personnel[]> {
   const res =
-    await apiClient.get<
-      ApiEnvelope<Personnel[] | PaginatedResponse<Personnel>>
-    >("/api/v1/personnel");
-  const payload = res.data.data;
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  return (payload as PaginatedResponse<Personnel>).items ?? [];
+    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  return res.data.data ?? [];
 }
 
 // ─── Edit Dialog ──────────────────────────────────────────────────────────────
@@ -282,6 +277,11 @@ export default function AttendanceHistoryGrid() {
 
   const rows = attendanceData?.items ?? [];
   const total = attendanceData?.total ?? 0;
+
+  // Build personnel lookup map for displaying names
+  const personnelMap = new Map(
+    personnelList.map((p) => [p.id, `${p.rank} ${p.firstName} ${p.lastName}`]),
+  );
 
   // ── Mutations ───────────────────────────────────────────────────────────────
 
@@ -472,12 +472,12 @@ export default function AttendanceHistoryGrid() {
               <Table aria-label="Attendance history table">
                 <TableHead>
                   <TableRow>
+                    <TableCell>Personnel ID</TableCell>
+                    <TableCell>Name</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell>Time</TableCell>
-                    <TableCell>Personnel ID</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Status</TableCell>
-                    <TableCell>Confidence</TableCell>
                     {(canEdit || canDelete) && (
                       <TableCell align="center">Actions</TableCell>
                     )}
@@ -502,9 +502,12 @@ export default function AttendanceHistoryGrid() {
                   ) : (
                     rows.map((record) => (
                       <TableRow key={record.id} hover>
+                        <TableCell>{record.personnelId}</TableCell>
+                        <TableCell>
+                          {personnelMap.get(record.personnelId) ?? "—"}
+                        </TableCell>
                         <TableCell>{formatDate(record.createdAt)}</TableCell>
                         <TableCell>{formatTime(record.createdAt)}</TableCell>
-                        <TableCell>{record.personnelId}</TableCell>
                         <TableCell>{typeLabel(record.type)}</TableCell>
                         <TableCell>
                           <Chip
@@ -513,11 +516,6 @@ export default function AttendanceHistoryGrid() {
                             size="small"
                             sx={{ textTransform: "capitalize" }}
                           />
-                        </TableCell>
-                        <TableCell>
-                          {record.confidence != null
-                            ? `${(record.confidence * 100).toFixed(1)}%`
-                            : "—"}
                         </TableCell>
                         {(canEdit || canDelete) && (
                           <TableCell align="center">

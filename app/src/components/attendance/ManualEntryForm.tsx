@@ -15,14 +15,13 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import apiClient from "@/lib/api-client";
-import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
+import type { ApiEnvelope } from "@/types/api";
 import type { Personnel } from "@/types/models";
 
 interface ManualEntryPayload {
   personnelId: number;
   type: "time_in" | "time_out";
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
+  date: string; // ISO 8601 datetime string
 }
 
 function getTodayString(): string {
@@ -57,14 +56,8 @@ export default function ManualEntryForm() {
     queryKey: ["personnel"],
     queryFn: async () => {
       const res =
-        await apiClient.get<
-          ApiEnvelope<Personnel[] | PaginatedResponse<Personnel>>
-        >("/api/v1/personnel");
-      const payload = res.data.data;
-      if (!payload) return [] as Personnel[];
-      // Handle both array and paginated response shapes
-      if (Array.isArray(payload)) return payload;
-      return (payload as PaginatedResponse<Personnel>).items ?? [];
+        await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+      return res.data.data ?? [];
     },
   });
 
@@ -128,11 +121,13 @@ export default function ManualEntryForm() {
     if (!validateDate(date)) return;
     if (!personnelId || !time) return;
 
+    // Combine date + time into ISO 8601 datetime string for the DTO
+    const isoDatetime = new Date(`${date}T${time}:00`).toISOString();
+
     mutation.mutate({
       personnelId: Number(personnelId),
       type,
-      date,
-      time,
+      date: isoDatetime,
     });
   };
 

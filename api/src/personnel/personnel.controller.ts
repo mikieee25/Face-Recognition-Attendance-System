@@ -101,6 +101,64 @@ export class PersonnelController {
   }
 
   /**
+   * GET /api/v1/personnel/:id/face-count
+   * Get the number of registered face embeddings for a personnel member.
+   */
+  @Get(":id/face-count")
+  @ApiOperation({
+    summary: "Get face registration count for a personnel member",
+  })
+  async getFaceCount(
+    @Param("id", ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.personnelService.getFaceCount(id, req.user);
+  }
+
+  /**
+   * GET /api/v1/personnel/:id/faces
+   * List all face registrations for a personnel member.
+   */
+  @Get(":id/faces")
+  @ApiOperation({ summary: "List face registrations for a personnel member" })
+  async getFaces(@Param("id", ParseIntPipe) id: number, @Request() req: any) {
+    return this.personnelService.getFaces(id, req.user);
+  }
+
+  /**
+   * DELETE /api/v1/personnel/:id/faces
+   * Delete ALL face registrations for a personnel member.
+   */
+  @Delete(":id/faces")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Delete all face registrations for a personnel member",
+  })
+  async deleteAllFaces(
+    @Param("id", ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    await this.personnelService.deleteAllFaces(id, req.user);
+  }
+
+  /**
+   * DELETE /api/v1/personnel/:id/faces/:faceId
+   * Delete a single face registration.
+   */
+  @Delete(":id/faces/:faceId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Delete a single face registration" })
+  async deleteFace(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("faceId", ParseIntPipe) faceId: number,
+    @Query("source") source: string,
+    @Request() req: any,
+  ) {
+    const src = source === "legacy" ? "legacy" : "embedding";
+    await this.personnelService.deleteFace(id, faceId, src, req.user);
+  }
+
+  /**
    * POST /api/v1/personnel/:id/face
    * Register face images for a personnel member.
    * Validates MIME type and size before forwarding to FaceService.

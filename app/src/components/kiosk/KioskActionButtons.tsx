@@ -1,6 +1,5 @@
 "use client";
 
-import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -34,7 +33,7 @@ const buttons = [
     label: "Manual Entry",
     icon: <EditNoteIcon sx={{ fontSize: 36 }} />,
     gradient: "linear-gradient(135deg, #5a4a8a 0%, #7c68b5 100%)",
-    minHeight: 80,
+    minHeight: 120,
   },
 ] as const;
 
@@ -51,7 +50,7 @@ export default function KioskActionButtons({ onAction, disabled }: Props) {
           display: "block",
         }}
       >
-        ⬤ Record Attendance
+        Record Attendance
       </Typography>
       <Stack spacing={2}>
         {buttons.map((btn) => (
@@ -62,7 +61,7 @@ export default function KioskActionButtons({ onAction, disabled }: Props) {
             sx={{
               width: "100%",
               minHeight: btn.minHeight,
-              borderRadius: 3,
+              borderRadius: 1.8,
               background: btn.gradient,
               color: "#fff",
               display: "flex",

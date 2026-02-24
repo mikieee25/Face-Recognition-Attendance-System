@@ -120,18 +120,40 @@ export default function KioskCameraModal({
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // Mirror the capture to match registration (webcam is front-facing)
+    ctx.translate(640, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, 640, 480);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     const imageData = canvas.toDataURL("image/jpeg", 0.9);
     stopStream();
 
     try {
-      const res = await apiClient.post<ApiEnvelope<CaptureResultData>>(
+      const res = await apiClient.post<ApiEnvelope<Record<string, unknown>>>(
         "/api/v1/attendance/capture",
-        { image: imageData },
+        { image: imageData, type },
       );
-      const data = res.data.data ?? {
-        success: false,
-        error: "No response data",
+      const raw = res.data.data ?? {};
+
+      // The API returns an AttendanceRecord or PendingApproval object.
+      // Map it to CaptureResultData for the UI.
+      const isConfirmed = raw.status === "confirmed";
+      const isPending =
+        raw.reviewStatus === "pending" || raw.status === "pending";
+      const recordType = (raw.type as string) ?? type;
+
+      const data: CaptureResultData = {
+        success: true,
+        action: isConfirmed
+          ? recordType === "time_in"
+            ? "Time In Recorded"
+            : "Time Out Recorded"
+          : isPending
+            ? "Sent for Admin Review"
+            : "Attendance Recorded",
+        type: recordType as "time_in" | "time_out",
+        confidence: raw.confidence as number | undefined,
+        status: isConfirmed ? "confirmed" : isPending ? "pending" : undefined,
       };
       setResultData(data);
       onResult(data);

@@ -21,13 +21,8 @@ async function fetchPending(): Promise<PendingApproval[]> {
 
 async function fetchPersonnel(): Promise<Personnel[]> {
   const res =
-    await apiClient.get<ApiEnvelope<Personnel[] | { items: Personnel[] }>>(
-      "/api/v1/personnel",
-    );
-  const payload = res.data.data;
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  return (payload as { items: Personnel[] }).items ?? [];
+    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  return res.data.data ?? [];
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────

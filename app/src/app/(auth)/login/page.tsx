@@ -62,6 +62,9 @@ export default function LoginPage() {
         axiosErr.message ??
         "Login failed. Please try again.";
       setGeneralError(message);
+      // Highlight both fields on failed login
+      setUsernameError(" ");
+      setPasswordError(" ");
     } finally {
       setIsLoading(false);
     }
@@ -143,9 +146,13 @@ export default function LoginPage() {
           <TextField
             label="Username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              if (usernameError) setUsernameError("");
+              if (generalError) setGeneralError("");
+            }}
             error={Boolean(usernameError)}
-            helperText={usernameError}
+            helperText={usernameError?.trim() || undefined}
             autoComplete="username"
             autoFocus
             fullWidth
@@ -156,9 +163,13 @@ export default function LoginPage() {
             label="Password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (passwordError) setPasswordError("");
+              if (generalError) setGeneralError("");
+            }}
             error={Boolean(passwordError)}
-            helperText={passwordError}
+            helperText={passwordError?.trim() || undefined}
             autoComplete="current-password"
             fullWidth
             disabled={isLoading}
