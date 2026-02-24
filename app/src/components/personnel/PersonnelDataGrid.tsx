@@ -17,7 +17,6 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
-import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import Chip from "@mui/material/Chip";
 import EditIcon from "@mui/icons-material/Edit";
