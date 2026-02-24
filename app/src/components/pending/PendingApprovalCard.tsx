@@ -40,10 +40,21 @@ function confidenceColor(confidence: number): "success" | "warning" | "error" {
 }
 
 function buildImageUrl(imagePath: string): string {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
   // If imagePath is already a full URL, use it directly
   if (imagePath.startsWith("http")) return imagePath;
-  return `${base}/${imagePath.replace(/^\//, "")}`;
+
+  const assetBase =
+    process.env.NEXT_PUBLIC_ASSET_BASE_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "";
+  const normalizedBase = assetBase.replace(/\/+$/, "");
+  const normalizedPath = imagePath.replace(/^\//, "");
+
+  if (!normalizedBase) {
+    return `/${normalizedPath}`;
+  }
+
+  return `${normalizedBase}/${normalizedPath}`;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────

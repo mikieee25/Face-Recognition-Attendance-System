@@ -6,7 +6,9 @@ interface RetryableRequestConfig extends AxiosRequestConfig {
 }
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
+  // Use same-origin by default so auth cookies are scoped to the app domain.
+  // If needed, this can be overridden with NEXT_PUBLIC_API_BASE_URL.
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "",
   withCredentials: true,
 });
 
