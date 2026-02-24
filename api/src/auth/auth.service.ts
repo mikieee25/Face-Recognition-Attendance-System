@@ -37,7 +37,7 @@ export class AuthService {
     const base = {
       httpOnly: true,
       secure: isProduction,
-      sameSite: "strict" as const,
+      sameSite: (isProduction ? "none" : "strict") as "none" | "strict",
       path: "/",
     };
 
