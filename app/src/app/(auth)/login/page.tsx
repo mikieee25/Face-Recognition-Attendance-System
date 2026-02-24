@@ -91,7 +91,7 @@ export default function LoginPage() {
           backgroundImage: "url(/station.jpg)",
           backgroundSize: "cover",
           backgroundPosition: "center",
-          filter: "blur(4px) brightness(0.45)",
+          filter: "blur(4px) brightness(0.6)",
           transform: "scale(1.05)",
           zIndex: 0,
         }}
