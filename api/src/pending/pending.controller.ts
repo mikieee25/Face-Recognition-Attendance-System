@@ -31,8 +31,7 @@ export class PendingController {
   @Get()
   @ApiOperation({ summary: "List pending approval records (Admin only)" })
   async findAll() {
-    const items = await this.pendingService.findAll();
-    return { items };
+    return this.pendingService.findAll();
   }
 
   /**
@@ -55,8 +54,7 @@ export class PendingController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Approve a pending record (Admin only)" })
   async approve(@Param("id", ParseIntPipe) id: number, @Request() req: any) {
-    const record = await this.pendingService.approve(id, req.user);
-    return { record };
+    return this.pendingService.approve(id, req.user);
   }
 
   /**
@@ -68,7 +66,6 @@ export class PendingController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Reject a pending record (Admin only)" })
   async reject(@Param("id", ParseIntPipe) id: number, @Request() req: any) {
-    const record = await this.pendingService.reject(id, req.user);
-    return { record };
+    return this.pendingService.reject(id, req.user);
   }
 }

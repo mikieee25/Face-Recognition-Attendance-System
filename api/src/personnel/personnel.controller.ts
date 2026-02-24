@@ -39,8 +39,7 @@ export class PersonnelController {
   @Get()
   @ApiOperation({ summary: "List personnel (filtered by role)" })
   async findAll(@Request() req: any) {
-    const personnel = await this.personnelService.findAll(req.user);
-    return { personnel };
+    return this.personnelService.findAll(req.user);
   }
 
   /**
@@ -49,8 +48,7 @@ export class PersonnelController {
   @Get(":id")
   @ApiOperation({ summary: "Get a single personnel record" })
   async findOne(@Param("id", ParseIntPipe) id: number, @Request() req: any) {
-    const personnel = await this.personnelService.findOne(id, req.user);
-    return { personnel };
+    return this.personnelService.findOne(id, req.user);
   }
 
   /**
@@ -61,8 +59,7 @@ export class PersonnelController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create personnel" })
   async create(@Body() dto: CreatePersonnelDto, @Request() req: any) {
-    const personnel = await this.personnelService.create(dto, req.user);
-    return { personnel };
+    return this.personnelService.create(dto, req.user);
   }
 
   /**
@@ -75,8 +72,7 @@ export class PersonnelController {
     @Body() dto: UpdatePersonnelDto,
     @Request() req: any,
   ) {
-    const personnel = await this.personnelService.update(id, dto, req.user);
-    return { personnel };
+    return this.personnelService.update(id, dto, req.user);
   }
 
   /**
@@ -102,6 +98,64 @@ export class PersonnelController {
     @Request() req: any,
   ) {
     await this.personnelService.remove(id, req.user, force === "true");
+  }
+
+  /**
+   * GET /api/v1/personnel/:id/face-count
+   * Get the number of registered face embeddings for a personnel member.
+   */
+  @Get(":id/face-count")
+  @ApiOperation({
+    summary: "Get face registration count for a personnel member",
+  })
+  async getFaceCount(
+    @Param("id", ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.personnelService.getFaceCount(id, req.user);
+  }
+
+  /**
+   * GET /api/v1/personnel/:id/faces
+   * List all face registrations for a personnel member.
+   */
+  @Get(":id/faces")
+  @ApiOperation({ summary: "List face registrations for a personnel member" })
+  async getFaces(@Param("id", ParseIntPipe) id: number, @Request() req: any) {
+    return this.personnelService.getFaces(id, req.user);
+  }
+
+  /**
+   * DELETE /api/v1/personnel/:id/faces
+   * Delete ALL face registrations for a personnel member.
+   */
+  @Delete(":id/faces")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Delete all face registrations for a personnel member",
+  })
+  async deleteAllFaces(
+    @Param("id", ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    await this.personnelService.deleteAllFaces(id, req.user);
+  }
+
+  /**
+   * DELETE /api/v1/personnel/:id/faces/:faceId
+   * Delete a single face registration.
+   */
+  @Delete(":id/faces/:faceId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Delete a single face registration" })
+  async deleteFace(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("faceId", ParseIntPipe) faceId: number,
+    @Query("source") source: string,
+    @Request() req: any,
+  ) {
+    const src = source === "legacy" ? "legacy" : "embedding";
+    await this.personnelService.deleteFace(id, faceId, src, req.user);
   }
 
   /**

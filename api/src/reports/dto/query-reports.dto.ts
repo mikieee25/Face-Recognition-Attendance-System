@@ -3,15 +3,15 @@ import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 
 export class QueryReportsDto {
-  @ApiPropertyOptional({ description: "Start date (ISO 8601)" })
+  @ApiPropertyOptional({ description: "Start date (YYYY-MM-DD)" })
   @IsOptional()
   @IsString()
-  startDate?: string;
+  dateFrom?: string;
 
-  @ApiPropertyOptional({ description: "End date (ISO 8601)" })
+  @ApiPropertyOptional({ description: "End date (YYYY-MM-DD)" })
   @IsOptional()
   @IsString()
-  endDate?: string;
+  dateTo?: string;
 
   @ApiPropertyOptional({ description: "Filter by station ID (Admin only)" })
   @IsOptional()

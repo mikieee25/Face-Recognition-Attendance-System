@@ -1,5 +1,12 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional } from "class-validator";
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+} from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+import { AttendanceType } from "../../database/entities/attendance.entity";
 
 export class CaptureAttendanceDto {
   @ApiProperty({
@@ -17,4 +24,13 @@ export class CaptureAttendanceDto {
   @IsNumber()
   @IsOptional()
   stationId?: number;
+
+  @ApiProperty({
+    enum: AttendanceType,
+    description: "Requested attendance type (time_in or time_out)",
+    required: false,
+  })
+  @IsEnum(AttendanceType)
+  @IsOptional()
+  type?: AttendanceType;
 }

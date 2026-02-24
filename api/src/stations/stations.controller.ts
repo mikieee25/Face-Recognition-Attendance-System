@@ -32,8 +32,7 @@ export class StationsController {
   @Get()
   @ApiOperation({ summary: "List all stations (all authenticated users)" })
   async findAll() {
-    const stations = await this.stationsService.findAll();
-    return { stations };
+    return this.stationsService.findAll();
   }
 
   /**
@@ -45,8 +44,7 @@ export class StationsController {
   @Roles("admin")
   @ApiOperation({ summary: "Create a station (Admin only)" })
   async create(@Body() dto: CreateStationDto) {
-    const station = await this.stationsService.create(dto);
-    return { station };
+    return this.stationsService.create(dto);
   }
 
   /**
@@ -60,8 +58,7 @@ export class StationsController {
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: UpdateStationDto,
   ) {
-    const station = await this.stationsService.update(id, dto);
-    return { station };
+    return this.stationsService.update(id, dto);
   }
 
   /**

@@ -94,14 +94,19 @@ export class PersonnelService {
     }
     const stationId =
       currentUser.role === "admin"
-        ? dto.station_id
+        ? dto.stationId
         : currentUser.stationId ?? undefined;
 
     const personnel = this.personnelRepo.create({
-      firstName: dto.first_name,
-      lastName: dto.last_name,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       rank: dto.rank,
       stationId,
+      shiftStartTime: dto.shiftStartTime ?? "08:00",
+      shiftEndTime: dto.shiftEndTime ?? "17:00",
+      isShifting: dto.isShifting ?? false,
+      shiftStartDate: dto.shiftStartDate ?? null,
+      shiftDurationDays: dto.shiftDurationDays ?? 15,
       dateCreated: new Date(),
       isActive: true,
     });
@@ -120,22 +125,133 @@ export class PersonnelService {
   ): Promise<Personnel> {
     const personnel = await this.findOne(id, currentUser);
 
-    if (dto.first_name !== undefined) personnel.firstName = dto.first_name;
-    if (dto.last_name !== undefined) personnel.lastName = dto.last_name;
+    if (dto.firstName !== undefined) personnel.firstName = dto.firstName;
+    if (dto.lastName !== undefined) personnel.lastName = dto.lastName;
     if (dto.rank !== undefined) personnel.rank = dto.rank;
-    if (dto.is_active !== undefined) personnel.isActive = dto.is_active;
+    if (dto.isActive !== undefined) personnel.isActive = dto.isActive;
+    if (dto.shiftStartTime !== undefined)
+      personnel.shiftStartTime = dto.shiftStartTime;
+    if (dto.shiftEndTime !== undefined)
+      personnel.shiftEndTime = dto.shiftEndTime;
+    if (dto.isShifting !== undefined) personnel.isShifting = dto.isShifting;
+    if (dto.shiftStartDate !== undefined)
+      personnel.shiftStartDate = dto.shiftStartDate;
+    if (dto.shiftDurationDays !== undefined)
+      personnel.shiftDurationDays = dto.shiftDurationDays;
 
-    // Only admin can change station_id
-    if (dto.station_id !== undefined) {
+    // Only admin can change stationId
+    if (dto.stationId !== undefined) {
       if (currentUser.role !== "admin") {
         throw new ForbiddenException(
           "Only admin can change station assignment",
         );
       }
-      personnel.stationId = dto.station_id;
+      personnel.stationId = dto.stationId;
     }
 
     return this.personnelRepo.save(personnel);
+  }
+
+  /**
+   * Get the number of registered face embeddings for a personnel member.
+   */
+  async getFaceCount(
+    personnelId: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<{ count: number }> {
+    await this.findOne(personnelId, currentUser);
+    const legacy = await this.faceDataRepo.count({ where: { personnelId } });
+    const modern = await this.faceEmbeddingRepo.count({
+      where: { personnelId },
+    });
+    return { count: legacy + modern };
+  }
+
+  /**
+   * List all face registrations for a personnel member.
+   * Returns a unified list from both legacy face_data and face_embeddings tables.
+   */
+  async getFaces(
+    personnelId: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<
+    { id: number; source: "legacy" | "embedding"; createdAt: string }[]
+  > {
+    await this.findOne(personnelId, currentUser);
+
+    const legacyRows = await this.faceDataRepo.find({
+      where: { personnelId },
+      order: { dateCreated: "DESC" },
+    });
+    const modernRows = await this.faceEmbeddingRepo.find({
+      where: { personnelId },
+      order: { createdAt: "DESC" },
+    });
+
+    const results: {
+      id: number;
+      source: "legacy" | "embedding";
+      createdAt: string;
+    }[] = [];
+
+    for (const row of legacyRows) {
+      results.push({
+        id: row.id,
+        source: "legacy",
+        createdAt: row.dateCreated?.toISOString() ?? new Date().toISOString(),
+      });
+    }
+    for (const row of modernRows) {
+      results.push({
+        id: row.id,
+        source: "embedding",
+        createdAt: row.createdAt.toISOString(),
+      });
+    }
+
+    results.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    return results;
+  }
+
+  /**
+   * Delete a single face registration by id and source table.
+   */
+  async deleteFace(
+    personnelId: number,
+    faceId: number,
+    source: "legacy" | "embedding",
+    currentUser: AuthenticatedUser,
+  ): Promise<void> {
+    await this.findOne(personnelId, currentUser);
+
+    if (source === "legacy") {
+      const row = await this.faceDataRepo.findOne({
+        where: { id: faceId, personnelId },
+      });
+      if (!row) throw new NotFoundException(`Face record #${faceId} not found`);
+      await this.faceDataRepo.remove(row);
+    } else {
+      const row = await this.faceEmbeddingRepo.findOne({
+        where: { id: faceId, personnelId },
+      });
+      if (!row) throw new NotFoundException(`Face record #${faceId} not found`);
+      await this.faceEmbeddingRepo.remove(row);
+    }
+  }
+
+  /**
+   * Delete ALL face registrations for a personnel member.
+   */
+  async deleteAllFaces(
+    personnelId: number,
+    currentUser: AuthenticatedUser,
+  ): Promise<void> {
+    await this.findOne(personnelId, currentUser);
+    await this.faceDataRepo.delete({ personnelId });
+    await this.faceEmbeddingRepo.delete({ personnelId });
   }
 
   /**
@@ -199,17 +315,14 @@ export class PersonnelService {
     }
 
     // Forward to Face Service for embedding generation (Requirement 4.5)
-    const result = await this.faceService.registerFace(personnelId, images);
-
-    // Persist each returned embedding (Requirement 4.7)
-    const embeddings = result.embeddings.map((embedding) =>
-      this.faceEmbeddingRepo.create({
-        personnelId,
-        embedding,
-        createdAt: new Date(),
-      }),
-    );
-
-    await this.faceEmbeddingRepo.save(embeddings);
+    // The face service handles persistence to the face_embeddings table directly,
+    // so we don't need to save again on the NestJS side.
+    try {
+      await this.faceService.registerFace(personnelId, images);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Face registration failed";
+      throw new BadRequestException(message);
+    }
   }
 }

@@ -66,15 +66,15 @@ export class ReportsService {
   /**
    * Validate that the date range does not exceed 1 year (Requirement 9.12).
    */
-  private validateDateRange(startDate?: string, endDate?: string): void {
-    if (!startDate || !endDate) return;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+  private validateDateRange(dateFrom?: string, dateTo?: string): void {
+    if (!dateFrom || !dateTo) return;
+    const start = new Date(dateFrom);
+    const end = new Date(dateTo);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       throw new BadRequestException("Invalid date format.");
     }
     if (end < start) {
-      throw new BadRequestException("endDate must be after startDate.");
+      throw new BadRequestException("End date must be after start date.");
     }
     if (end.getTime() - start.getTime() > ONE_YEAR_MS) {
       throw new BadRequestException("Date range must not exceed 1 year.");
@@ -115,16 +115,16 @@ export class ReportsService {
       qb.andWhere("ar.type = :type", { type: query.type });
     }
 
-    if (query.startDate) {
-      qb.andWhere("ar.createdAt >= :startDate", {
-        startDate: new Date(query.startDate),
+    if (query.dateFrom) {
+      qb.andWhere("ar.createdAt >= :dateFrom", {
+        dateFrom: new Date(query.dateFrom),
       });
     }
 
-    if (query.endDate) {
-      const end = new Date(query.endDate);
+    if (query.dateTo) {
+      const end = new Date(query.dateTo);
       end.setHours(23, 59, 59, 999);
-      qb.andWhere("ar.createdAt <= :endDate", { endDate: end });
+      qb.andWhere("ar.createdAt <= :dateTo", { dateTo: end });
     }
 
     return qb;
@@ -169,7 +169,7 @@ export class ReportsService {
     query: QueryReportsDto,
     currentUser: AuthenticatedUser,
   ): Promise<PaginatedResult<ReportItem>> {
-    this.validateDateRange(query.startDate, query.endDate);
+    this.validateDateRange(query.dateFrom, query.dateTo);
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
@@ -196,7 +196,7 @@ export class ReportsService {
     query: QueryReportsDto,
     currentUser: AuthenticatedUser,
   ): Promise<MonthlySummaryItem[]> {
-    this.validateDateRange(query.startDate, query.endDate);
+    this.validateDateRange(query.dateFrom, query.dateTo);
 
     const qb = this.buildBaseQuery(query, currentUser);
     const records = await qb.getMany();
@@ -353,7 +353,7 @@ export class ReportsService {
     currentUser: AuthenticatedUser,
     res: Response,
   ): Promise<void> {
-    this.validateDateRange(query.startDate, query.endDate);
+    this.validateDateRange(query.dateFrom, query.dateTo);
 
     const qb = this.buildBaseQuery(query, currentUser);
     const records = await qb.getMany();

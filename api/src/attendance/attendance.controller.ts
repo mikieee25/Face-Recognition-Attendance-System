@@ -45,8 +45,7 @@ export class AttendanceController {
       "Capture attendance via face recognition (JPEG/PNG base64, max 10 MB)",
   })
   async capture(@Body() dto: CaptureAttendanceDto, @Request() req: any) {
-    const record = await this.attendanceService.capture(dto, req.user);
-    return { record };
+    return this.attendanceService.capture(dto, req.user);
   }
 
   /**
@@ -58,8 +57,7 @@ export class AttendanceController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a manual attendance entry" })
   async createManual(@Body() dto: ManualAttendanceDto, @Request() req: any) {
-    const record = await this.attendanceService.createManual(dto, req.user);
-    return { record };
+    return this.attendanceService.createManual(dto, req.user);
   }
 
   /**
@@ -79,8 +77,7 @@ export class AttendanceController {
   @Get(":id")
   @ApiOperation({ summary: "Get a single attendance record" })
   async findOne(@Param("id", ParseIntPipe) id: number, @Request() req: any) {
-    const record = await this.attendanceService.findOne(id, req.user);
-    return { record };
+    return this.attendanceService.findOne(id, req.user);
   }
 
   /**
@@ -94,8 +91,7 @@ export class AttendanceController {
     @Body() dto: UpdateAttendanceDto,
     @Request() req: any,
   ) {
-    const record = await this.attendanceService.update(id, dto, req.user);
-    return { record };
+    return this.attendanceService.update(id, dto, req.user);
   }
 
   /**

@@ -1,27 +1,61 @@
-import { IsInt, IsNotEmpty, IsString } from "class-validator";
-import { ApiProperty } from "@nestjs/swagger";
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+} from "class-validator";
+import { Type } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreatePersonnelDto {
-  @ApiProperty({ example: "Juan", description: "First name" })
+  @ApiProperty({ example: "Juan" })
   @IsString()
-  @IsNotEmpty({ message: "first_name is required" })
-  first_name: string;
+  @IsNotEmpty({ message: "firstName is required" })
+  firstName: string;
 
-  @ApiProperty({ example: "Dela Cruz", description: "Last name" })
+  @ApiProperty({ example: "Dela Cruz" })
   @IsString()
-  @IsNotEmpty({ message: "last_name is required" })
-  last_name: string;
+  @IsNotEmpty({ message: "lastName is required" })
+  lastName: string;
 
-  @ApiProperty({ example: "Fire Officer I", description: "Rank" })
+  @ApiProperty({ example: "Fire Officer I" })
   @IsString()
   @IsNotEmpty({ message: "rank is required" })
   rank: string;
 
-  @ApiProperty({
-    example: 1,
-    description:
-      "Station ID (ignored for station_user — auto-assigned from JWT)",
-  })
-  @IsInt({ message: "station_id must be an integer" })
-  station_id: number;
+  @ApiProperty({ example: 1 })
+  @Type(() => Number)
+  @IsInt({ message: "stationId must be an integer" })
+  stationId: number;
+
+  @ApiPropertyOptional({ example: "08:00" })
+  @IsOptional()
+  @IsString()
+  shiftStartTime?: string;
+
+  @ApiPropertyOptional({ example: "17:00" })
+  @IsOptional()
+  @IsString()
+  shiftEndTime?: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  isShifting?: boolean;
+
+  @ApiPropertyOptional({ example: "2026-03-01" })
+  @IsOptional()
+  @IsString()
+  shiftStartDate?: string;
+
+  @ApiPropertyOptional({ example: 15 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  shiftDurationDays?: number;
 }

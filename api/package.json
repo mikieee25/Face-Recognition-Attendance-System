@@ -13,6 +13,7 @@
     "format": "prettier --write \"src/**/*.{ts,js,json,md}\"",
     "swagger:build": "node -e \"console.log('Swagger docs are generated at runtime via NestJS SwaggerModule')\"",
     "migrate": "ts-node ./src/scripts/run-migrations.ts",
+    "seed": "ts-node ./src/scripts/seed-admin.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage"
@@ -85,3 +86,4 @@
     "typescript": "^5.2.2"
   }
 }
+
