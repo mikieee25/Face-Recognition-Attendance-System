@@ -33,6 +33,36 @@ export class AuthService {
     refreshToken: string,
   ): void {
     const isProduction = process.env.NODE_ENV === "production";
+    const frontendUrl = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+    
+    // Extract domain from frontend URL for cookie domain
+    let cookieDomain: string | undefined;
+    try {
+      const url = new URL(frontendUrl);
+      if (isProduction && url.hostname !== "localhost") {
+        // In production, set cookie domain to root domain (e.g., .bfpsorsogon.app)
+        // This allows cookies to work on both api.bfpsorsogon.app and bfpsorsogon.app
+        const parts = url.hostname.split(".");
+        if (parts.length >= 2) {
+          cookieDomain = "." + parts.slice(-2).join(".");
+        }
+      }
+    } catch {
+      // If URL parsing fails, use default
+    }
+
+    const base = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: (isProduction ? "none" : "lax") as "none" | "lax",
+      path: "/",
+      ...(cookieDomain && { domain: cookieDomain }),
+    };
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+  ): void {
+    const isProduction = process.env.NODE_ENV === "production";
 
     const base = {
       httpOnly: true,
