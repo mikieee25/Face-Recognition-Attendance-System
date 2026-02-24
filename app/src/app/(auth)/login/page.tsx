@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Box,
   Button,
@@ -110,11 +111,12 @@ export default function LoginPage() {
         <Stack spacing={3} component="form" onSubmit={handleSubmit} noValidate>
           {/* BFP Branding with logo */}
           <Stack alignItems="center" spacing={1}>
-            <Box
-              component="img"
+            <Image
               src="/bfp-logo.png"
               alt="BFP Logo"
-              sx={{ width: 72, height: 72, objectFit: "contain" }}
+              width={72}
+              height={72}
+              style={{ objectFit: "contain" }}
             />
             <Typography variant="h5" color="primary" fontWeight={700}>
               BFP Sorsogon

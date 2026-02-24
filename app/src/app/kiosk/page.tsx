@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -98,13 +99,12 @@ export default function KioskPage() {
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Box
-            component="img"
+          <Image
             src="/bfp-logo.png"
             alt="BFP Logo"
-            sx={{
-              height: 48,
-              width: 48,
+            width={48}
+            height={48}
+            style={{
               objectFit: "contain",
               filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))",
             }}

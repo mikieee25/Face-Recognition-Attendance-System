@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -46,11 +47,12 @@ export default function DashboardAppBar({ onMenuClick }: DashboardAppBarProps) {
             cursor: "pointer",
           }}
         >
-          <Box
-            component="img"
+          <Image
             src="/bfp-logo.png"
             alt="BFP Logo"
-            sx={{ height: 36, width: 36, objectFit: "contain" }}
+            width={36}
+            height={36}
+            style={{ objectFit: "contain" }}
           />
           <Typography variant="h6" component="div">
             BFP Attendance System
