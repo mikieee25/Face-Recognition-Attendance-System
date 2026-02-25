@@ -6,6 +6,8 @@ from fastapi import APIRouter
 
 from models import RegisterRequest, RegisterResponse
 from utils import decode_base64_image
+import anti_spoof
+import config
 import database
 import embedding_cache
 import face_detector
@@ -18,6 +20,13 @@ router = APIRouter()
 @router.post("/register", response_model=RegisterResponse)
 async def register(body: RegisterRequest):
     embeddings = []
+
+    # For registration, fail closed when liveness is required but unavailable.
+    if config.ANTISPOOF_ENABLED and not anti_spoof.is_enabled():
+        logger.error(
+            "Registration blocked: anti-spoofing is enabled but model is unavailable"
+        )
+        return RegisterResponse(success=False, embeddings=[])
 
     for idx, img_b64 in enumerate(body.images):
         # Decode image
@@ -34,6 +43,19 @@ async def register(body: RegisterRequest):
                 "No face in image %d for personnel %d", idx, body.personnel_id
             )
             continue
+
+        # Registration must enforce liveness to prevent photo/screen enrollment.
+        if config.ANTISPOOF_ENABLED:
+            is_real, spoof_confidence = anti_spoof.check_liveness(image, face.bbox)
+            if not is_real:
+                logger.warning(
+                    "Spoof detected in registration image %d for personnel %d "
+                    "(confidence=%.3f); skipping image",
+                    idx,
+                    body.personnel_id,
+                    spoof_confidence,
+                )
+                continue
 
         # Extract embedding
         emb = face_recognizer.get_embedding(face)
