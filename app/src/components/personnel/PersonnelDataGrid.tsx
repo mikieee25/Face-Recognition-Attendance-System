@@ -110,15 +110,27 @@ export default function PersonnelDataGrid({
 
         {!isLoading && !isError && (
           <>
-            <TableContainer>
-              <Table aria-label="Personnel table">
+            <TableContainer sx={{ overflowX: "auto" }}>
+              <Table aria-label="Personnel table" sx={{ minWidth: 400 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>ID</TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", sm: "table-cell" } }}
+                    >
+                      ID
+                    </TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Rank</TableCell>
-                    <TableCell>Station</TableCell>
-                    <TableCell>Schedule</TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", md: "table-cell" } }}
+                    >
+                      Station
+                    </TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", sm: "table-cell" } }}
+                    >
+                      Schedule
+                    </TableCell>
                     <TableCell align="center">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -138,7 +150,11 @@ export default function PersonnelDataGrid({
                   ) : (
                     rows.map((person) => (
                       <TableRow key={person.id} hover>
-                        <TableCell>{person.id}</TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {person.id}
+                        </TableCell>
                         <TableCell>
                           <Typography
                             component="span"
@@ -155,10 +171,14 @@ export default function PersonnelDataGrid({
                           </Typography>
                         </TableCell>
                         <TableCell>{person.rank}</TableCell>
-                        <TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", md: "table-cell" } }}
+                        >
                           {stationMap.get(person.stationId) ?? person.stationId}
                         </TableCell>
-                        <TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
                           {!person.isActive ? (
                             <Chip
                               label="On Leave"

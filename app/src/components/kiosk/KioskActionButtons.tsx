@@ -52,15 +52,15 @@ export default function KioskActionButtons({ onAction, disabled }: Props) {
       >
         Record Attendance
       </Typography>
-      <Stack spacing={2}>
+      <Stack spacing={2} direction={{ xs: "row", lg: "column" }}>
         {buttons.map((btn) => (
           <ButtonBase
             key={btn.type}
             onClick={() => onAction(btn.type)}
             disabled={disabled}
             sx={{
-              width: "100%",
-              minHeight: btn.minHeight,
+              flex: 1,
+              minHeight: { xs: 90, sm: btn.minHeight },
               borderRadius: 1.8,
               background: btn.gradient,
               color: "#fff",
@@ -68,7 +68,7 @@ export default function KioskActionButtons({ onAction, disabled }: Props) {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: 1,
+              gap: 0.5,
               boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
               transition: "transform 0.12s, box-shadow 0.12s",
               "&:hover": {
@@ -85,6 +85,7 @@ export default function KioskActionButtons({ onAction, disabled }: Props) {
               fontWeight={800}
               letterSpacing="0.04em"
               textTransform="uppercase"
+              sx={{ fontSize: { xs: "0.75rem", sm: "1.25rem" } }}
             >
               {btn.label}
             </Typography>

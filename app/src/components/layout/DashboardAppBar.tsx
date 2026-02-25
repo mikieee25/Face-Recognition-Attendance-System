@@ -54,8 +54,19 @@ export default function DashboardAppBar({ onMenuClick }: DashboardAppBarProps) {
             height={36}
             style={{ objectFit: "contain" }}
           />
-          <Typography variant="h6" component="div">
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{ display: { xs: "none", sm: "block" } }}
+          >
             BFP Attendance System
+          </Typography>
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{ display: { xs: "block", sm: "none" } }}
+          >
+            BFP Attendance
           </Typography>
         </Box>
 

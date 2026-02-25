@@ -46,13 +46,20 @@ export default function PersonnelStatusTable() {
       <Typography variant="h6" sx={{ mb: 2 }}>
         Personnel Status Today
       </Typography>
-      <TableContainer>
-        <Table size="small">
+      <TableContainer sx={{ overflowX: "auto" }}>
+        <Table size="small" sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Rank</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Station</TableCell>
+              <TableCell
+                sx={{
+                  fontWeight: 700,
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Station
+              </TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
             </TableRow>
           </TableHead>
@@ -61,7 +68,14 @@ export default function PersonnelStatusTable() {
               ? Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 4 }).map((__, j) => (
-                      <TableCell key={j}>
+                      <TableCell
+                        key={j}
+                        sx={
+                          j === 2
+                            ? { display: { xs: "none", sm: "table-cell" } }
+                            : {}
+                        }
+                      >
                         <Skeleton variant="text" />
                       </TableCell>
                     ))}
@@ -73,7 +87,11 @@ export default function PersonnelStatusTable() {
                     <TableRow key={p.personnelId} hover>
                       <TableCell>{p.name}</TableCell>
                       <TableCell>{p.rank}</TableCell>
-                      <TableCell>{p.stationName}</TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                      >
+                        {p.stationName}
+                      </TableCell>
                       <TableCell>
                         <Chip
                           label={cfg.label}

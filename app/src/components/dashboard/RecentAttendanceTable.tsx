@@ -64,8 +64,8 @@ export default function RecentAttendanceTable() {
       <Typography variant="h6" sx={{ mb: 2 }}>
         Recent Attendance
       </Typography>
-      <TableContainer>
-        <Table size="small">
+      <TableContainer sx={{ overflowX: "auto" }}>
+        <Table size="small" sx={{ minWidth: 400 }}>
           <TableHead>
             <TableRow>
               <TableCell>Personnel</TableCell>

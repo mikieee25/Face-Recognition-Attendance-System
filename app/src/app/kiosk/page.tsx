@@ -89,83 +89,96 @@ export default function KioskPage() {
       <Box
         sx={{
           background: "linear-gradient(135deg, #8E0000 0%, #C62828 100%)",
-          px: { xs: 2, md: 3 },
-          py: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          px: { xs: 1.5, md: 3 },
+          py: { xs: 1, md: 1 },
           boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
           flexShrink: 0,
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Image
-            src="/bfp-logo.png"
-            alt="BFP Logo"
-            width={48}
-            height={48}
-            style={{
-              objectFit: "contain",
-              filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))",
+        {/* Row 1: Logo + Title | Clock | Logout */}
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          {/* Logo + Title */}
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Image
+              src="/bfp-logo.png"
+              alt="BFP Logo"
+              width={36}
+              height={36}
+              style={{
+                objectFit: "contain",
+                filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))",
+              }}
+            />
+            <Box>
+              <Typography
+                variant="body1"
+                fontWeight={800}
+                color="#fff"
+                lineHeight={1.1}
+              >
+                BFP Sorsogon
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: "rgba(255,255,255,0.75)", lineHeight: 1 }}
+              >
+                Attendance Kiosk
+              </Typography>
+            </Box>
+          </Stack>
+
+          {/* Clock — center */}
+          <Typography
+            fontWeight={800}
+            color="#fff"
+            letterSpacing="0.05em"
+            sx={{
+              fontSize: { xs: "1.1rem", sm: "1.5rem" },
+              fontVariantNumeric: "tabular-nums",
             }}
-          />
-          <Box>
-            <Typography
-              variant="subtitle1"
-              fontWeight={800}
-              color="#fff"
-              lineHeight={1.2}
-            >
-              BFP Sorsogon
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "rgba(255,255,255,0.8)" }}
-            >
-              Attendance Kiosk
-            </Typography>
-          </Box>
+          >
+            {clock.time}
+          </Typography>
+
+          {/* Logout */}
+          <IconButton
+            onClick={logout}
+            sx={{ color: "#fff", p: { xs: 0.5, sm: 1 } }}
+            aria-label="Logout"
+          >
+            <LogoutIcon />
+          </IconButton>
         </Stack>
 
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Box sx={{ textAlign: "right" }}>
-            <Typography
-              variant="h5"
-              fontWeight={800}
-              color="#fff"
-              letterSpacing="0.05em"
-              lineHeight={1}
-            >
-              {clock.time}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "rgba(255,255,255,0.8)" }}
-            >
-              {clock.date}
-            </Typography>
-          </Box>
+        {/* Row 2: Date + Username */}
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ mt: 0.25 }}
+        >
+          <Typography
+            variant="caption"
+            sx={{ color: "rgba(255,255,255,0.75)" }}
+          >
+            {clock.date}
+          </Typography>
           {user && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: 1 }}>
-              <Box
-                sx={{
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: 2,
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                }}
-              >
-                <Typography variant="body2" fontWeight={500} color="#fff">
-                  {user.username}
-                </Typography>
-              </Box>
-              <IconButton
-                onClick={logout}
-                sx={{ color: "#fff" }}
-                aria-label="Logout"
-              >
-                <LogoutIcon />
-              </IconButton>
+            <Box
+              sx={{
+                px: 1,
+                py: 0.25,
+                borderRadius: 1.5,
+                backgroundColor: "rgba(255,255,255,0.15)",
+              }}
+            >
+              <Typography variant="caption" fontWeight={600} color="#fff">
+                {user.username}
+              </Typography>
             </Box>
           )}
         </Stack>
@@ -182,7 +195,10 @@ export default function KioskPage() {
         }}
       >
         {/* Left: Actions + Result */}
-        <Stack spacing={3} sx={{ flex: { xs: "1 1 auto", lg: "0 0 420px" } }}>
+        <Stack
+          spacing={3}
+          sx={{ flex: { xs: "1 1 auto", lg: "0 0 420px" }, minWidth: 0 }}
+        >
           <KioskActionButtons onAction={handleAction} disabled={cameraOpen} />
           {result && (
             <KioskResultCard

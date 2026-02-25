@@ -206,20 +206,36 @@ export default function ReportTable({ filters }: ReportTableProps) {
             </Typography>
           </Stack>
 
-          <TableContainer>
-            <Table aria-label="Attendance report table" size="small">
+          <TableContainer sx={{ overflowX: "auto" }}>
+            <Table
+              aria-label="Attendance report table"
+              size="small"
+              sx={{ minWidth: 500 }}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell>Personnel</TableCell>
-                  <TableCell>Rank</TableCell>
-                  <TableCell>Station</TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                    Rank
+                  </TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
+                    Station
+                  </TableCell>
                   <TableCell>Date</TableCell>
-                  <TableCell>Time In</TableCell>
-                  <TableCell>Time Out</TableCell>
-                  <TableCell>Total Hours</TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                    Time In
+                  </TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                    Time Out
+                  </TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
+                    Total Hours
+                  </TableCell>
                   <TableCell>Type</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Schedule</TableCell>
+                  <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
+                    Schedule
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -239,12 +255,30 @@ export default function ReportTable({ filters }: ReportTableProps) {
                   rows.map((row) => (
                     <TableRow key={row.id} hover>
                       <TableCell>{row.personnelName}</TableCell>
-                      <TableCell>{row.rank}</TableCell>
-                      <TableCell>{row.station}</TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                      >
+                        {row.rank}
+                      </TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", md: "table-cell" } }}
+                      >
+                        {row.station}
+                      </TableCell>
                       <TableCell>{formatDate(row.date)}</TableCell>
-                      <TableCell>{formatTime(row.timeIn)}</TableCell>
-                      <TableCell>{formatTime(row.timeOut)}</TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                      >
+                        {formatTime(row.timeIn)}
+                      </TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                      >
+                        {formatTime(row.timeOut)}
+                      </TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", md: "table-cell" } }}
+                      >
                         {row.totalHours != null
                           ? `${row.totalHours.toFixed(1)}h`
                           : "—"}
@@ -258,7 +292,9 @@ export default function ReportTable({ filters }: ReportTableProps) {
                           sx={{ textTransform: "capitalize" }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        sx={{ display: { xs: "none", lg: "table-cell" } }}
+                      >
                         {(() => {
                           const sched = scheduleMap.get(row.personnelId);
                           if (sched === "on_leave")

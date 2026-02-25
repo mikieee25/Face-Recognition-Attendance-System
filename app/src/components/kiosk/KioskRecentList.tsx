@@ -79,7 +79,13 @@ export default function KioskRecentList({ refreshKey }: Props) {
         />
       </Stack>
 
-      <Box sx={{ flex: 1, overflow: "auto", maxHeight: "70vh" }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: "auto",
+          maxHeight: { xs: "40vh", lg: "70vh" },
+        }}
+      >
         <Stack spacing={1.5}>
           {isLoading &&
             Array.from({ length: 5 }).map((_, i) => (

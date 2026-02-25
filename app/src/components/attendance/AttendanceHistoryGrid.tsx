@@ -468,14 +468,25 @@ export default function AttendanceHistoryGrid() {
 
         {!isLoading && !isError && (
           <>
-            <TableContainer>
-              <Table aria-label="Attendance history table">
+            <TableContainer sx={{ overflowX: "auto" }}>
+              <Table
+                aria-label="Attendance history table"
+                sx={{ minWidth: 500 }}
+              >
                 <TableHead>
                   <TableRow>
-                    <TableCell>Personnel ID</TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", sm: "table-cell" } }}
+                    >
+                      Personnel ID
+                    </TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Date</TableCell>
-                    <TableCell>Time</TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", sm: "table-cell" } }}
+                    >
+                      Time
+                    </TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Status</TableCell>
                     {(canEdit || canDelete) && (
@@ -502,12 +513,20 @@ export default function AttendanceHistoryGrid() {
                   ) : (
                     rows.map((record) => (
                       <TableRow key={record.id} hover>
-                        <TableCell>{record.personnelId}</TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {record.personnelId}
+                        </TableCell>
                         <TableCell>
                           {personnelMap.get(record.personnelId) ?? "—"}
                         </TableCell>
                         <TableCell>{formatDate(record.createdAt)}</TableCell>
-                        <TableCell>{formatTime(record.createdAt)}</TableCell>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          {formatTime(record.createdAt)}
+                        </TableCell>
                         <TableCell>{typeLabel(record.type)}</TableCell>
                         <TableCell>
                           <Chip

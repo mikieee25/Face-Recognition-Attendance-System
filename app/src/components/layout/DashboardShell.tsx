@@ -37,10 +37,12 @@ export default function DashboardShell({ children }: DashboardShellProps) {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          mt: 8,
+          p: { xs: 2, sm: 3 },
+          mt: { xs: 7, sm: 8 },
           minHeight: "100vh",
           backgroundColor: "background.default",
+          minWidth: 0,
+          overflow: "hidden",
         }}
       >
         {children}
