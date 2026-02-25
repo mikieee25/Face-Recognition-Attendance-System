@@ -24,7 +24,7 @@ export class FaceService {
   constructor(private readonly configService: ConfigService) {
     this.baseUrl =
       this.configService.get<string>("faceServiceUrl") ??
-      "http://localhost:8000";
+      "http://localhost:5001";
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 30_000,

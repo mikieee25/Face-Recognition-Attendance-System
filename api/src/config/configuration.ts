@@ -13,7 +13,7 @@ export default () => ({
     accessExpiry: process.env.JWT_ACCESS_EXPIRY ?? "15m",
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY ?? "7d",
   },
-  faceServiceUrl: process.env.FACE_SERVICE_URL ?? "http://localhost:8000",
+  faceServiceUrl: process.env.FACE_SERVICE_URL ?? "http://localhost:5001",
   allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",").map((o) =>
     o.trim(),
   ) ?? ["http://localhost:3000"],
