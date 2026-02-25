@@ -10,6 +10,8 @@ import os
 import cv2
 import numpy as np
 
+import config
+
 logger = logging.getLogger(__name__)
 
 _model = None
@@ -112,7 +114,7 @@ def check_liveness(image: np.ndarray, face_bbox: np.ndarray) -> tuple[bool, floa
         else:
             real_score = float(1.0 / (1.0 + np.exp(-output[0][0])))  # sigmoid
 
-        is_real = real_score > 0.5
+        is_real = real_score > config.ANTISPOOF_THRESHOLD
         logger.info(
             "Anti-spoof check: is_real=%s, confidence=%.3f", is_real, real_score
         )

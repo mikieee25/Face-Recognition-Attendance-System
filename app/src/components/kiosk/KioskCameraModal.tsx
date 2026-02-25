@@ -120,11 +120,7 @@ export default function KioskCameraModal({
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // Mirror the capture to match registration (webcam is front-facing)
-    ctx.translate(640, 0);
-    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, 640, 480);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
     const imageData = canvas.toDataURL("image/jpeg", 0.9);
     stopStream();
 

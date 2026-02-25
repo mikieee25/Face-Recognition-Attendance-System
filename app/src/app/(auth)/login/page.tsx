@@ -116,6 +116,7 @@ export default function LoginPage() {
               alt="BFP Logo"
               width={72}
               height={72}
+              priority
               style={{ objectFit: "contain" }}
             />
             <Typography variant="h5" color="primary" fontWeight={700}>
