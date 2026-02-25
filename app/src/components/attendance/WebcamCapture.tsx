@@ -92,6 +92,7 @@ export default function WebcamCapture() {
           ref={webcamRef}
           screenshotFormat="image/jpeg"
           width="100%"
+          mirrored
           videoConstraints={{ facingMode: "user" }}
           aria-label="Webcam feed for attendance capture"
         />
