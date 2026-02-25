@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 _model = None
 _enabled = True
 
-# Model input size for MiniFASNet
-MODEL_INPUT_SIZE = (80, 80)
+# Default model input size. Overridden automatically from ONNX input tensor shape
+# when available.
+MODEL_INPUT_SIZE = (128, 128)
 
 
 def load_model():
@@ -50,6 +51,31 @@ def load_model():
         import onnxruntime as ort
 
         _model = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        # Auto-detect expected input size from ONNX model input shape.
+        # Typical shape: [None, 3, H, W]
+        try:
+            input_shape = _model.get_inputs()[0].shape
+            h = input_shape[2] if len(input_shape) >= 4 else None
+            w = input_shape[3] if len(input_shape) >= 4 else None
+            if isinstance(h, int) and isinstance(w, int) and h > 0 and w > 0:
+                global MODEL_INPUT_SIZE
+                MODEL_INPUT_SIZE = (w, h)
+                logger.info("Anti-spoof model input size detected: %sx%s", w, h)
+            else:
+                logger.info(
+                    "Anti-spoof model input size is dynamic/unknown (%s). "
+                    "Using default %sx%s.",
+                    input_shape,
+                    MODEL_INPUT_SIZE[0],
+                    MODEL_INPUT_SIZE[1],
+                )
+        except Exception as exc:
+            logger.warning(
+                "Failed to inspect anti-spoof input shape: %s. Using default %sx%s.",
+                exc,
+                MODEL_INPUT_SIZE[0],
+                MODEL_INPUT_SIZE[1],
+            )
         logger.info("Anti-spoofing model loaded from %s", model_path)
     except Exception as exc:
         logger.warning(
@@ -81,20 +107,38 @@ def check_liveness(image: np.ndarray, face_bbox: np.ndarray) -> tuple[bool, floa
         x1, y1, x2, y2 = [int(v) for v in face_bbox]
 
         # Add margin around face (2.7x the face size, common for anti-spoof models)
+        # and keep a square crop with reflection padding near image borders.
         h, w = image.shape[:2]
         face_w = x2 - x1
         face_h = y2 - y1
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
 
-        margin = max(face_w, face_h) * 1.35
-        nx1 = max(0, int(cx - margin))
-        ny1 = max(0, int(cy - margin))
-        nx2 = min(w, int(cx + margin))
-        ny2 = min(h, int(cy + margin))
+        crop_size = max(1, int(max(face_w, face_h) * 2.7))
+        x = int(cx - crop_size / 2)
+        y = int(cy - crop_size / 2)
 
-        crop = image[ny1:ny2, nx1:nx2]
-        if crop.size == 0:
+        crop_x1 = max(0, x)
+        crop_y1 = max(0, y)
+        crop_x2 = min(w, x + crop_size)
+        crop_y2 = min(h, y + crop_size)
+
+        top_pad = int(max(0, -y))
+        left_pad = int(max(0, -x))
+        bottom_pad = int(max(0, (y + crop_size) - h))
+        right_pad = int(max(0, (x + crop_size) - w))
+
+        if crop_x2 <= crop_x1 or crop_y2 <= crop_y1:
             return True, 1.0
+        crop = image[crop_y1:crop_y2, crop_x1:crop_x2]
+        if top_pad or bottom_pad or left_pad or right_pad:
+            crop = cv2.copyMakeBorder(
+                crop,
+                top_pad,
+                bottom_pad,
+                left_pad,
+                right_pad,
+                cv2.BORDER_REFLECT_101,
+            )
 
         # Preprocess
         resized = cv2.resize(crop, MODEL_INPUT_SIZE)
@@ -109,7 +153,7 @@ def check_liveness(image: np.ndarray, face_bbox: np.ndarray) -> tuple[bool, floa
         output = _model.run(None, {input_name: blob})[0]
 
         # Output is usually [batch, N] logits, where N can be 2 or 3.
-        # Silent-Face models generally use class index 1 as "real/live".
+        # Real/live class index is configurable via ANTISPOOF_REAL_CLASS_INDEX.
         logits = output[0]
         if np.ndim(logits) != 1:
             logits = np.ravel(logits)

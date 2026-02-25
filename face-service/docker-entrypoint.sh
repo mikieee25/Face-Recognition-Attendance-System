@@ -8,7 +8,7 @@ log() {
 ANTISPOOF_ENABLED="${ANTISPOOF_ENABLED:-true}"
 MODEL_PATH="${ANTISPOOF_MODEL_PATH:-models/minifasnet_v2.onnx}"
 MODEL_URL_RAW="${ANTISPOOF_MODEL_URL:-}"
-DEFAULT_MODEL_URL="https://raw.githubusercontent.com/feni-katharotiya/Silent-Face-Anti-Spoofing-TFLite/master/converted_models/onnx/2.7_80x80_MiniFASNetV2.onnx"
+DEFAULT_MODEL_URL="https://raw.githubusercontent.com/SuriAI/face-antispoof-onnx/main/models/best/98.20/best_model.onnx"
 
 # Normalize accidental CRLF/whitespace/quoted env values.
 MODEL_URL="$(printf '%s' "$MODEL_URL_RAW" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
