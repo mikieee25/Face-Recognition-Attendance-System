@@ -42,7 +42,19 @@ The service supports optional face anti-spoofing to detect printed photos and sc
 2. Set `ANTISPOOF_ENABLED=true` in your `.env` file (enabled by default).
 3. The `/recognize` endpoint will automatically check liveness before matching.
 
-If the model file is not found, anti-spoofing is gracefully disabled and recognition continues normally.
+### Docker Auto-Download (optional)
+
+When running with Docker, you can set `ANTISPOOF_MODEL_URL` and the container entrypoint will download the model automatically if it is missing.
+
+Example:
+
+```bash
+ANTISPOOF_ENABLED=true
+ANTISPOOF_MODEL_PATH=models/minifasnet_v2.onnx
+ANTISPOOF_MODEL_URL=https://<your-model-url>/minifasnet_v2.onnx
+```
+
+If `ANTISPOOF_MODEL_URL` is empty and the model file is missing, anti-spoof checks cannot run.
 
 ## Accuracy Improvements
 
