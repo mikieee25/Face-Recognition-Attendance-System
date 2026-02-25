@@ -39,7 +39,7 @@ services:
       HOST: 0.0.0.0
       PORT: 5002
     ports:
-      - "5002:5001"
+      - "5002:5002"
     depends_on:
       database:
         condition: service_healthy
@@ -63,7 +63,7 @@ services:
       DB_NAME: ${DB_NAME:-bfp_sorsogon_attendance}
       JWT_SECRET: ${JWT_SECRET:-prod-jwt-secret-change-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
-      FACE_SERVICE_URL: http://face-service:5001
+      FACE_SERVICE_URL: http://face-service:5002
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
     ports:

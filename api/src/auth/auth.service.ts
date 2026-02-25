@@ -58,19 +58,6 @@ export class AuthService {
       path: "/",
       ...(cookieDomain && { domain: cookieDomain }),
     };
-    res: Response,
-    accessToken: string,
-    refreshToken: string,
-  ): void {
-    const isProduction = process.env.NODE_ENV === "production";
-
-    const base = {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: (isProduction ? "none" : "strict") as "none" | "strict",
-      path: "/",
-    };
-
     res.cookie("access_token", accessToken, {
       ...base,
       maxAge: 15 * 60 * 1000, // 15 minutes
@@ -234,4 +221,3 @@ export class AuthService {
     }
   }
 }
-
