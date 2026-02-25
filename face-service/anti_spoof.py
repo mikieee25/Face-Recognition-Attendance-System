@@ -98,7 +98,9 @@ def check_liveness(image: np.ndarray, face_bbox: np.ndarray) -> tuple[bool, floa
 
         # Preprocess
         resized = cv2.resize(crop, MODEL_INPUT_SIZE)
-        blob = resized.astype(np.float32) / 255.0
+        # MiniFASNet training/inference pipeline uses RGB ordering.
+        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        blob = rgb.astype(np.float32) / 255.0
         blob = blob.transpose(2, 0, 1)  # HWC -> CHW
         blob = np.expand_dims(blob, axis=0)  # Add batch dim
 
