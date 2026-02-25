@@ -59,7 +59,6 @@ export class AuthController {
    * POST /api/v1/auth/logout
    * Clears both auth cookies.
    */
-  @UseGuards(JwtAuthGuard)
   @Post("logout")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Logout and clear auth cookies" })
@@ -81,4 +80,3 @@ export class AuthController {
     return { user };
   }
 }
-

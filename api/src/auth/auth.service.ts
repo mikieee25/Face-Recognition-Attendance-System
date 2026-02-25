@@ -27,14 +27,11 @@ export class AuthService {
 
   // ─── Cookie helpers ────────────────────────────────────────────────────────
 
-  private setTokenCookies(
-    res: Response,
-    accessToken: string,
-    refreshToken: string,
-  ): void {
+  private getCookieBaseOptions() {
     const isProduction = process.env.NODE_ENV === "production";
-    const frontendUrl = this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
-    
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+
     // Extract domain from frontend URL for cookie domain
     let cookieDomain: string | undefined;
     try {
@@ -51,13 +48,22 @@ export class AuthService {
       // If URL parsing fails, use default
     }
 
-    const base = {
+    return {
       httpOnly: true,
       secure: isProduction,
       sameSite: (isProduction ? "none" : "lax") as "none" | "lax",
       path: "/",
       ...(cookieDomain && { domain: cookieDomain }),
     };
+  }
+
+  private setTokenCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+  ): void {
+    const base = this.getCookieBaseOptions();
+
     res.cookie("access_token", accessToken, {
       ...base,
       maxAge: 15 * 60 * 1000, // 15 minutes
@@ -70,8 +76,9 @@ export class AuthService {
   }
 
   private clearTokenCookies(res: Response): void {
-    res.clearCookie("access_token", { path: "/" });
-    res.clearCookie("refresh_token", { path: "/" });
+    const base = this.getCookieBaseOptions();
+    res.clearCookie("access_token", base);
+    res.clearCookie("refresh_token", base);
   }
 
   // ─── Token generation ──────────────────────────────────────────────────────
