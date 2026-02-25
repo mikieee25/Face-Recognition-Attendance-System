@@ -43,7 +43,8 @@ services:
       ANTISPOOF_ENABLED: ${ANTISPOOF_ENABLED:-true}
       ANTISPOOF_MODEL_PATH: ${ANTISPOOF_MODEL_PATH:-models/minifasnet_v2.onnx}
       ANTISPOOF_MODEL_URL: ${ANTISPOOF_MODEL_URL:-https://raw.githubusercontent.com/feni-katharotiya/Silent-Face-Anti-Spoofing-TFLite/master/converted_models/onnx/2.7_80x80_MiniFASNetV2.onnx}
-      ANTISPOOF_THRESHOLD: ${ANTISPOOF_THRESHOLD:-0.8}
+      ANTISPOOF_THRESHOLD: ${ANTISPOOF_THRESHOLD:-0.5}
+      ANTISPOOF_REAL_CLASS_INDEX: ${ANTISPOOF_REAL_CLASS_INDEX:-1}
     ports:
       - "5002:5002"
     volumes:

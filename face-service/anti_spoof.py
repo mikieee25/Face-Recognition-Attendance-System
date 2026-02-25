@@ -106,13 +106,37 @@ def check_liveness(image: np.ndarray, face_bbox: np.ndarray) -> tuple[bool, floa
         input_name = _model.get_inputs()[0].name
         output = _model.run(None, {input_name: blob})[0]
 
-        # Output is typically [batch, 2] — [fake_score, real_score]
-        # or [batch, 1] — sigmoid output
-        if output.shape[-1] == 2:
-            scores = np.exp(output[0]) / np.sum(np.exp(output[0]))  # softmax
-            real_score = float(scores[1])
+        # Output is usually [batch, N] logits, where N can be 2 or 3.
+        # Silent-Face models generally use class index 1 as "real/live".
+        logits = output[0]
+        if np.ndim(logits) != 1:
+            logits = np.ravel(logits)
+
+        if logits.size >= 2:
+            # Numerically stable softmax
+            shifted = logits - np.max(logits)
+            exp_scores = np.exp(shifted)
+            probs = exp_scores / np.sum(exp_scores)
+
+            real_idx = config.ANTISPOOF_REAL_CLASS_INDEX
+            if real_idx < 0 or real_idx >= probs.size:
+                logger.warning(
+                    "Invalid ANTISPOOF_REAL_CLASS_INDEX=%s for %s classes. "
+                    "Falling back to class index 1 when possible.",
+                    real_idx,
+                    probs.size,
+                )
+                real_idx = 1 if probs.size > 1 else 0
+
+            real_score = float(probs[real_idx])
+            logger.debug(
+                "Anti-spoof raw class probabilities=%s (real_idx=%s)",
+                np.array2string(probs, precision=4, suppress_small=True),
+                real_idx,
+            )
         else:
-            real_score = float(1.0 / (1.0 + np.exp(-output[0][0])))  # sigmoid
+            # Single-logit fallback (sigmoid)
+            real_score = float(1.0 / (1.0 + np.exp(-logits[0])))
 
         is_real = real_score > config.ANTISPOOF_THRESHOLD
         logger.info(
