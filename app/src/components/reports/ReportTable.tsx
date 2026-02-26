@@ -198,12 +198,6 @@ export default function ReportTable({ filters }: ReportTableProps) {
                 {summary.pending}
               </Typography>
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Total Hours:{" "}
-              <Typography component="span" variant="body2" fontWeight={600}>
-                {summary.totalHours.toFixed(1)}
-              </Typography>
-            </Typography>
           </Stack>
 
           <TableContainer sx={{ overflowX: "auto" }}>
@@ -222,15 +216,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
                     Station
                   </TableCell>
                   <TableCell>Date</TableCell>
-                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
-                    Time In
-                  </TableCell>
-                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
-                    Time Out
-                  </TableCell>
-                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
-                    Total Hours
-                  </TableCell>
+                  <TableCell>Time</TableCell>
                   <TableCell>Type</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
@@ -241,7 +227,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} align="center">
+                    <TableCell colSpan={8} align="center">
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -266,22 +252,8 @@ export default function ReportTable({ filters }: ReportTableProps) {
                         {row.station}
                       </TableCell>
                       <TableCell>{formatDate(row.date)}</TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", sm: "table-cell" } }}
-                      >
-                        {formatTime(row.timeIn)}
-                      </TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", sm: "table-cell" } }}
-                      >
-                        {formatTime(row.timeOut)}
-                      </TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", md: "table-cell" } }}
-                      >
-                        {row.totalHours != null
-                          ? `${row.totalHours.toFixed(1)}h`
-                          : "—"}
+                      <TableCell>
+                        {formatTime(row.timeIn ?? row.timeOut)}
                       </TableCell>
                       <TableCell>{typeLabel(row.type)}</TableCell>
                       <TableCell>
@@ -340,12 +312,11 @@ export default function ReportTable({ filters }: ReportTableProps) {
                       },
                     }}
                   >
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={5}>
                       <Typography variant="body2" fontWeight={600}>
                         Page Summary ({rows.length} records)
                       </Typography>
                     </TableCell>
-                    <TableCell>{summary.totalHours.toFixed(1)}h</TableCell>
                     <TableCell />
                     <TableCell>
                       <Stack direction="row" spacing={0.5}>
