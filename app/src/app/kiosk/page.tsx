@@ -189,26 +189,20 @@ export default function KioskPage() {
         sx={{
           flex: 1,
           display: "flex",
+          flexDirection: "column",
           p: { xs: 2, md: 3 },
           gap: 3,
-          flexDirection: { xs: "column", lg: "row" },
         }}
       >
-        {/* Left: Actions + Result */}
-        <Stack
-          spacing={3}
-          sx={{ flex: { xs: "1 1 auto", lg: "0 0 420px" }, minWidth: 0 }}
-        >
-          <KioskActionButtons onAction={handleAction} disabled={cameraOpen} />
-          {result && (
-            <KioskResultCard
-              result={result}
-              onDismiss={() => setResult(null)}
-            />
-          )}
-        </Stack>
+        {/* Top: Actions */}
+        <KioskActionButtons onAction={handleAction} disabled={cameraOpen} />
 
-        {/* Right: Recent Attendance */}
+        {/* Result Card (if any) */}
+        {result && (
+          <KioskResultCard result={result} onDismiss={() => setResult(null)} />
+        )}
+
+        {/* Bottom: Recent Attendance */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <KioskRecentList refreshKey={refreshKey} />
         </Box>
