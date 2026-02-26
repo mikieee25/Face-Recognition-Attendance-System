@@ -49,6 +49,16 @@ interface EditPayload {
   status?: "confirmed" | "pending" | "rejected";
 }
 
+interface PairedRow {
+  key: string;
+  personnelId: number;
+  date: string;
+  timeInRecord: AttendanceRecord | null;
+  timeOutRecord: AttendanceRecord | null;
+  totalHours: string;
+  status: string;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
@@ -77,6 +87,93 @@ function typeLabel(type: string): string {
   if (type === "time_in") return "Time In";
   if (type === "time_out") return "Time Out";
   return type;
+}
+
+/**
+ * Group raw attendance records into paired rows (Time In + Time Out per personnel per day).
+ * If filtering by type, show unpaired rows instead.
+ */
+function pairRecords(
+  records: AttendanceRecord[],
+  filterType: string,
+): PairedRow[] {
+  // If filtering by a specific type, show raw rows (no pairing)
+  if (filterType === "time_in" || filterType === "time_out") {
+    return records.map((r) => ({
+      key: String(r.id),
+      personnelId: r.personnelId,
+      date: r.createdAt,
+      timeInRecord: r.type === "time_in" ? r : null,
+      timeOutRecord: r.type === "time_out" ? r : null,
+      totalHours: "—",
+      status: r.status,
+    }));
+  }
+
+  // Group by personnelId + date
+  const grouped = new Map<
+    string,
+    { timeIns: AttendanceRecord[]; timeOuts: AttendanceRecord[] }
+  >();
+
+  for (const r of records) {
+    const dateKey = new Date(r.createdAt).toLocaleDateString();
+    const key = `${r.personnelId}-${dateKey}`;
+    if (!grouped.has(key)) grouped.set(key, { timeIns: [], timeOuts: [] });
+    const g = grouped.get(key)!;
+    if (r.type === "time_in") g.timeIns.push(r);
+    else g.timeOuts.push(r);
+  }
+
+  const rows: PairedRow[] = [];
+
+  for (const [key, { timeIns, timeOuts }] of grouped.entries()) {
+    const sortedIns = [...timeIns].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    const sortedOuts = [...timeOuts].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+
+    const maxPairs = Math.max(sortedIns.length, sortedOuts.length);
+
+    for (let i = 0; i < maxPairs; i++) {
+      const timeInRecord = sortedIns[i] ?? null;
+      const timeOutRecord = sortedOuts[i] ?? null;
+
+      let totalHours = "—";
+      if (timeInRecord && timeOutRecord) {
+        const ms =
+          new Date(timeOutRecord.createdAt).getTime() -
+          new Date(timeInRecord.createdAt).getTime();
+        if (ms > 0) {
+          const hrs = Math.floor(ms / (1000 * 60 * 60));
+          const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+          totalHours = `${hrs}h ${mins}m`;
+        }
+      }
+
+      const status =
+        timeInRecord?.status ?? timeOutRecord?.status ?? "confirmed";
+      const date = timeInRecord?.createdAt ?? timeOutRecord?.createdAt ?? "";
+      const personnelId =
+        timeInRecord?.personnelId ?? timeOutRecord?.personnelId ?? 0;
+
+      rows.push({
+        key: `${key}-${i}`,
+        personnelId,
+        date,
+        timeInRecord,
+        timeOutRecord,
+        totalHours,
+        status,
+      });
+    }
+  }
+
+  return rows;
 }
 
 // ─── API fetchers ─────────────────────────────────────────────────────────────
@@ -275,13 +372,16 @@ export default function AttendanceHistoryGrid() {
     queryFn: fetchPersonnel,
   });
 
-  const rows = attendanceData?.items ?? [];
+  const rawRows = attendanceData?.items ?? [];
   const total = attendanceData?.total ?? 0;
 
   // Build personnel lookup map for displaying names
   const personnelMap = new Map(
     personnelList.map((p) => [p.id, `${p.rank} ${p.firstName} ${p.lastName}`]),
   );
+
+  // Pair Time In / Time Out records into single rows
+  const rows = pairRecords(rawRows, filters.type);
 
   // ── Mutations ───────────────────────────────────────────────────────────────
 
@@ -475,19 +575,11 @@ export default function AttendanceHistoryGrid() {
               >
                 <TableHead>
                   <TableRow>
-                    <TableCell
-                      sx={{ display: { xs: "none", sm: "table-cell" } }}
-                    >
-                      Personnel ID
-                    </TableCell>
-                    <TableCell>Name</TableCell>
+                    <TableCell>Personnel</TableCell>
                     <TableCell>Date</TableCell>
-                    <TableCell
-                      sx={{ display: { xs: "none", sm: "table-cell" } }}
-                    >
-                      Time
-                    </TableCell>
-                    <TableCell>Type</TableCell>
+                    <TableCell>Time In</TableCell>
+                    <TableCell>Time Out</TableCell>
+                    <TableCell>Total Hours</TableCell>
                     <TableCell>Status</TableCell>
                     {(canEdit || canDelete) && (
                       <TableCell align="center">Actions</TableCell>
@@ -511,27 +603,27 @@ export default function AttendanceHistoryGrid() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((record) => (
-                      <TableRow key={record.id} hover>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {record.personnelId}
+                    rows.map((row) => (
+                      <TableRow key={row.key} hover>
+                        <TableCell>
+                          {personnelMap.get(row.personnelId) ?? "—"}
+                        </TableCell>
+                        <TableCell>{formatDate(row.date)}</TableCell>
+                        <TableCell>
+                          {row.timeInRecord
+                            ? formatTime(row.timeInRecord.createdAt)
+                            : "—"}
                         </TableCell>
                         <TableCell>
-                          {personnelMap.get(record.personnelId) ?? "—"}
+                          {row.timeOutRecord
+                            ? formatTime(row.timeOutRecord.createdAt)
+                            : "—"}
                         </TableCell>
-                        <TableCell>{formatDate(record.createdAt)}</TableCell>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {formatTime(record.createdAt)}
-                        </TableCell>
-                        <TableCell>{typeLabel(record.type)}</TableCell>
+                        <TableCell>{row.totalHours}</TableCell>
                         <TableCell>
                           <Chip
-                            label={record.status}
-                            color={statusColor(record.status)}
+                            label={row.status}
+                            color={statusColor(row.status)}
                             size="small"
                             sx={{ textTransform: "capitalize" }}
                           />
@@ -543,24 +635,42 @@ export default function AttendanceHistoryGrid() {
                               spacing={1}
                               justifyContent="center"
                             >
-                              {canEdit && (
-                                <Tooltip title="Edit">
+                              {canEdit && row.timeInRecord && (
+                                <Tooltip title="Edit Time In">
                                   <IconButton
                                     size="small"
-                                    aria-label={`Edit record ${record.id}`}
-                                    onClick={() => handleEditOpen(record)}
+                                    aria-label={`Edit time-in record ${row.timeInRecord.id}`}
+                                    onClick={() =>
+                                      handleEditOpen(row.timeInRecord!)
+                                    }
                                   >
                                     <EditIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              {canDelete && (
-                                <Tooltip title="Delete">
+                              {canDelete && row.timeInRecord && (
+                                <Tooltip title="Delete Time In">
                                   <IconButton
                                     size="small"
                                     color="error"
-                                    aria-label={`Delete record ${record.id}`}
-                                    onClick={() => handleDeleteOpen(record.id)}
+                                    aria-label={`Delete time-in record ${row.timeInRecord.id}`}
+                                    onClick={() =>
+                                      handleDeleteOpen(row.timeInRecord!.id)
+                                    }
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              {canDelete && row.timeOutRecord && (
+                                <Tooltip title="Delete Time Out">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    aria-label={`Delete time-out record ${row.timeOutRecord.id}`}
+                                    onClick={() =>
+                                      handleDeleteOpen(row.timeOutRecord!.id)
+                                    }
                                   >
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
