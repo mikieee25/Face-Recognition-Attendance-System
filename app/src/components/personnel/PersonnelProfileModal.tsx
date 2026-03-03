@@ -36,7 +36,7 @@ import type { Personnel, Station, AttendanceRecord } from "@/types/models";
 
 interface FaceRecord {
   id: number;
-  source: "legacy" | "embedding";
+  source: "embedding";
   createdAt: string;
 }
 
@@ -127,7 +127,7 @@ export default function PersonnelProfileModal({
     try {
       await apiClient.delete(
         `/api/v1/personnel/${personnelId}/faces/${face.id}`,
-        { params: { source: face.source } },
+        {},
       );
       invalidateFaces();
       setToast({
@@ -303,12 +303,10 @@ export default function PersonnelProfileModal({
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
                         <Chip
-                          label={
-                            face.source === "legacy" ? "Legacy" : "Embedding"
-                          }
+                          label="Embedding"
                           size="small"
                           variant="outlined"
-                          color={face.source === "legacy" ? "default" : "info"}
+                          color="info"
                         />
                       </TableCell>
                       <TableCell>{formatDate(face.createdAt)}</TableCell>

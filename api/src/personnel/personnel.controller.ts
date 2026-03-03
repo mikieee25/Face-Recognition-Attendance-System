@@ -151,11 +151,9 @@ export class PersonnelController {
   async deleteFace(
     @Param("id", ParseIntPipe) id: number,
     @Param("faceId", ParseIntPipe) faceId: number,
-    @Query("source") source: string,
     @Request() req: any,
   ) {
-    const src = source === "legacy" ? "legacy" : "embedding";
-    await this.personnelService.deleteFace(id, faceId, src, req.user);
+    await this.personnelService.deleteFace(id, faceId, req.user);
   }
 
   /**

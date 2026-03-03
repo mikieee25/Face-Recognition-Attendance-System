@@ -6,8 +6,6 @@ from fastapi import APIRouter
 
 from models import RecognizeRequest, RecognizeResponse
 from utils import decode_base64_image
-import anti_spoof
-import config
 import database
 import embedding_cache
 import face_detector
@@ -41,18 +39,7 @@ async def recognize(body: RecognizeRequest):
             message="No face detected",
         )
 
-    # 3. Anti-spoofing check
-    if config.ANTISPOOF_ENABLED and anti_spoof.is_enabled():
-        is_real, spoof_confidence = anti_spoof.check_liveness(image, face.bbox)
-        if not is_real:
-            return RecognizeResponse(
-                success=False,
-                personnel_id=None,
-                confidence=0.0,
-                message=f"Spoofing detected (confidence: {spoof_confidence:.2f}). Please use a live face.",
-            )
-
-    # 4. Extract embedding
+    # 3. Extract embedding
     try:
         embedding = face_recognizer.get_embedding(face)
     except Exception as exc:
@@ -64,7 +51,7 @@ async def recognize(body: RecognizeRequest):
             message="Embedding extraction failed",
         )
 
-    # 5. Load stored embeddings for the station (with cache)
+    # 4. Load stored embeddings for the station (with cache)
     try:
         stored = embedding_cache.get(body.station_id)
         if stored is None:
@@ -87,7 +74,7 @@ async def recognize(body: RecognizeRequest):
             message="No registered faces for this station",
         )
 
-    # 6. Compare
+    # 5. Compare
     personnel_id, confidence = face_recognizer.compare_embeddings(embedding, stored)
 
     if personnel_id is None:

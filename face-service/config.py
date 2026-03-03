@@ -23,7 +23,8 @@ INSIGHTFACE_MODEL_NAME = os.getenv("INSIGHTFACE_MODEL_NAME", "buffalo_l")
 MIN_FACE_DET_SCORE = float(os.getenv("MIN_FACE_DET_SCORE", "0.5"))
 
 # Anti-spoofing
-ANTISPOOF_ENABLED = os.getenv("ANTISPOOF_ENABLED", "true").lower() == "true"
+# Temporarily hard-disabled to prevent false negatives in production recognition.
+ANTISPOOF_ENABLED = False
 ANTISPOOF_MODEL_PATH = os.getenv("ANTISPOOF_MODEL_PATH", "")
 ANTISPOOF_THRESHOLD = float(os.getenv("ANTISPOOF_THRESHOLD", "0.5"))
 ANTISPOOF_REAL_CLASS_INDEX = int(os.getenv("ANTISPOOF_REAL_CLASS_INDEX", "0"))

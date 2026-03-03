@@ -1,8 +1,6 @@
 """Face recognition: embedding generation and comparison.
 
 Uses InsightFace buffalo_l which produces 512-dimensional embeddings.
-Also handles comparison against legacy 128-dim embeddings via cosine
-similarity.
 """
 
 import logging
@@ -69,10 +67,6 @@ def compare_embeddings(
     a single centroid vector before comparison.  This reduces noise from
     individual registration photos and gives more stable matching.
 
-    For legacy cross-dimension embeddings (e.g. 128-dim vs 512-dim) the
-    comparison falls back to per-vector cosine similarity on the
-    overlapping dimensions.
-
     Returns ``(personnel_id, confidence)`` of the best match, or
     ``(None, 0.0)`` when *stored_embeddings* is empty.
     """
@@ -90,28 +84,16 @@ def compare_embeddings(
     best_score: float = -1.0
 
     for pid, vecs in groups.items():
-        # Separate same-dim and cross-dim embeddings
         same_dim = [v for v in vecs if v.shape[0] == embedding.shape[0]]
-        cross_dim = [v for v in vecs if v.shape[0] != embedding.shape[0]]
+        if not same_dim:
+            continue
 
-        scores = []
-
-        # Average same-dim embeddings into centroid
-        if same_dim:
-            centroid = np.mean(same_dim, axis=0).astype(np.float32)
-            centroid = centroid / (np.linalg.norm(centroid) + 1e-10)
-            scores.append(_cosine_similarity(embedding, centroid))
-
-        # For cross-dim, compare individually and take max
-        for v in cross_dim:
-            min_dim = min(embedding.shape[0], v.shape[0])
-            scores.append(_cosine_similarity(embedding[:min_dim], v[:min_dim]))
-
-        if scores:
-            person_score = max(scores)
-            if person_score > best_score:
-                best_score = person_score
-                best_id = pid
+        centroid = np.mean(same_dim, axis=0).astype(np.float32)
+        centroid = centroid / (np.linalg.norm(centroid) + 1e-10)
+        person_score = _cosine_similarity(embedding, centroid)
+        if person_score > best_score:
+            best_score = person_score
+            best_id = pid
 
     # Clamp to [0, 1]
     best_score = max(0.0, min(1.0, best_score))

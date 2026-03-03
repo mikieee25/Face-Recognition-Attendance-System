@@ -14,11 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import config
 import database
 import face_recognizer
-import anti_spoof
 from routes.health import router as health_router
 from routes.recognize import router as recognize_router
 from routes.register import router as register_router
-from routes.migrate import router as migrate_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,10 +32,6 @@ async def lifespan(app: FastAPI):
 
     # Load ML models (synchronous but only runs once)
     face_recognizer.load_model()
-
-    # Load anti-spoofing model if enabled
-    if config.ANTISPOOF_ENABLED:
-        anti_spoof.load_model()
 
     # Create DB pool
     await database.create_pool()
@@ -89,7 +83,6 @@ async def check_shared_secret(request: Request, call_next):
 app.include_router(health_router)
 app.include_router(recognize_router)
 app.include_router(register_router)
-app.include_router(migrate_router)
 
 
 if __name__ == "__main__":

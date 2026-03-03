@@ -5,7 +5,7 @@ log() {
   printf '[entrypoint] %s\n' "$*"
 }
 
-ANTISPOOF_ENABLED="${ANTISPOOF_ENABLED:-true}"
+ANTISPOOF_ENABLED="${ANTISPOOF_ENABLED:-false}"
 MODEL_PATH="${ANTISPOOF_MODEL_PATH:-models/minifasnet_v2.onnx}"
 MODEL_URL_RAW="${ANTISPOOF_MODEL_URL:-}"
 DEFAULT_MODEL_URL="https://raw.githubusercontent.com/SuriAI/face-antispoof-onnx/main/models/best/98.20/best_model.onnx"

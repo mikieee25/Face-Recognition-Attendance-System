@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { PersonnelService } from "./personnel.service";
 import { Personnel } from "../database/entities/personnel.entity";
-import { FaceData, FaceEmbedding } from "../database/entities/face-data.entity";
+import { FaceEmbedding } from "../database/entities/face-data.entity";
 import { FaceService } from "../face/face.service";
 
 const mockPersonnelRepo = () => ({
@@ -20,11 +20,12 @@ const mockPersonnelRepo = () => ({
   count: jest.fn(),
 });
 
-const mockFaceDataRepo = () => ({
-  count: jest.fn(),
-});
-
 const mockFaceEmbeddingRepo = () => ({
+  find: jest.fn(),
+  findOne: jest.fn(),
+  count: jest.fn(),
+  delete: jest.fn(),
+  remove: jest.fn(),
   create: jest.fn(),
   save: jest.fn(),
 });
@@ -58,7 +59,6 @@ const makePersonnel = (overrides: Partial<Personnel> = {}): Personnel =>
 describe("PersonnelService", () => {
   let service: PersonnelService;
   let personnelRepo: ReturnType<typeof mockPersonnelRepo>;
-  let faceDataRepo: ReturnType<typeof mockFaceDataRepo>;
   let faceEmbeddingRepo: ReturnType<typeof mockFaceEmbeddingRepo>;
   let faceService: ReturnType<typeof mockFaceService>;
 
@@ -69,10 +69,6 @@ describe("PersonnelService", () => {
         {
           provide: getRepositoryToken(Personnel),
           useFactory: mockPersonnelRepo,
-        },
-        {
-          provide: getRepositoryToken(FaceData),
-          useFactory: mockFaceDataRepo,
         },
         {
           provide: getRepositoryToken(FaceEmbedding),
@@ -87,7 +83,6 @@ describe("PersonnelService", () => {
 
     service = module.get<PersonnelService>(PersonnelService);
     personnelRepo = module.get(getRepositoryToken(Personnel));
-    faceDataRepo = module.get(getRepositoryToken(FaceData));
     faceEmbeddingRepo = module.get(getRepositoryToken(FaceEmbedding));
     faceService = module.get(FaceService);
   });
@@ -159,13 +154,13 @@ describe("PersonnelService", () => {
 
   describe("create", () => {
     const dto = {
-      first_name: "Maria",
-      last_name: "Santos",
+      firstName: "Maria",
+      lastName: "Santos",
       rank: "FO2",
-      station_id: 5,
+      stationId: 5,
     };
 
-    it("admin uses station_id from DTO", async () => {
+    it("admin uses stationId from DTO", async () => {
       const created = makePersonnel({ stationId: 5 });
       personnelRepo.create.mockReturnValue(created);
       personnelRepo.save.mockResolvedValue(created);
@@ -178,7 +173,7 @@ describe("PersonnelService", () => {
       expect(result).toBe(created);
     });
 
-    it("station_user auto-assigns their own id as station_id", async () => {
+    it("station_user auto-assigns their own stationId", async () => {
       const created = makePersonnel({ stationId: stationUser.id });
       personnelRepo.create.mockReturnValue(created);
       personnelRepo.save.mockResolvedValue(created);
@@ -221,21 +216,21 @@ describe("PersonnelService", () => {
       expect(result.rank).toBe("FO3");
     });
 
-    it("station_user cannot change station_id", async () => {
+    it("station_user cannot change stationId", async () => {
       const p = makePersonnel({ stationId: stationUser.id });
       personnelRepo.findOne.mockResolvedValue(p);
 
       await expect(
-        service.update(10, { station_id: 99 }, stationUser),
+        service.update(10, { stationId: 99 }, stationUser),
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("admin can change station_id", async () => {
+    it("admin can change stationId", async () => {
       const p = makePersonnel({ stationId: 1 });
       personnelRepo.findOne.mockResolvedValue(p);
       personnelRepo.save.mockResolvedValue({ ...p, stationId: 99 });
 
-      const result = await service.update(10, { station_id: 99 }, adminUser);
+      const result = await service.update(10, { stationId: 99 }, adminUser);
       expect(result.stationId).toBe(99);
     });
   });
@@ -246,7 +241,7 @@ describe("PersonnelService", () => {
     it("deletes personnel with no face images without force flag", async () => {
       const p = makePersonnel({ stationId: adminUser.id });
       personnelRepo.findOne.mockResolvedValue(p);
-      faceDataRepo.count.mockResolvedValue(0);
+      faceEmbeddingRepo.count.mockResolvedValue(0);
       personnelRepo.remove.mockResolvedValue(undefined);
 
       await expect(service.remove(10, adminUser)).resolves.toBeUndefined();
@@ -256,7 +251,7 @@ describe("PersonnelService", () => {
     it("throws BadRequestException when face images exist and force=false", async () => {
       const p = makePersonnel({ stationId: adminUser.id });
       personnelRepo.findOne.mockResolvedValue(p);
-      faceDataRepo.count.mockResolvedValue(3);
+      faceEmbeddingRepo.count.mockResolvedValue(3);
 
       await expect(service.remove(10, adminUser, false)).rejects.toThrow(
         BadRequestException,
@@ -267,7 +262,7 @@ describe("PersonnelService", () => {
     it("deletes personnel with face images when force=true", async () => {
       const p = makePersonnel({ stationId: adminUser.id });
       personnelRepo.findOne.mockResolvedValue(p);
-      faceDataRepo.count.mockResolvedValue(3);
+      faceEmbeddingRepo.count.mockResolvedValue(3);
       personnelRepo.remove.mockResolvedValue(undefined);
 
       await expect(
@@ -333,33 +328,20 @@ describe("PersonnelService", () => {
       expect(faceService.registerFace).not.toHaveBeenCalled();
     });
 
-    it("saves embeddings returned by FaceService", async () => {
+    it("forwards face images to FaceService", async () => {
       const p = makePersonnel({ stationId: adminUser.id });
       personnelRepo.findOne.mockResolvedValue(p);
 
-      const embeddings = [
-        [0.1, 0.2, 0.3],
-        [0.4, 0.5, 0.6],
-        [0.7, 0.8, 0.9],
-      ];
-      faceService.registerFace.mockResolvedValue({ embeddings });
-
-      const fakeEntity = {
-        personnelId: 10,
-        embedding: embeddings[0],
-        createdAt: new Date(),
-      };
-      faceEmbeddingRepo.create.mockReturnValue(fakeEntity);
-      faceEmbeddingRepo.save.mockResolvedValue([fakeEntity]);
+      faceService.registerFace.mockResolvedValue(undefined);
 
       await service.registerFace(10, validImages, adminUser);
 
       expect(faceService.registerFace).toHaveBeenCalledWith(10, validImages);
-      expect(faceEmbeddingRepo.create).toHaveBeenCalledTimes(3);
-      expect(faceEmbeddingRepo.save).toHaveBeenCalled();
+      expect(faceEmbeddingRepo.create).not.toHaveBeenCalled();
+      expect(faceEmbeddingRepo.save).not.toHaveBeenCalled();
     });
 
-    it("propagates ServiceUnavailableException from FaceService", async () => {
+    it("maps FaceService error into BadRequestException", async () => {
       const p = makePersonnel({ stationId: adminUser.id });
       personnelRepo.findOne.mockResolvedValue(p);
       faceService.registerFace.mockRejectedValue(
@@ -368,7 +350,7 @@ describe("PersonnelService", () => {
 
       await expect(
         service.registerFace(10, validImages, adminUser),
-      ).rejects.toThrow(ServiceUnavailableException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it("station_user cannot register face for personnel in another station", async () => {
@@ -385,15 +367,7 @@ describe("PersonnelService", () => {
       personnelRepo.findOne.mockResolvedValue(p);
 
       const pngImages = [validPng, validPng, validPng];
-      faceService.registerFace.mockResolvedValue({
-        embeddings: [
-          [1, 2],
-          [3, 4],
-          [5, 6],
-        ],
-      });
-      faceEmbeddingRepo.create.mockReturnValue({});
-      faceEmbeddingRepo.save.mockResolvedValue([]);
+      faceService.registerFace.mockResolvedValue(undefined);
 
       await expect(
         service.registerFace(10, pngImages, adminUser),

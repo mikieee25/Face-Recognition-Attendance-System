@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Personnel } from "../database/entities/personnel.entity";
-import { FaceData, FaceEmbedding } from "../database/entities/face-data.entity";
+import { FaceEmbedding } from "../database/entities/face-data.entity";
 import { CreatePersonnelDto } from "./dto/create-personnel.dto";
 import { UpdatePersonnelDto } from "./dto/update-personnel.dto";
 import { FaceService } from "../face/face.service";
@@ -30,8 +30,6 @@ export class PersonnelService {
   constructor(
     @InjectRepository(Personnel)
     private readonly personnelRepo: Repository<Personnel>,
-    @InjectRepository(FaceData)
-    private readonly faceDataRepo: Repository<FaceData>,
     @InjectRepository(FaceEmbedding)
     private readonly faceEmbeddingRepo: Repository<FaceEmbedding>,
     private readonly faceService: FaceService,
@@ -92,6 +90,11 @@ export class PersonnelService {
     if (currentUser.role !== "admin" && !currentUser.stationId) {
       throw new BadRequestException("User has no assigned station");
     }
+
+    if (currentUser.role === "admin" && !dto.stationId) {
+      throw new BadRequestException("stationId is required for admin");
+    }
+
     const stationId =
       currentUser.role === "admin"
         ? dto.stationId
@@ -160,86 +163,48 @@ export class PersonnelService {
     currentUser: AuthenticatedUser,
   ): Promise<{ count: number }> {
     await this.findOne(personnelId, currentUser);
-    const legacy = await this.faceDataRepo.count({ where: { personnelId } });
-    const modern = await this.faceEmbeddingRepo.count({
+    const count = await this.faceEmbeddingRepo.count({
       where: { personnelId },
     });
-    return { count: legacy + modern };
+    return { count };
   }
 
   /**
    * List all face registrations for a personnel member.
-   * Returns a unified list from both legacy face_data and face_embeddings tables.
    */
   async getFaces(
     personnelId: number,
     currentUser: AuthenticatedUser,
-  ): Promise<
-    { id: number; source: "legacy" | "embedding"; createdAt: string }[]
-  > {
+  ): Promise<{ id: number; source: "embedding"; createdAt: string }[]> {
     await this.findOne(personnelId, currentUser);
 
-    const legacyRows = await this.faceDataRepo.find({
-      where: { personnelId },
-      order: { dateCreated: "DESC" },
-    });
-    const modernRows = await this.faceEmbeddingRepo.find({
+    const rows = await this.faceEmbeddingRepo.find({
       where: { personnelId },
       order: { createdAt: "DESC" },
     });
 
-    const results: {
-      id: number;
-      source: "legacy" | "embedding";
-      createdAt: string;
-    }[] = [];
-
-    for (const row of legacyRows) {
-      results.push({
-        id: row.id,
-        source: "legacy",
-        createdAt: row.dateCreated?.toISOString() ?? new Date().toISOString(),
-      });
-    }
-    for (const row of modernRows) {
-      results.push({
-        id: row.id,
-        source: "embedding",
-        createdAt: row.createdAt.toISOString(),
-      });
-    }
-
-    results.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-    return results;
+    return rows.map((row) => ({
+      id: row.id,
+      source: "embedding",
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   /**
-   * Delete a single face registration by id and source table.
+   * Delete a single face registration by id.
    */
   async deleteFace(
     personnelId: number,
     faceId: number,
-    source: "legacy" | "embedding",
     currentUser: AuthenticatedUser,
   ): Promise<void> {
     await this.findOne(personnelId, currentUser);
 
-    if (source === "legacy") {
-      const row = await this.faceDataRepo.findOne({
-        where: { id: faceId, personnelId },
-      });
-      if (!row) throw new NotFoundException(`Face record #${faceId} not found`);
-      await this.faceDataRepo.remove(row);
-    } else {
-      const row = await this.faceEmbeddingRepo.findOne({
-        where: { id: faceId, personnelId },
-      });
-      if (!row) throw new NotFoundException(`Face record #${faceId} not found`);
-      await this.faceEmbeddingRepo.remove(row);
-    }
+    const row = await this.faceEmbeddingRepo.findOne({
+      where: { id: faceId, personnelId },
+    });
+    if (!row) throw new NotFoundException(`Face record #${faceId} not found`);
+    await this.faceEmbeddingRepo.remove(row);
   }
 
   /**
@@ -250,7 +215,6 @@ export class PersonnelService {
     currentUser: AuthenticatedUser,
   ): Promise<void> {
     await this.findOne(personnelId, currentUser);
-    await this.faceDataRepo.delete({ personnelId });
     await this.faceEmbeddingRepo.delete({ personnelId });
   }
 
@@ -266,7 +230,7 @@ export class PersonnelService {
   ): Promise<void> {
     const personnel = await this.findOne(id, currentUser);
 
-    const faceCount = await this.faceDataRepo.count({
+    const faceCount = await this.faceEmbeddingRepo.count({
       where: { personnelId: id },
     });
 

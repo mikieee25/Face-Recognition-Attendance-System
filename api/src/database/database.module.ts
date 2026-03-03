@@ -5,7 +5,7 @@ import { User } from "./entities/user.entity";
 import { Personnel } from "./entities/personnel.entity";
 import { AttendanceRecord } from "./entities/attendance.entity";
 import { PendingApproval } from "./entities/pending-attendance.entity";
-import { FaceData, FaceEmbedding } from "./entities/face-data.entity";
+import { FaceEmbedding } from "./entities/face-data.entity";
 import { ActivityLog } from "./entities/activity-log.entity";
 import { Station } from "../stations/station.entity";
 
@@ -27,7 +27,6 @@ import { Station } from "../stations/station.entity";
           Personnel,
           AttendanceRecord,
           PendingApproval,
-          FaceData,
           FaceEmbedding,
           ActivityLog,
         ],

@@ -26,10 +26,11 @@ export class CreatePersonnelDto {
   @IsNotEmpty({ message: "rank is required" })
   rank: string;
 
-  @ApiProperty({ example: 1 })
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
   @Type(() => Number)
   @IsInt({ message: "stationId must be an integer" })
-  stationId: number;
+  stationId?: number;
 
   @ApiPropertyOptional({ example: "08:00" })
   @IsOptional()
