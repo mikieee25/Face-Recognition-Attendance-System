@@ -27,13 +27,26 @@ async def register(body: RegisterRequest):
             logger.error("Image %d decode failed: %s", idx, exc)
             return RegisterResponse(success=False, embeddings=[])
 
-        # Detect face
+        # Detect face.
+        # Registration is more tolerant than recognition so users can enroll
+        # in suboptimal lighting/angles and still generate embeddings.
         face = face_detector.detect_face(image)
         if face is None:
-            logger.warning(
-                "No face in image %d for personnel %d", idx, body.personnel_id
-            )
-            continue
+            fallback_faces = face_detector.detect_faces(image)
+            if fallback_faces:
+                face = fallback_faces[0]
+                logger.warning(
+                    "Image %d for personnel %d passed fallback face selection "
+                    "(det_score=%.3f below MIN_FACE_DET_SCORE)",
+                    idx,
+                    body.personnel_id,
+                    float(getattr(face, "det_score", 0.0)),
+                )
+            else:
+                logger.warning(
+                    "No face in image %d for personnel %d", idx, body.personnel_id
+                )
+                continue
 
         # Extract embedding
         emb = face_recognizer.get_embedding(face)
