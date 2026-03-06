@@ -109,11 +109,13 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
           lastName: personnel.lastName,
           rank: personnel.rank,
           stationId: String(personnel.stationId),
-          shiftStartTime: personnel.shiftStartTime ?? "08:00",
-          shiftEndTime: personnel.shiftEndTime ?? "17:00",
+          // Strip seconds from "HH:mm:ss" → "HH:mm" for <input type="time">
+          shiftStartTime: (personnel.shiftStartTime ?? "08:00").slice(0, 5),
+          shiftEndTime: (personnel.shiftEndTime ?? "17:00").slice(0, 5),
           isShifting: personnel.isShifting ?? false,
           shiftStartDate: personnel.shiftStartDate ?? "",
-          shiftDurationDays: personnel.shiftDurationDays ?? 15,
+          // DB may store 0 (default) — fall back to 15 so @Min(1) never fires
+          shiftDurationDays: personnel.shiftDurationDays || 15,
         });
       } else {
         setValues(INITIAL_VALUES);
@@ -160,15 +162,16 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
         shiftStartTime: values.shiftStartTime || "08:00",
         shiftEndTime: values.shiftEndTime || "17:00",
         isShifting: values.isShifting,
+        // Always send a valid shiftDurationDays so @Min(1) never rejects it
+        shiftDurationDays: values.shiftDurationDays || 15,
       };
 
       if (isAdmin) {
         payload.stationId = Number(values.stationId);
       }
 
-      if (values.isShifting) {
-        if (values.shiftStartDate) payload.shiftStartDate = values.shiftStartDate;
-        payload.shiftDurationDays = values.shiftDurationDays;
+      if (values.isShifting && values.shiftStartDate) {
+        payload.shiftStartDate = values.shiftStartDate;
       }
 
       if (isEditMode && personnel) {
