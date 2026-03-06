@@ -112,7 +112,8 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
           // Strip seconds from "HH:mm:ss" → "HH:mm" for <input type="time">
           shiftStartTime: (personnel.shiftStartTime ?? "08:00").slice(0, 5),
           shiftEndTime: (personnel.shiftEndTime ?? "17:00").slice(0, 5),
-          isShifting: personnel.isShifting ?? false,
+          // DB stores tinyint (0/1) — cast to real boolean so @IsBoolean() passes
+          isShifting: Boolean(personnel.isShifting),
           shiftStartDate: personnel.shiftStartDate ?? "",
           // DB may store 0 (default) — fall back to 15 so @Min(1) never fires
           shiftDurationDays: personnel.shiftDurationDays || 15,
