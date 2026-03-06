@@ -15,6 +15,11 @@ export interface RegisterFaceResult {
   embeddings: number[][];
 }
 
+export interface InvalidateCacheResult {
+  success: boolean;
+  message: string;
+}
+
 @Injectable()
 export class FaceService {
   private readonly logger = new Logger(FaceService.name);
@@ -41,7 +46,7 @@ export class FaceService {
       }>("/recognize", {
         image,
         station_id: stationId,
-      }),
+      })
     );
 
     if (!res.data.success) {
@@ -56,7 +61,7 @@ export class FaceService {
 
   async registerFace(
     personnelId: number,
-    images: string[],
+    images: string[]
   ): Promise<RegisterFaceResult> {
     const res = await this.withRetry(() =>
       this.client.post<{ success: boolean; embeddings: number[][] }>(
@@ -64,13 +69,13 @@ export class FaceService {
         {
           personnel_id: personnelId,
           images,
-        },
-      ),
+        }
+      )
     );
 
     if (!res.data.success || !res.data.embeddings?.length) {
       throw new Error(
-        "Face service could not detect a valid face in the provided images. Please ensure the face is clearly visible and try again.",
+        "Face service could not detect a valid face in the provided images. Please ensure the face is clearly visible and try again."
       );
     }
 
@@ -90,13 +95,31 @@ export class FaceService {
         this.logger.warn(
           `Face service attempt ${i + 1} failed, ${
             i + 1 < attempts ? "retrying..." : "giving up."
-          }`,
+          }`
         );
       }
     }
     throw new ServiceUnavailableException(
-      "Face recognition service unavailable",
+      "Face recognition service unavailable"
     );
+  }
+
+  /** Invalidate the in-memory embedding cache for a station or all stations. */
+  async invalidateCache(stationId?: number): Promise<InvalidateCacheResult> {
+    try {
+      const res = await this.client.post<InvalidateCacheResult>(
+        "/invalidate-cache",
+        { station_id: stationId ?? null }
+      );
+      return res.data;
+    } catch (err: unknown) {
+      this.logger.warn(
+        "Failed to invalidate face-service cache: %s",
+        err instanceof Error ? err.message : String(err)
+      );
+      // Non-fatal — cache will expire on its own (TTL 60s)
+      return { success: false, message: "Cache invalidation skipped" };
+    }
   }
 
   /** Ping the face service — used by health check. */

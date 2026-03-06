@@ -32,7 +32,7 @@ export class PersonnelService {
     private readonly personnelRepo: Repository<Personnel>,
     @InjectRepository(FaceEmbedding)
     private readonly faceEmbeddingRepo: Repository<FaceEmbedding>,
-    private readonly faceService: FaceService,
+    private readonly faceService: FaceService
   ) {}
 
   /**
@@ -60,7 +60,7 @@ export class PersonnelService {
    */
   async findOne(
     id: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<Personnel> {
     const personnel = await this.personnelRepo.findOne({ where: { id } });
     if (!personnel) {
@@ -85,7 +85,7 @@ export class PersonnelService {
    */
   async create(
     dto: CreatePersonnelDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<Personnel> {
     if (currentUser.role !== "admin" && !currentUser.stationId) {
       throw new BadRequestException("User has no assigned station");
@@ -124,9 +124,13 @@ export class PersonnelService {
   async update(
     id: number,
     dto: UpdatePersonnelDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<Personnel> {
     const personnel = await this.findOne(id, currentUser);
+
+    // Track old stationId before any changes so we can invalidate both
+    // the old and new station caches if the station assignment changes.
+    const oldStationId = personnel.stationId;
 
     if (dto.firstName !== undefined) personnel.firstName = dto.firstName;
     if (dto.lastName !== undefined) personnel.lastName = dto.lastName;
@@ -146,13 +150,30 @@ export class PersonnelService {
     if (dto.stationId !== undefined) {
       if (currentUser.role !== "admin") {
         throw new ForbiddenException(
-          "Only admin can change station assignment",
+          "Only admin can change station assignment"
         );
       }
       personnel.stationId = dto.stationId;
     }
 
-    return this.personnelRepo.save(personnel);
+    const saved = await this.personnelRepo.save(personnel);
+
+    // Invalidate face-service embedding cache so the next recognition
+    // request loads fresh embeddings from the DB instead of stale cache.
+    // If the station changed we invalidate both old and new stations.
+    // Non-fatal — cache has a 60s TTL and will self-expire if this fails.
+    if (oldStationId !== saved.stationId) {
+      // Station changed — clear both old and new station caches
+      await Promise.allSettled([
+        this.faceService.invalidateCache(oldStationId ?? undefined),
+        this.faceService.invalidateCache(saved.stationId ?? undefined),
+      ]);
+    } else {
+      // Same station — just clear that one station's cache
+      await this.faceService.invalidateCache(saved.stationId ?? undefined);
+    }
+
+    return saved;
   }
 
   /**
@@ -160,7 +181,7 @@ export class PersonnelService {
    */
   async getFaceCount(
     personnelId: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<{ count: number }> {
     await this.findOne(personnelId, currentUser);
     const count = await this.faceEmbeddingRepo.count({
@@ -174,7 +195,7 @@ export class PersonnelService {
    */
   async getFaces(
     personnelId: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<{ id: number; source: "embedding"; createdAt: string }[]> {
     await this.findOne(personnelId, currentUser);
 
@@ -196,7 +217,7 @@ export class PersonnelService {
   async deleteFace(
     personnelId: number,
     faceId: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<void> {
     await this.findOne(personnelId, currentUser);
 
@@ -212,7 +233,7 @@ export class PersonnelService {
    */
   async deleteAllFaces(
     personnelId: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<void> {
     await this.findOne(personnelId, currentUser);
     await this.faceEmbeddingRepo.delete({ personnelId });
@@ -226,7 +247,7 @@ export class PersonnelService {
   async remove(
     id: number,
     currentUser: AuthenticatedUser,
-    force = false,
+    force = false
   ): Promise<void> {
     const personnel = await this.findOne(id, currentUser);
 
@@ -236,7 +257,7 @@ export class PersonnelService {
 
     if (faceCount > 0 && !force) {
       throw new BadRequestException(
-        `Personnel has ${faceCount} registered face image(s). Pass force=true to confirm deletion.`,
+        `Personnel has ${faceCount} registered face image(s). Pass force=true to confirm deletion.`
       );
     }
 
@@ -253,7 +274,7 @@ export class PersonnelService {
   async registerFace(
     personnelId: number,
     images: string[],
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<void> {
     // Ensure personnel exists and is accessible by the current user
     await this.findOne(personnelId, currentUser);
@@ -263,17 +284,17 @@ export class PersonnelService {
       const image = images[i];
 
       const hasValidMime = ALLOWED_MIME_PREFIXES.some((prefix) =>
-        image.startsWith(prefix),
+        image.startsWith(prefix)
       );
       if (!hasValidMime) {
         throw new BadRequestException(
-          `Image at index ${i} has an unsupported MIME type. Only image/jpeg and image/png are allowed.`,
+          `Image at index ${i} has an unsupported MIME type. Only image/jpeg and image/png are allowed.`
         );
       }
 
       if (image.length > MAX_IMAGE_BASE64_LENGTH) {
         throw new BadRequestException(
-          `Image at index ${i} exceeds the maximum allowed size of 10 MB.`,
+          `Image at index ${i} exceeds the maximum allowed size of 10 MB.`
         );
       }
     }

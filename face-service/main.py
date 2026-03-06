@@ -17,6 +17,7 @@ import face_recognizer
 from routes.health import router as health_router
 from routes.recognize import router as recognize_router
 from routes.register import router as register_router
+from routes.invalidate_cache import router as invalidate_cache_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -83,6 +84,7 @@ async def check_shared_secret(request: Request, call_next):
 app.include_router(health_router)
 app.include_router(recognize_router)
 app.include_router(register_router)
+app.include_router(invalidate_cache_router)
 
 
 if __name__ == "__main__":
