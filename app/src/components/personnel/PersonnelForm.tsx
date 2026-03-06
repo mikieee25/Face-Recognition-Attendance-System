@@ -184,8 +184,10 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
       onSuccess?.(isEditMode ? "Personnel updated successfully." : "Personnel added successfully.");
       onClose();
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "An unexpected error occurred.";
-      onError?.(typeof message === "string" ? message : "An unexpected error occurred.");
+      const data = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+      const raw = data?.message;
+      const message = Array.isArray(raw) ? raw.join(" • ") : typeof raw === "string" ? raw : "An unexpected error occurred.";
+      onError?.(message);
     } finally {
       setSubmitting(false);
     }
