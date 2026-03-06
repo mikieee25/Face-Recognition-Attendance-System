@@ -60,7 +60,7 @@ export class ReportsService {
     @InjectRepository(AttendanceRecord)
     private readonly attendanceRepo: Repository<AttendanceRecord>,
     @InjectRepository(Personnel)
-    private readonly personnelRepo: Repository<Personnel>,
+    private readonly personnelRepo: Repository<Personnel>
   ) {}
 
   /**
@@ -86,7 +86,7 @@ export class ReportsService {
    */
   private buildBaseQuery(
     query: QueryReportsDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ) {
     const qb = this.attendanceRepo
       .createQueryBuilder("ar")
@@ -167,7 +167,7 @@ export class ReportsService {
    */
   async getReports(
     query: QueryReportsDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<PaginatedResult<ReportItem>> {
     this.validateDateRange(query.dateFrom, query.dateTo);
 
@@ -194,7 +194,7 @@ export class ReportsService {
    */
   async getMonthlySummary(
     query: QueryReportsDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<MonthlySummaryItem[]> {
     this.validateDateRange(query.dateFrom, query.dateTo);
 
@@ -247,10 +247,10 @@ export class ReportsService {
 
       // Days present: distinct days with at least one confirmed time_in
       const confirmedTimeIns = timeIns.filter(
-        (r) => r.status === AttendanceStatus.Confirmed,
+        (r) => r.status === AttendanceStatus.Confirmed
       );
       const presentDays = new Set(
-        confirmedTimeIns.map((r) => r.createdAt.toISOString().slice(0, 10)),
+        confirmedTimeIns.map((r) => r.createdAt.toISOString().slice(0, 10))
       );
       const daysPresent = presentDays.size;
 
@@ -272,7 +272,7 @@ export class ReportsService {
             timeIn.getDate(),
             shiftHour,
             shiftMinute,
-            0,
+            0
           );
           if (timeIn > shiftStart) lateArrivals++;
         }
@@ -316,7 +316,7 @@ export class ReportsService {
    */
   private calculateTotalHours(
     timeIns: AttendanceRecord[],
-    timeOuts: AttendanceRecord[],
+    timeOuts: AttendanceRecord[]
   ): number {
     let totalMs = 0;
 
@@ -351,7 +351,7 @@ export class ReportsService {
   async exportReports(
     query: QueryReportsDto,
     currentUser: AuthenticatedUser,
-    res: Response,
+    res: Response
   ): Promise<void> {
     this.validateDateRange(query.dateFrom, query.dateTo);
 
@@ -373,7 +373,6 @@ export class ReportsService {
       { header: "Date", key: "date", width: 12 },
       { header: "Time In", key: "timeIn", width: 20 },
       { header: "Time Out", key: "timeOut", width: 20 },
-      { header: "Total Hours", key: "totalHours", width: 12 },
       { header: "Status", key: "status", width: 12 },
     ];
 
@@ -395,17 +394,17 @@ export class ReportsService {
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
         "Content-Disposition",
-        'attachment; filename="attendance-report.csv"',
+        'attachment; filename="attendance-report.csv"'
       );
       await workbook.csv.write(res);
     } else {
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       );
       res.setHeader(
         "Content-Disposition",
-        'attachment; filename="attendance-report.xlsx"',
+        'attachment; filename="attendance-report.xlsx"'
       );
       await workbook.xlsx.write(res);
     }
@@ -453,12 +452,6 @@ export class ReportsService {
       const firstIn = sortedIns[0] ?? null;
       const firstOut = sortedOuts[0] ?? null;
 
-      let totalHours: number | string = "";
-      if (firstIn && firstOut && firstOut > firstIn) {
-        const ms = firstOut.getTime() - firstIn.getTime();
-        totalHours = Math.round((ms / (1000 * 60 * 60)) * 100) / 100;
-      }
-
       rows.push({
         personnelName: personnel
           ? `${personnel.firstName} ${personnel.lastName}`
@@ -472,7 +465,6 @@ export class ReportsService {
         timeOut: firstOut
           ? firstOut.toISOString().replace("T", " ").slice(0, 19)
           : "",
-        totalHours,
         status: record.status,
       });
     }

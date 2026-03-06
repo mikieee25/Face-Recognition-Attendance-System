@@ -26,15 +26,21 @@ import type { Personnel, Station } from "@/types/models";
 import type { ApiEnvelope } from "@/types/api";
 
 const RANKS = [
-  "Fire Officer I",
-  "Fire Officer II",
-  "Fire Officer III",
-  "Senior Fire Officer I",
-  "Senior Fire Officer II",
-  "Senior Fire Officer III",
-  "Senior Fire Officer IV",
-  "Chief Fire Officer",
-  "Fire Chief",
+  "NUP",
+  "Fire Officer 1",
+  "Fire Officer 2",
+  "Fire Officer 3",
+  "Senior Fire Officer 1",
+  "Senior Fire Officer 2",
+  "Senior Fire Officer 3",
+  "Senior Fire Officer 4",
+  "Fire Inspector",
+  "Fire Senior Inspector",
+  "Fire Chief Inspector",
+  "Fire Superintendent",
+  "Fire Senior Superintendent",
+  "Fire Chief Superintendent",
+  "Fire Director",
 ];
 
 interface PersonnelFormProps {
@@ -85,13 +91,7 @@ function validate(values: FormValues, isAdmin: boolean): FormErrors {
   return errors;
 }
 
-export default function PersonnelForm({
-  open,
-  onClose,
-  personnel,
-  onSuccess,
-  onError,
-}: PersonnelFormProps) {
+export default function PersonnelForm({ open, onClose, personnel, onSuccess, onError }: PersonnelFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
@@ -126,8 +126,7 @@ export default function PersonnelForm({
   const { data: stationsData } = useQuery({
     queryKey: ["stations"],
     queryFn: async () => {
-      const res =
-        await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+      const res = await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
       return res.data.data ?? [];
     },
     enabled: open,
@@ -136,10 +135,7 @@ export default function PersonnelForm({
 
   // For station_user: resolve their station name
   const userStationName =
-    !isAdmin && user?.stationId
-      ? (stations.find((s) => s.id === user.stationId)?.name ??
-        `Station #${user.stationId}`)
-      : "";
+    !isAdmin && user?.stationId ? (stations.find((s) => s.id === user.stationId)?.name ?? `Station #${user.stationId}`) : "";
 
   function handleChange(field: keyof FormValues, value: unknown) {
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -171,8 +167,7 @@ export default function PersonnelForm({
       }
 
       if (values.isShifting) {
-        if (values.shiftStartDate)
-          payload.shiftStartDate = values.shiftStartDate;
+        if (values.shiftStartDate) payload.shiftStartDate = values.shiftStartDate;
         payload.shiftDurationDays = values.shiftDurationDays;
       }
 
@@ -183,35 +178,19 @@ export default function PersonnelForm({
       }
 
       await queryClient.invalidateQueries({ queryKey: ["personnel"] });
-      onSuccess?.(
-        isEditMode
-          ? "Personnel updated successfully."
-          : "Personnel added successfully.",
-      );
+      onSuccess?.(isEditMode ? "Personnel updated successfully." : "Personnel added successfully.");
       onClose();
     } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "An unexpected error occurred.";
-      onError?.(
-        typeof message === "string" ? message : "An unexpected error occurred.",
-      );
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "An unexpected error occurred.";
+      onError?.(typeof message === "string" ? message : "An unexpected error occurred.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={submitting ? undefined : onClose}
-      fullWidth
-      maxWidth="sm"
-      aria-labelledby="personnel-form-title"
-    >
-      <DialogTitle id="personnel-form-title">
-        {isEditMode ? "Edit Personnel" : "Add Personnel"}
-      </DialogTitle>
+    <Dialog open={open} onClose={submitting ? undefined : onClose} fullWidth maxWidth="sm" aria-labelledby="personnel-form-title">
+      <DialogTitle id="personnel-form-title">{isEditMode ? "Edit Personnel" : "Add Personnel"}</DialogTitle>
 
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -243,12 +222,7 @@ export default function PersonnelForm({
             {/* Rank Dropdown */}
             <FormControl fullWidth required error={Boolean(errors.rank)}>
               <InputLabel>Rank</InputLabel>
-              <Select
-                value={values.rank}
-                label="Rank"
-                onChange={(e) => handleChange("rank", e.target.value)}
-                disabled={submitting}
-              >
+              <Select value={values.rank} label="Rank" onChange={(e) => handleChange("rank", e.target.value)} disabled={submitting}>
                 {RANKS.map((r) => (
                   <MenuItem key={r} value={r}>
                     {r}
@@ -274,18 +248,10 @@ export default function PersonnelForm({
                     </MenuItem>
                   ))}
                 </Select>
-                {errors.stationId && (
-                  <FormHelperText>{errors.stationId}</FormHelperText>
-                )}
+                {errors.stationId && <FormHelperText>{errors.stationId}</FormHelperText>}
               </FormControl>
             ) : (
-              <TextField
-                label="Station"
-                value={userStationName}
-                fullWidth
-                disabled
-                helperText="Auto-assigned from your account"
-              />
+              <TextField label="Station" value={userStationName} fullWidth disabled helperText="Auto-assigned from your account" />
             )}
           </Stack>
 
@@ -321,19 +287,11 @@ export default function PersonnelForm({
           <Box>
             <FormControlLabel
               control={
-                <Switch
-                  checked={values.isShifting}
-                  onChange={(e) => handleChange("isShifting", e.target.checked)}
-                  disabled={submitting}
-                />
+                <Switch checked={values.isShifting} onChange={(e) => handleChange("isShifting", e.target.checked)} disabled={submitting} />
               }
               label="Rotation Shift"
             />
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              display="block"
-            >
+            <Typography variant="caption" color="text.secondary" display="block">
               Enable for rotation schedule
             </Typography>
           </Box>
@@ -354,9 +312,7 @@ export default function PersonnelForm({
                 label="Shift Duration (Days)"
                 type="number"
                 value={values.shiftDurationDays}
-                onChange={(e) =>
-                  handleChange("shiftDurationDays", Number(e.target.value))
-                }
+                onChange={(e) => handleChange("shiftDurationDays", Number(e.target.value))}
                 disabled={submitting}
                 fullWidth
                 slotProps={{
