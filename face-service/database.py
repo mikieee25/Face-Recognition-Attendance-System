@@ -1,5 +1,6 @@
 """Async MySQL database connection pool and query helpers."""
 
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -22,20 +23,44 @@ def _l2_normalize(vec: np.ndarray) -> np.ndarray:
     return vec
 
 
-async def create_pool():
-    """Create the global connection pool. Called on app startup."""
+async def create_pool(max_retries: int = 10, base_delay: float = 2.0):
+    """Create the global connection pool with retry logic.
+
+    Retries with exponential backoff so the service survives transient
+    database unavailability during container orchestration startup.
+    """
     global pool
-    pool = await aiomysql.create_pool(
-        host=config.DB_HOST,
-        port=config.DB_PORT,
-        user=config.DB_USER,
-        password=config.DB_PASS,
-        db=config.DB_NAME,
-        autocommit=True,
-        minsize=2,
-        maxsize=10,
-    )
-    logger.info("Database connection pool created")
+    last_exc: Optional[Exception] = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            pool = await aiomysql.create_pool(
+                host=config.DB_HOST,
+                port=config.DB_PORT,
+                user=config.DB_USER,
+                password=config.DB_PASS,
+                db=config.DB_NAME,
+                autocommit=True,
+                minsize=2,
+                maxsize=10,
+            )
+            logger.info("Database connection pool created")
+            return
+        except Exception as exc:
+            last_exc = exc
+            delay = min(base_delay * (2 ** (attempt - 1)), 30.0)
+            logger.warning(
+                "Database connection attempt %d/%d failed: %s. Retrying in %.1fs …",
+                attempt,
+                max_retries,
+                exc,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+    raise RuntimeError(
+        f"Could not connect to database after {max_retries} attempts"
+    ) from last_exc
 
 
 async def close_pool():
