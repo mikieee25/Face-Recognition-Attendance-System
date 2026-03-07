@@ -91,8 +91,8 @@ export default function KioskPage() {
           flexShrink: 0,
         }}
       >
-        {/* Row 1: Logo + Title | Clock | Logout */}
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        {/* Row 1: Logo + Title | Clock (absolutely centered) | Logout */}
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ position: "relative" }}>
           {/* Logo + Title */}
           <Stack direction="row" alignItems="center" spacing={1}>
             <Image
@@ -115,14 +115,19 @@ export default function KioskPage() {
             </Box>
           </Stack>
 
-          {/* Clock — center */}
+          {/* Clock — truly centered via absolute positioning */}
           <Typography
             fontWeight={800}
             color="#fff"
             letterSpacing="0.05em"
             sx={{
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
               fontSize: { xs: "1.1rem", sm: "1.5rem" },
               fontVariantNumeric: "tabular-nums",
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
             }}
           >
             {clock.time}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
@@ -32,6 +32,7 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: personnelList = [] } = useQuery({
     queryKey: ["personnel", "kiosk"],
@@ -42,13 +43,48 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
     enabled: open,
   });
 
+  /** Format a Date as a datetime-local string in local time (YYYY-MM-DDTHH:mm) */
+  function toLocalDateTimeString(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   useEffect(() => {
     if (open) {
       setPersonnelId("");
       setType("time_in");
-      setDate(new Date().toISOString().slice(0, 16));
+      setDate(toLocalDateTimeString(new Date()));
       setError(null);
+
+      // Tick every second so the field always shows the current local time
+      // unless the user has manually changed it
+      tickRef.current = setInterval(() => {
+        setDate((prev) => {
+          // Only auto-update if the value is still within the current minute
+          // (i.e. user hasn't manually changed to a different time)
+          const now = new Date();
+          const currentMinute = toLocalDateTimeString(now);
+          const prevMinute = prev.slice(0, 16);
+          // If prev matches what we would have set last tick, keep updating
+          if (prevMinute === currentMinute || Math.abs(new Date(prev).getTime() - now.getTime()) < 60_000) {
+            return currentMinute;
+          }
+          return prev;
+        });
+      }, 1000);
+    } else {
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
     }
+
+    return () => {
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+    };
   }, [open]);
 
   async function handleSubmit() {
