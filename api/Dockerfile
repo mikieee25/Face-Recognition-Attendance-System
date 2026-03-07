@@ -22,6 +22,9 @@ RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit
 
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
+RUN mkdir -p /app/uploads/manual-attendance && \
+    chown -R nodejs:nodejs /app/uploads
+
 USER nodejs
 
 ENV NODE_ENV=production

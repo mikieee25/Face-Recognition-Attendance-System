@@ -37,15 +37,14 @@ function buildImageUrl(imagePath: string): string {
   // If imagePath is already a full URL, use it directly
   if (imagePath.startsWith("http")) return imagePath;
 
-  const assetBase = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+  // Resolve against the API server where static uploads are served.
+  // Priority: NEXT_PUBLIC_ASSET_BASE_URL → NEXT_PUBLIC_API_URL → NEXT_PUBLIC_API_BASE_URL
+  // Falls back to same-origin (works locally via next.config.ts rewrite).
+  const assetBase = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
   const normalizedBase = assetBase.replace(/\/+$/, "");
   const normalizedPath = imagePath.replace(/^\//, "");
 
-  if (!normalizedBase) {
-    return `/${normalizedPath}`;
-  }
-
-  return `${normalizedBase}/${normalizedPath}`;
+  return normalizedBase ? `${normalizedBase}/${normalizedPath}` : `/${normalizedPath}`;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────

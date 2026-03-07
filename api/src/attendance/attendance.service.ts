@@ -151,12 +151,16 @@ export class AttendanceService {
       return this.attendanceRepo.save(record);
     } else if (confidence >= 0.4) {
       // Medium confidence → PendingApproval (Requirement 5.14)
+      const expectedType = await this.determineAttendanceType(personnelId);
+      const resolvedType = dto.type ?? expectedType;
+      const attendanceType =
+        resolvedType === AttendanceType.TimeIn ? "TIME_IN" : "TIME_OUT";
       const pending = this.pendingRepo.create({
         personnelId,
+        attendanceType: attendanceType as "TIME_IN" | "TIME_OUT",
         confidence,
         imagePath: "",
         reviewStatus: "pending" as any,
-        createdAt: new Date(),
       });
       return this.pendingRepo.save(pending);
     } else {
