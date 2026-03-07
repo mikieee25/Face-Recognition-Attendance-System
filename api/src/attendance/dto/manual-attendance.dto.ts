@@ -4,8 +4,9 @@ import {
   IsNumber,
   IsEnum,
   IsDateString,
+  IsOptional,
 } from "class-validator";
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AttendanceType } from "../../database/entities/attendance.entity";
 
 export class ManualAttendanceDto {
@@ -24,4 +25,11 @@ export class ManualAttendanceDto {
   @IsDateString()
   @IsNotEmpty()
   date: string;
+
+  @ApiPropertyOptional({
+    description: "Base64-encoded JPEG/PNG photo captured from kiosk camera",
+  })
+  @IsOptional()
+  @IsString()
+  photo?: string;
 }

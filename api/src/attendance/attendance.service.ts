@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import {
   BadRequestException,
   ForbiddenException,
@@ -207,12 +209,32 @@ export class AttendanceService {
     const attendanceType =
       dto.type === AttendanceType.TimeIn ? "TIME_IN" : "TIME_OUT";
 
+    // Save photo to disk if provided
+    let imagePath = "";
+    if (dto.photo) {
+      this.validateImage(dto.photo);
+      const uploadDir = path.join(
+        process.cwd(),
+        "uploads",
+        "manual-attendance"
+      );
+      fs.mkdirSync(uploadDir, { recursive: true });
+      const ext = dto.photo.startsWith("data:image/png") ? "png" : "jpg";
+      const filename = `manual_${dto.personnelId}_${Date.now()}.${ext}`;
+      const base64Data = dto.photo.replace(/^data:image\/\w+;base64,/, "");
+      fs.writeFileSync(
+        path.join(uploadDir, filename),
+        Buffer.from(base64Data, "base64")
+      );
+      imagePath = `uploads/manual-attendance/${filename}`;
+    }
+
     // Route to pending_approval for admin review (Requirements 6.6, 6.7)
     const pending = this.pendingRepo.create({
       personnelId: dto.personnelId,
       attendanceType: attendanceType as "TIME_IN" | "TIME_OUT",
       confidence: null,
-      imagePath: "",
+      imagePath,
       reviewStatus: "pending" as any,
       createdAt: entryDate,
     });
