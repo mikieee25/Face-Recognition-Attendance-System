@@ -22,14 +22,20 @@ async function bootstrap() {
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
   // Security headers
-  app.use(helmet());
+  // Override Cross-Origin-Resource-Policy to allow the frontend (bfpsorsogon.app)
+  // to load static assets (uploaded images) served from api.bfpsorsogon.app
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    })
+  );
 
   // Cookie parser (needed for JWT cookie extraction)
   app.use(cookieParser());
 
   // CORS
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",").map((o) =>
-    o.trim(),
+    o.trim()
   ) ?? ["http://localhost:3000"];
   app.enableCors({
     origin: allowedOrigins,
@@ -43,7 +49,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-    }),
+    })
   );
 
   // Global interceptors
