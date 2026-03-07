@@ -166,10 +166,13 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
       const selected = personnelList.find((p) => String(p.id) === personnelId);
       const personnelName = selected ? `${selected.rank} ${selected.firstName} ${selected.lastName}`.trim() : undefined;
 
+      // Snapshot the submission time so it doesn't tick forward during the await
+      const submittedAt = new Date();
+
       await apiClient.post("/api/v1/attendance/manual", {
         personnelId: Number(personnelId),
         type,
-        date: currentTime.toISOString(),
+        date: submittedAt.toISOString(),
         photo: capturedImage,
       });
 
@@ -178,7 +181,7 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
         action: "Pending Approval",
         personnelName,
         type: type as "time_in" | "time_out",
-        time: currentTime.toLocaleTimeString("en-US", {
+        time: submittedAt.toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
@@ -187,8 +190,10 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
       });
       onClose();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Submission failed.";
-      setError(typeof msg === "string" ? msg : "Submission failed.");
+      const errData = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+      const raw = errData?.message;
+      const msg = Array.isArray(raw) ? raw.join(" • ") : (raw ?? "Submission failed. Please try again.");
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -219,7 +224,6 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
   const liveTimeLabel = currentTime.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
     hour12: true,
   });
   const liveDateLabel = currentTime.toLocaleDateString("en-US", {

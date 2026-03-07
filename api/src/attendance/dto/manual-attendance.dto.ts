@@ -6,11 +6,13 @@ import {
   IsDateString,
   IsOptional,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AttendanceType } from "../../database/entities/attendance.entity";
 
 export class ManualAttendanceDto {
   @ApiProperty({ description: "Personnel ID" })
+  @Type(() => Number)
   @IsNumber()
   personnelId: number;
 

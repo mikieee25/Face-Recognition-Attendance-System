@@ -183,7 +183,9 @@ export class AttendanceService {
     if (isNaN(entryDate.getTime())) {
       throw new BadRequestException("Invalid date format.");
     }
-    if (entryDate > new Date()) {
+    // Allow 5s buffer for clock skew / network latency between client capture and server processing
+    const futureThreshold = new Date(Date.now() + 5000);
+    if (entryDate > futureThreshold) {
       throw new BadRequestException("Attendance date cannot be in the future.");
     }
 
