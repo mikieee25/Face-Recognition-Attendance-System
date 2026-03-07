@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
+
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
-import Chip from "@mui/material/Chip";
+
 import CircularProgress from "@mui/material/CircularProgress";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
@@ -33,20 +33,11 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function confidenceColor(confidence: number): "success" | "warning" | "error" {
-  if (confidence >= 0.7) return "success";
-  if (confidence >= 0.5) return "warning";
-  return "error";
-}
-
 function buildImageUrl(imagePath: string): string {
   // If imagePath is already a full URL, use it directly
   if (imagePath.startsWith("http")) return imagePath;
 
-  const assetBase =
-    process.env.NEXT_PUBLIC_ASSET_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    "";
+  const assetBase = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
   const normalizedBase = assetBase.replace(/\/+$/, "");
   const normalizedPath = imagePath.replace(/^\//, "");
 
@@ -66,10 +57,7 @@ interface PendingApprovalCardProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function PendingApprovalCard({
-  record,
-  personnelName,
-}: PendingApprovalCardProps) {
+export default function PendingApprovalCard({ record, personnelName }: PendingApprovalCardProps) {
   const qc = useQueryClient();
   const [toast, setToast] = useState<{
     open: boolean;
@@ -89,9 +77,7 @@ export default function PendingApprovalCard({
 
   const approveMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiClient.post<ApiEnvelope<unknown>>(
-        `/api/v1/pending/${record.id}/approve`,
-      );
+      const res = await apiClient.post<ApiEnvelope<unknown>>(`/api/v1/pending/${record.id}/approve`);
       return res.data;
     },
     onSuccess: () => {
@@ -107,9 +93,7 @@ export default function PendingApprovalCard({
 
   const rejectMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiClient.post<ApiEnvelope<unknown>>(
-        `/api/v1/pending/${record.id}/reject`,
-      );
+      const res = await apiClient.post<ApiEnvelope<unknown>>(`/api/v1/pending/${record.id}/reject`);
       return res.data;
     },
     onSuccess: () => {
@@ -147,19 +131,6 @@ export default function PendingApprovalCard({
               {personnelName ?? `Personnel #${record.personnelId}`}
             </Typography>
 
-            {/* Confidence score */}
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2" color="text.secondary">
-                Confidence:
-              </Typography>
-              <Chip
-                label={`${(record.confidence * 100).toFixed(1)}%`}
-                color={confidenceColor(record.confidence)}
-                size="small"
-                aria-label={`Confidence score: ${(record.confidence * 100).toFixed(1)}%`}
-              />
-            </Stack>
-
             {/* Timestamp */}
             <Typography variant="body2" color="text.secondary">
               {formatDateTime(record.createdAt)}
@@ -172,13 +143,7 @@ export default function PendingApprovalCard({
             variant="contained"
             color="success"
             size="small"
-            startIcon={
-              approveMutation.isPending ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : (
-                <CheckCircleIcon />
-              )
-            }
+            startIcon={approveMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <CheckCircleIcon />}
             onClick={() => approveMutation.mutate()}
             disabled={isActing}
             aria-label={`Approve pending record ${record.id}`}
@@ -190,13 +155,7 @@ export default function PendingApprovalCard({
             variant="outlined"
             color="error"
             size="small"
-            startIcon={
-              rejectMutation.isPending ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : (
-                <CancelIcon />
-              )
-            }
+            startIcon={rejectMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <CancelIcon />}
             onClick={() => rejectMutation.mutate()}
             disabled={isActing}
             aria-label={`Reject pending record ${record.id}`}
@@ -213,12 +172,7 @@ export default function PendingApprovalCard({
         onClose={handleToastClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert
-          onClose={handleToastClose}
-          severity={toast.severity}
-          variant="filled"
-          sx={{ width: "100%" }}
-        >
+        <Alert onClose={handleToastClose} severity={toast.severity} variant="filled" sx={{ width: "100%" }}>
           {toast.message}
         </Alert>
       </Snackbar>
