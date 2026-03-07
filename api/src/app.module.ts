@@ -1,7 +1,9 @@
+import { join } from "path";
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
+import { ServeStaticModule } from "@nestjs/serve-static";
 import configuration from "./config/configuration";
 import { DatabaseModule } from "./database/database.module";
 import { AuthModule } from "./auth/auth.module";
@@ -20,6 +22,14 @@ import { HealthModule } from "./health/health.module";
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), "uploads"),
+      serveRoot: "/uploads",
+      serveStaticOptions: {
+        index: false,
+        fallthrough: false,
+      },
     }),
     ThrottlerModule.forRoot([
       {
