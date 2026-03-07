@@ -12,6 +12,8 @@ import {
   Query,
   Request,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
@@ -56,6 +58,13 @@ export class AttendanceController {
   @Post("manual")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a manual attendance entry" })
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
+    })
+  )
   async createManual(@Body() dto: ManualAttendanceDto, @Request() req: any) {
     return this.attendanceService.createManual(dto, req.user);
   }
@@ -89,7 +98,7 @@ export class AttendanceController {
   async update(
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: UpdateAttendanceDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.attendanceService.update(id, dto, req.user);
   }
