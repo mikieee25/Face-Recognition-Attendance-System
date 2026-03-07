@@ -32,7 +32,7 @@ export class FaceService {
       "http://localhost:5001";
     this.client = axios.create({
       baseURL: this.baseUrl,
-      timeout: 30_000,
+      timeout: 120_000,
     });
   }
 
