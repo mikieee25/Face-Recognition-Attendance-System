@@ -10,7 +10,7 @@ import {
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
-export type UserRole = "admin" | "station_user";
+export type UserRole = "admin" | "station_user" | "kiosk";
 
 export class CreateUserDto {
   @ApiProperty({ example: "jdoe", description: "Unique username" })
@@ -46,8 +46,8 @@ export class CreateUserDto {
     enum: ["admin", "station_user"],
   })
   @IsOptional()
-  @IsEnum(["admin", "station_user"], {
-    message: "Role must be admin or station_user",
+  @IsEnum(["admin", "station_user", "kiosk"], {
+    message: "Role must be admin, station_user, or kiosk",
   })
   role?: UserRole;
 

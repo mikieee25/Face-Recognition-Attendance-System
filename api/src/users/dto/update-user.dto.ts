@@ -32,10 +32,10 @@ export class UpdateUserDto {
   @Matches(/(?=.*\d)/, { message: "Password must contain at least one number" })
   password?: string;
 
-  @ApiPropertyOptional({ enum: ["admin", "station_user"] })
+  @ApiPropertyOptional({ enum: ["admin", "station_user", "kiosk"] })
   @IsOptional()
-  @IsEnum(["admin", "station_user"], {
-    message: "Role must be admin or station_user",
+  @IsEnum(["admin", "station_user", "kiosk"], {
+    message: "Role must be admin, station_user, or kiosk",
   })
   role?: UserRole;
 
