@@ -49,7 +49,7 @@ export class AttendanceService {
     private readonly pendingRepo: Repository<PendingApproval>,
     @InjectRepository(Personnel)
     private readonly personnelRepo: Repository<Personnel>,
-    private readonly faceService: FaceService,
+    private readonly faceService: FaceService
   ) {}
 
   /**
@@ -57,16 +57,16 @@ export class AttendanceService {
    */
   private validateImage(image: string): void {
     const hasValidMime = ALLOWED_MIME_PREFIXES.some((prefix) =>
-      image.startsWith(prefix),
+      image.startsWith(prefix)
     );
     if (!hasValidMime) {
       throw new BadRequestException(
-        "Invalid image format. Only JPEG and PNG are supported.",
+        "Invalid image format. Only JPEG and PNG are supported."
       );
     }
     if (image.length > MAX_IMAGE_BASE64_LENGTH) {
       throw new BadRequestException(
-        "Image exceeds the maximum allowed size of 10 MB.",
+        "Image exceeds the maximum allowed size of 10 MB."
       );
     }
   }
@@ -76,7 +76,7 @@ export class AttendanceService {
    * If no prior record → time_in. Otherwise alternates. (Requirement 5.10)
    */
   private async determineAttendanceType(
-    personnelId: number,
+    personnelId: number
   ): Promise<AttendanceType> {
     const lastRecord = await this.attendanceRepo.findOne({
       where: { personnelId, status: AttendanceStatus.Confirmed },
@@ -99,7 +99,7 @@ export class AttendanceService {
    */
   async capture(
     dto: CaptureAttendanceDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<AttendanceRecord | PendingApproval> {
     // Validate image format and size (Requirements 15.11, 15.12)
     this.validateImage(dto.image);
@@ -131,7 +131,7 @@ export class AttendanceService {
         const expectedLabel =
           expectedType === AttendanceType.TimeIn ? "Time In" : "Time Out";
         throw new BadRequestException(
-          `Cannot record ${label}. You need to ${expectedLabel} first.`,
+          `Cannot record ${label}. You need to ${expectedLabel} first.`
         );
       }
 
@@ -161,21 +161,21 @@ export class AttendanceService {
       // Low confidence → HTTP 422 (Requirement 5.7)
       throw new UnprocessableEntityException(
         `Low confidence recognition (${(confidence * 100).toFixed(
-          1,
-        )}%). Please try again with better lighting or positioning.`,
+          1
+        )}%). Please try again with better lighting or positioning.`
       );
     }
   }
 
   /**
    * POST /api/v1/attendance/manual
-   * Validate date not in future, record is_manual=true and created_by.
+   * Validate date not in future, route to pending_approval for admin review.
    * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9
    */
   async createManual(
     dto: ManualAttendanceDto,
-    currentUser: AuthenticatedUser,
-  ): Promise<AttendanceRecord> {
+    currentUser: AuthenticatedUser
+  ): Promise<PendingApproval> {
     // Validate date is not in the future (Requirement 6.3)
     const entryDate = new Date(dto.date);
     if (isNaN(entryDate.getTime())) {
@@ -199,23 +199,25 @@ export class AttendanceService {
       personnel.stationId !== currentUser.stationId
     ) {
       throw new ForbiddenException(
-        "You can only create manual entries for your station's personnel.",
+        "You can only create manual entries for your station's personnel."
       );
     }
 
-    // Create record with is_manual=true and created_by (Requirements 6.6, 6.7)
-    const record = this.attendanceRepo.create({
+    // Map AttendanceType enum values to pending_approval attendanceType enum
+    const attendanceType =
+      dto.type === AttendanceType.TimeIn ? "TIME_IN" : "TIME_OUT";
+
+    // Route to pending_approval for admin review (Requirements 6.6, 6.7)
+    const pending = this.pendingRepo.create({
       personnelId: dto.personnelId,
-      type: dto.type,
-      status: AttendanceStatus.Confirmed,
+      attendanceType: attendanceType as "TIME_IN" | "TIME_OUT",
       confidence: null,
-      imagePath: null,
-      isManual: true,
-      createdBy: currentUser.id,
+      imagePath: "",
+      reviewStatus: "pending" as any,
       createdAt: entryDate,
     });
 
-    return this.attendanceRepo.save(record);
+    return this.pendingRepo.save(pending);
   }
 
   /**
@@ -225,7 +227,7 @@ export class AttendanceService {
    */
   async findAll(
     query: QueryAttendanceDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<PaginatedResult<AttendanceRecord>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -280,7 +282,7 @@ export class AttendanceService {
   async update(
     id: number,
     dto: UpdateAttendanceDto,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<AttendanceRecord> {
     const record = await this.attendanceRepo.findOne({
       where: { id },
@@ -297,7 +299,7 @@ export class AttendanceService {
       record.personnel?.stationId !== currentUser.stationId
     ) {
       throw new ForbiddenException(
-        "You can only edit your station's attendance records.",
+        "You can only edit your station's attendance records."
       );
     }
 
@@ -329,7 +331,7 @@ export class AttendanceService {
    */
   async findOne(
     id: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<AttendanceRecord> {
     const record = await this.attendanceRepo.findOne({
       where: { id },

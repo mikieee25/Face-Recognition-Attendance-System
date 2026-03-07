@@ -32,9 +32,7 @@ export default function KioskPage() {
   const [clock, setClock] = useState({ time: "--:--:--", date: "Loading…" });
   const [cameraOpen, setCameraOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [captureType, setCaptureType] = useState<"time_in" | "time_out">(
-    "time_in",
-  );
+  const [captureType, setCaptureType] = useState<"time_in" | "time_out">("time_in");
   const [result, setResult] = useState<CaptureResultData | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -62,24 +60,22 @@ export default function KioskPage() {
     return () => clearInterval(id);
   }, []);
 
-  const handleAction = useCallback(
-    (type: "time_in" | "time_out" | "manual") => {
-      if (type === "manual") {
-        setManualOpen(true);
-      } else {
-        setCaptureType(type);
-        setCameraOpen(true);
-      }
-    },
-    [],
-  );
+  const handleAction = useCallback((type: "time_in" | "time_out" | "manual") => {
+    if (type === "manual") {
+      setManualOpen(true);
+    } else {
+      setCaptureType(type);
+      setCameraOpen(true);
+    }
+  }, []);
 
   const handleCaptureResult = useCallback((data: CaptureResultData) => {
     setResult(data);
     if (data.success) setRefreshKey((k) => k + 1);
   }, []);
 
-  const handleManualSuccess = useCallback(() => {
+  const handleManualSuccess = useCallback((data: CaptureResultData) => {
+    setResult(data);
     setRefreshKey((k) => k + 1);
   }, []);
 
@@ -96,11 +92,7 @@ export default function KioskPage() {
         }}
       >
         {/* Row 1: Logo + Title | Clock | Logout */}
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
           {/* Logo + Title */}
           <Stack direction="row" alignItems="center" spacing={1}>
             <Image
@@ -114,18 +106,10 @@ export default function KioskPage() {
               }}
             />
             <Box>
-              <Typography
-                variant="body1"
-                fontWeight={800}
-                color="#fff"
-                lineHeight={1.1}
-              >
+              <Typography variant="body1" fontWeight={800} color="#fff" lineHeight={1.1}>
                 BFP Sorsogon
               </Typography>
-              <Typography
-                variant="caption"
-                sx={{ color: "rgba(255,255,255,0.75)", lineHeight: 1 }}
-              >
+              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)", lineHeight: 1 }}>
                 Attendance Kiosk
               </Typography>
             </Box>
@@ -145,26 +129,14 @@ export default function KioskPage() {
           </Typography>
 
           {/* Logout */}
-          <IconButton
-            onClick={logout}
-            sx={{ color: "#fff", p: { xs: 0.5, sm: 1 } }}
-            aria-label="Logout"
-          >
+          <IconButton onClick={logout} sx={{ color: "#fff", p: { xs: 0.5, sm: 1 } }} aria-label="Logout">
             <LogoutIcon />
           </IconButton>
         </Stack>
 
         {/* Row 2: Date + Username */}
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ mt: 0.25 }}
-        >
-          <Typography
-            variant="caption"
-            sx={{ color: "rgba(255,255,255,0.75)" }}
-          >
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.25 }}>
+          <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.75)" }}>
             {clock.date}
           </Typography>
           {user && (
@@ -198,9 +170,7 @@ export default function KioskPage() {
         <KioskActionButtons onAction={handleAction} disabled={cameraOpen} />
 
         {/* Result Card (if any) */}
-        {result && (
-          <KioskResultCard result={result} onDismiss={() => setResult(null)} />
-        )}
+        {result && <KioskResultCard result={result} onDismiss={() => setResult(null)} />}
 
         {/* Bottom: Recent Attendance */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -209,19 +179,10 @@ export default function KioskPage() {
       </Box>
 
       {/* Camera Modal */}
-      <KioskCameraModal
-        open={cameraOpen}
-        type={captureType}
-        onClose={() => setCameraOpen(false)}
-        onResult={handleCaptureResult}
-      />
+      <KioskCameraModal open={cameraOpen} type={captureType} onClose={() => setCameraOpen(false)} onResult={handleCaptureResult} />
 
       {/* Manual Entry Modal */}
-      <KioskManualModal
-        open={manualOpen}
-        onClose={() => setManualOpen(false)}
-        onSuccess={handleManualSuccess}
-      />
+      <KioskManualModal open={manualOpen} onClose={() => setManualOpen(false)} onSuccess={handleManualSuccess} />
     </Box>
   );
 }

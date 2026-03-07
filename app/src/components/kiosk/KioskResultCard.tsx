@@ -8,6 +8,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
+import HourglassTopIcon from "@mui/icons-material/HourglassTop";
 import CloseIcon from "@mui/icons-material/Close";
 import type { CaptureResultData } from "@/app/kiosk/page";
 
@@ -18,14 +19,21 @@ interface Props {
 
 export default function KioskResultCard({ result, onDismiss }: Props) {
   const isSuccess = result.success;
+  const isPending = isSuccess && result.status === "pending";
+
+  const bgColor = isPending ? "rgba(255,167,38,0.12)" : isSuccess ? "rgba(25,135,84,0.12)" : "rgba(220,53,69,0.12)";
+
+  const borderColor = isPending ? "rgba(255,167,38,0.45)" : isSuccess ? "rgba(25,135,84,0.4)" : "rgba(220,53,69,0.4)";
+
+  const accentColor = isPending ? "#f5a623" : isSuccess ? "#25a961" : "#dc3545";
 
   return (
     <Paper
       sx={{
         p: 2.5,
-        bgcolor: isSuccess ? "rgba(25,135,84,0.12)" : "rgba(220,53,69,0.12)",
+        bgcolor: bgColor,
         border: "1px solid",
-        borderColor: isSuccess ? "rgba(25,135,84,0.4)" : "rgba(220,53,69,0.4)",
+        borderColor,
         textAlign: "center",
         position: "relative",
       }}
@@ -39,25 +47,25 @@ export default function KioskResultCard({ result, onDismiss }: Props) {
         <CloseIcon fontSize="small" />
       </IconButton>
 
-      <Box
-        sx={{ fontSize: 56, color: isSuccess ? "#25a961" : "#dc3545", mb: 1 }}
-      >
-        {isSuccess ? (
+      <Box sx={{ fontSize: 56, color: accentColor, mb: 1 }}>
+        {isPending ? (
+          <HourglassTopIcon fontSize="inherit" />
+        ) : isSuccess ? (
           <CheckCircleIcon fontSize="inherit" />
         ) : (
           <ErrorIcon fontSize="inherit" />
         )}
       </Box>
 
-      <Typography
-        variant="h6"
-        fontWeight={800}
-        color={isSuccess ? "#25a961" : "#dc3545"}
-      >
-        {isSuccess
-          ? (result.action ?? "Attendance Recorded")
-          : "Recognition Failed"}
+      <Typography variant="h6" fontWeight={800} color={accentColor}>
+        {isPending ? "Submitted for Approval" : isSuccess ? (result.action ?? "Attendance Recorded") : "Recognition Failed"}
       </Typography>
+
+      {isPending && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          An admin will review and confirm your entry.
+        </Typography>
+      )}
 
       {isSuccess && (
         <Stack spacing={0.5} sx={{ mt: 1 }}>
@@ -71,20 +79,15 @@ export default function KioskResultCard({ result, onDismiss }: Props) {
               {result.station}
             </Typography>
           )}
-          <Stack
-            direction="row"
-            spacing={1}
-            justifyContent="center"
-            sx={{ mt: 1 }}
-          >
+          <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 1 }}>
             {result.time && (
               <Chip
                 label={`${result.type === "time_out" ? "Time Out" : "Time In"}: ${result.time}`}
-                color="success"
+                color={isPending ? "warning" : "success"}
                 size="small"
               />
             )}
-            {result.status && <Chip label={result.status} size="small" />}
+            {isPending && <Chip label="Pending" color="warning" size="small" />}
           </Stack>
         </Stack>
       )}

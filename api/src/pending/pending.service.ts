@@ -27,7 +27,7 @@ export class PendingService {
     @InjectRepository(PendingApproval)
     private readonly pendingRepo: Repository<PendingApproval>,
     @InjectRepository(AttendanceRecord)
-    private readonly attendanceRepo: Repository<AttendanceRecord>,
+    private readonly attendanceRepo: Repository<AttendanceRecord>
   ) {}
 
   /**
@@ -62,7 +62,7 @@ export class PendingService {
    */
   async approve(
     id: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<AttendanceRecord> {
     const pending = await this.pendingRepo.findOne({
       where: { id },
@@ -75,12 +75,23 @@ export class PendingService {
 
     if (pending.reviewStatus !== PendingReviewStatus.Pending) {
       throw new BadRequestException(
-        `Record #${id} has already been reviewed (status: ${pending.reviewStatus})`,
+        `Record #${id} has already been reviewed (status: ${pending.reviewStatus})`
       );
     }
 
-    // Determine attendance type based on last confirmed record (alternation logic)
-    const type = await this.determineAttendanceType(pending.personnelId);
+    // Use the attendanceType stored on the pending record if present (manual entries),
+    // otherwise fall back to alternation logic (face-recognition entries).
+    let type: AttendanceType;
+    if (pending.attendanceType) {
+      type =
+        pending.attendanceType === "TIME_IN"
+          ? AttendanceType.TimeIn
+          : AttendanceType.TimeOut;
+    } else {
+      type = await this.determineAttendanceType(pending.personnelId);
+    }
+
+    const isManual = pending.confidence === null;
 
     // Create confirmed AttendanceRecord
     const record = this.attendanceRepo.create({
@@ -89,7 +100,7 @@ export class PendingService {
       status: AttendanceStatus.Confirmed,
       confidence: pending.confidence,
       imagePath: pending.imagePath,
-      isManual: false,
+      isManual,
       createdBy: currentUser.id,
       createdAt: pending.createdAt,
     });
@@ -111,7 +122,7 @@ export class PendingService {
    */
   async reject(
     id: number,
-    currentUser: AuthenticatedUser,
+    currentUser: AuthenticatedUser
   ): Promise<PendingApproval> {
     const pending = await this.pendingRepo.findOne({ where: { id } });
 
@@ -121,7 +132,7 @@ export class PendingService {
 
     if (pending.reviewStatus !== PendingReviewStatus.Pending) {
       throw new BadRequestException(
-        `Record #${id} has already been reviewed (status: ${pending.reviewStatus})`,
+        `Record #${id} has already been reviewed (status: ${pending.reviewStatus})`
       );
     }
 
@@ -137,7 +148,7 @@ export class PendingService {
    * If no prior record → time_in. Otherwise alternates.
    */
   private async determineAttendanceType(
-    personnelId: number,
+    personnelId: number
   ): Promise<AttendanceType> {
     const lastRecord = await this.attendanceRepo.findOne({
       where: { personnelId, status: AttendanceStatus.Confirmed },

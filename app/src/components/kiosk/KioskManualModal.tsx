@@ -18,11 +18,12 @@ import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope } from "@/types/api";
 import type { Personnel } from "@/types/models";
+import type { CaptureResultData } from "@/app/kiosk/page";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (result: CaptureResultData) => void;
 }
 
 export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
@@ -35,8 +36,7 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
   const { data: personnelList = [] } = useQuery({
     queryKey: ["personnel", "kiosk"],
     queryFn: async () => {
-      const res =
-        await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+      const res = await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
       return res.data.data ?? [];
     },
     enabled: open,
@@ -60,17 +60,30 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
     setSubmitting(true);
     setError(null);
     try {
+      const selected = personnelList.find((p) => String(p.id) === personnelId);
+      const personnelName = selected ? `${selected.rank} ${selected.firstName} ${selected.lastName}`.trim() : undefined;
+
       await apiClient.post("/api/v1/attendance/manual", {
         personnelId: Number(personnelId),
         type,
         date: new Date(date).toISOString(),
       });
-      onSuccess();
+
+      onSuccess({
+        success: true,
+        action: "Pending Approval",
+        personnelName,
+        type: type as "time_in" | "time_out",
+        time: new Date(date).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        status: "pending",
+      });
       onClose();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Submission failed.";
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Submission failed.";
       setError(typeof msg === "string" ? msg : "Submission failed.");
     } finally {
       setSubmitting(false);
@@ -108,11 +121,7 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
 
           <FormControl fullWidth required>
             <InputLabel>Personnel</InputLabel>
-            <Select
-              value={personnelId}
-              label="Personnel"
-              onChange={(e) => setPersonnelId(e.target.value)}
-            >
+            <Select value={personnelId} label="Personnel" onChange={(e) => setPersonnelId(e.target.value)}>
               {personnelList.map((p) => (
                 <MenuItem key={p.id} value={String(p.id)}>
                   {p.rank} {p.firstName} {p.lastName}
@@ -123,11 +132,7 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
 
           <FormControl fullWidth required>
             <InputLabel>Type</InputLabel>
-            <Select
-              value={type}
-              label="Type"
-              onChange={(e) => setType(e.target.value)}
-            >
+            <Select value={type} label="Type" onChange={(e) => setType(e.target.value)}>
               <MenuItem value="time_in">Time In</MenuItem>
               <MenuItem value="time_out">Time Out</MenuItem>
             </Select>
@@ -145,11 +150,7 @@ export default function KioskManualModal({ open, onClose, onSuccess }: Props) {
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button
-          onClick={onClose}
-          disabled={submitting}
-          sx={{ color: "#7a9cc0" }}
-        >
+        <Button onClick={onClose} disabled={submitting} sx={{ color: "#7a9cc0" }}>
           Cancel
         </Button>
         <Button
