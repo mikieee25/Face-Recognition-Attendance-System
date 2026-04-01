@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const KIOSK_ALLOWED_PATHS = ["/kiosk"];
+const PUBLIC_PATHS = ["/evaluation"];
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -24,6 +25,12 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get("access_token")?.value;
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname === "/login";
+  const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+
+  // Public paths — no auth required
+  if (isPublicPath) {
+    return NextResponse.next();
+  }
 
   // No token and not on login page → redirect to /login
   if (!token && !isLoginPage) {
