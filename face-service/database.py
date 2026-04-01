@@ -82,15 +82,25 @@ async def get_embeddings_by_station(station_id: int) -> list[tuple[int, np.ndarr
     async with pool.acquire() as conn:
         async with conn.cursor() as cur:
             # 512-dim embeddings from face_embeddings
-            await cur.execute(
-                """
-                SELECT fe.personnel_id, fe.embedding
-                FROM face_embeddings fe
-                JOIN personnel p ON p.id = fe.personnel_id
-                WHERE p.station_id = %s
-                """,
-                (station_id,),
-            )
+            # If station_id is 0, fetch embeddings for all personnel (e.g. Evaluator/Global mode)
+            if station_id == 0:
+                await cur.execute(
+                    """
+                    SELECT fe.personnel_id, fe.embedding
+                    FROM face_embeddings fe
+                    JOIN personnel p ON p.id = fe.personnel_id
+                    """
+                )
+            else:
+                await cur.execute(
+                    """
+                    SELECT fe.personnel_id, fe.embedding
+                    FROM face_embeddings fe
+                    JOIN personnel p ON p.id = fe.personnel_id
+                    WHERE p.station_id = %s
+                    """,
+                    (station_id,),
+                )
             rows = await cur.fetchall()
             for personnel_id, embedding_json in rows:
                 try:

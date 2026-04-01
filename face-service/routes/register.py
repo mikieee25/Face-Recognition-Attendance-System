@@ -73,6 +73,7 @@ async def register(body: RegisterRequest):
                 row = await cur.fetchone()
                 if row:
                     embedding_cache.invalidate(row[0])
+                    embedding_cache.invalidate(0)  # Invalidate global cache too
     except Exception as exc:
         logger.warning("Failed to invalidate cache after registration: %s", exc)
 
