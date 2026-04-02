@@ -27,7 +27,6 @@ import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
-import { useEffect } from "react";
 import Typography from "@mui/material/Typography";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -109,14 +108,16 @@ interface EditDialogProps {
 function EditDialog({ record, open, onClose, onSave, saving }: EditDialogProps) {
   const [type, setType] = useState<"time_in" | "time_out">(record?.type ?? "time_in");
   const [status, setStatus] = useState<"confirmed" | "pending" | "rejected">(record?.status ?? "confirmed");
+  const [prevRecord, setPrevRecord] = useState<typeof record>(record);
 
   // Sync local state when record changes
-  useEffect(() => {
+  if (record !== prevRecord) {
+    setPrevRecord(record);
     if (record) {
       setType(record.type);
       setStatus(record.status);
     }
-  }, [record]);
+  }
 
   const handleSave = () => {
     if (!record) return;
