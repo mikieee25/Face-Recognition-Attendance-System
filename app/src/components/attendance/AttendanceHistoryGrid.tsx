@@ -27,6 +27,7 @@ import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
+import { useEffect } from "react";
 import Typography from "@mui/material/Typography";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -64,9 +65,7 @@ function formatTime(iso: string): string {
   });
 }
 
-function statusColor(
-  status: string,
-): "success" | "warning" | "error" | "default" {
+function statusColor(status: string): "success" | "warning" | "error" | "default" {
   if (status === "confirmed") return "success";
   if (status === "pending") return "warning";
   if (status === "rejected") return "error";
@@ -81,26 +80,19 @@ function typeLabel(type: string): string {
 
 // ─── API fetchers ─────────────────────────────────────────────────────────────
 
-async function fetchAttendance(
-  page: number,
-  limit: number,
-  filters: AttendanceFilters,
-): Promise<PaginatedResponse<AttendanceRecord>> {
+async function fetchAttendance(page: number, limit: number, filters: AttendanceFilters): Promise<PaginatedResponse<AttendanceRecord>> {
   const params: Record<string, string | number> = { page: page + 1, limit };
   if (filters.dateFrom) params.dateFrom = filters.dateFrom;
   if (filters.dateTo) params.dateTo = filters.dateTo;
   if (filters.personnelId) params.personnelId = filters.personnelId;
   if (filters.type) params.type = filters.type;
 
-  const res = await apiClient.get<
-    ApiEnvelope<PaginatedResponse<AttendanceRecord>>
-  >("/api/v1/attendance", { params });
+  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<AttendanceRecord>>>("/api/v1/attendance", { params });
   return res.data.data!;
 }
 
 async function fetchPersonnel(): Promise<Personnel[]> {
-  const res =
-    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  const res = await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
   return res.data.data ?? [];
 }
 
@@ -114,27 +106,17 @@ interface EditDialogProps {
   saving: boolean;
 }
 
-function EditDialog({
-  record,
-  open,
-  onClose,
-  onSave,
-  saving,
-}: EditDialogProps) {
-  const [type, setType] = useState<"time_in" | "time_out">(
-    record?.type ?? "time_in",
-  );
-  const [status, setStatus] = useState<"confirmed" | "pending" | "rejected">(
-    record?.status ?? "confirmed",
-  );
+function EditDialog({ record, open, onClose, onSave, saving }: EditDialogProps) {
+  const [type, setType] = useState<"time_in" | "time_out">(record?.type ?? "time_in");
+  const [status, setStatus] = useState<"confirmed" | "pending" | "rejected">(record?.status ?? "confirmed");
 
   // Sync local state when record changes
-  if (record && record.type !== type && !saving) {
-    setType(record.type);
-  }
-  if (record && record.status !== status && !saving) {
-    setStatus(record.status);
-  }
+  useEffect(() => {
+    if (record) {
+      setType(record.type);
+      setStatus(record.status);
+    }
+  }, [record]);
 
   const handleSave = () => {
     if (!record) return;
@@ -148,14 +130,7 @@ function EditDialog({
         <Stack spacing={2} sx={{ pt: 1 }}>
           <FormControl fullWidth>
             <InputLabel id="edit-type-label">Type</InputLabel>
-            <Select
-              labelId="edit-type-label"
-              value={type}
-              label="Type"
-              onChange={(e) =>
-                setType(e.target.value as "time_in" | "time_out")
-              }
-            >
+            <Select labelId="edit-type-label" value={type} label="Type" onChange={(e) => setType(e.target.value as "time_in" | "time_out")}>
               <MenuItem value="time_in">Time In</MenuItem>
               <MenuItem value="time_out">Time Out</MenuItem>
             </Select>
@@ -166,11 +141,7 @@ function EditDialog({
               labelId="edit-status-label"
               value={status}
               label="Status"
-              onChange={(e) =>
-                setStatus(
-                  e.target.value as "confirmed" | "pending" | "rejected",
-                )
-              }
+              onChange={(e) => setStatus(e.target.value as "confirmed" | "pending" | "rejected")}
             >
               <MenuItem value="confirmed">Confirmed</MenuItem>
               <MenuItem value="pending">Pending</MenuItem>
@@ -200,31 +171,18 @@ interface DeleteDialogProps {
   deleting: boolean;
 }
 
-function DeleteDialog({
-  open,
-  onClose,
-  onConfirm,
-  deleting,
-}: DeleteDialogProps) {
+function DeleteDialog({ open, onClose, onConfirm, deleting }: DeleteDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Delete Attendance Record</DialogTitle>
       <DialogContent>
-        <Typography variant="body1">
-          Are you sure you want to delete this attendance record? This action
-          cannot be undone.
-        </Typography>
+        <Typography variant="body1">Are you sure you want to delete this attendance record? This action cannot be undone.</Typography>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={deleting}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          color="error"
-          onClick={onConfirm}
-          disabled={deleting}
-        >
+        <Button variant="contained" color="error" onClick={onConfirm} disabled={deleting}>
           {deleting ? <CircularProgress size={18} color="inherit" /> : "Delete"}
         </Button>
       </DialogActions>
@@ -279,24 +237,13 @@ export default function AttendanceHistoryGrid() {
   const total = attendanceData?.total ?? 0;
 
   // Build personnel lookup map for displaying names
-  const personnelMap = new Map(
-    personnelList.map((p) => [p.id, `${p.rank} ${p.firstName} ${p.lastName}`]),
-  );
+  const personnelMap = new Map(personnelList.map((p) => [p.id, `${p.rank} ${p.firstName} ${p.lastName}`]));
 
   // ── Mutations ───────────────────────────────────────────────────────────────
 
   const editMutation = useMutation({
-    mutationFn: async ({
-      id,
-      payload,
-    }: {
-      id: number;
-      payload: EditPayload;
-    }) => {
-      const res = await apiClient.patch<ApiEnvelope<AttendanceRecord>>(
-        `/api/v1/attendance/${id}`,
-        payload,
-      );
+    mutationFn: async ({ id, payload }: { id: number; payload: EditPayload }) => {
+      const res = await apiClient.patch<ApiEnvelope<AttendanceRecord>>(`/api/v1/attendance/${id}`, payload);
       return res.data;
     },
     onSuccess: () => {
@@ -324,15 +271,13 @@ export default function AttendanceHistoryGrid() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleFilterChange =
-    (field: keyof AttendanceFilters) =>
-    (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
-      setFilters((prev) => ({
-        ...prev,
-        [field]: e.target.value as string,
-      }));
-      setPage(0);
-    };
+  const handleFilterChange = (field: keyof AttendanceFilters) => (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: e.target.value as string,
+    }));
+    setPage(0);
+  };
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -381,12 +326,7 @@ export default function AttendanceHistoryGrid() {
 
       {/* Filters */}
       <Paper sx={{ p: 2 }}>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          flexWrap="wrap"
-          useFlexGap
-        >
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} flexWrap="wrap" useFlexGap>
           <TextField
             label="From"
             type="date"
@@ -460,8 +400,7 @@ export default function AttendanceHistoryGrid() {
         {isError && (
           <Box sx={{ p: 2 }}>
             <Alert severity="error">
-              {(error as { message?: string })?.message ??
-                "Failed to load attendance records. Please try again."}
+              {(error as { message?: string })?.message ?? "Failed to load attendance records. Please try again."}
             </Alert>
           </Box>
         )}
@@ -469,10 +408,7 @@ export default function AttendanceHistoryGrid() {
         {!isLoading && !isError && (
           <>
             <TableContainer sx={{ overflowX: "auto" }}>
-              <Table
-                aria-label="Attendance history table"
-                sx={{ minWidth: 500 }}
-              >
+              <Table aria-label="Attendance history table" sx={{ minWidth: 500 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Personnel</TableCell>
@@ -480,23 +416,14 @@ export default function AttendanceHistoryGrid() {
                     <TableCell>Time</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Status</TableCell>
-                    {(canEdit || canDelete) && (
-                      <TableCell align="center">Actions</TableCell>
-                    )}
+                    {(canEdit || canDelete) && <TableCell align="center">Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
-                      <TableCell
-                        colSpan={canEdit || canDelete ? 6 : 5}
-                        align="center"
-                      >
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ py: 2 }}
-                        >
+                      <TableCell colSpan={canEdit || canDelete ? 6 : 5} align="center">
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                           No attendance records found.
                         </Typography>
                       </TableCell>
@@ -504,9 +431,7 @@ export default function AttendanceHistoryGrid() {
                   ) : (
                     rows.map((record) => (
                       <TableRow key={record.id} hover>
-                        <TableCell>
-                          {personnelMap.get(record.personnelId) ?? "—"}
-                        </TableCell>
+                        <TableCell>{personnelMap.get(record.personnelId) ?? "—"}</TableCell>
                         <TableCell>{formatDate(record.createdAt)}</TableCell>
                         <TableCell>{formatTime(record.createdAt)}</TableCell>
                         <TableCell>{typeLabel(record.type)}</TableCell>
@@ -520,18 +445,10 @@ export default function AttendanceHistoryGrid() {
                         </TableCell>
                         {(canEdit || canDelete) && (
                           <TableCell align="center">
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              justifyContent="center"
-                            >
+                            <Stack direction="row" spacing={1} justifyContent="center">
                               {canEdit && (
                                 <Tooltip title="Edit">
-                                  <IconButton
-                                    size="small"
-                                    aria-label={`Edit record ${record.id}`}
-                                    onClick={() => handleEditOpen(record)}
-                                  >
+                                  <IconButton size="small" aria-label={`Edit record ${record.id}`} onClick={() => handleEditOpen(record)}>
                                     <EditIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
@@ -572,21 +489,10 @@ export default function AttendanceHistoryGrid() {
       </Paper>
 
       {/* Edit Dialog */}
-      <EditDialog
-        record={editRecord}
-        open={editOpen}
-        onClose={handleEditClose}
-        onSave={handleEditSave}
-        saving={editMutation.isPending}
-      />
+      <EditDialog record={editRecord} open={editOpen} onClose={handleEditClose} onSave={handleEditSave} saving={editMutation.isPending} />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteDialog
-        open={deleteOpen}
-        onClose={handleDeleteClose}
-        onConfirm={handleDeleteConfirm}
-        deleting={deleteMutation.isPending}
-      />
+      <DeleteDialog open={deleteOpen} onClose={handleDeleteClose} onConfirm={handleDeleteConfirm} deleting={deleteMutation.isPending} />
     </Box>
   );
 }
