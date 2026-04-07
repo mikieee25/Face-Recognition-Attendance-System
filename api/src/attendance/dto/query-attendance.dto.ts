@@ -4,9 +4,10 @@ import {
   IsEnum,
   IsDateString,
   Min,
+  IsBoolean,
 } from "class-validator";
-import { Type } from "class-transformer";
-import { ApiProperty } from "@nestjs/swagger";
+import { Type, Transform } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AttendanceType } from "../../database/entities/attendance.entity";
 
 export class QueryAttendanceDto {
@@ -50,4 +51,10 @@ export class QueryAttendanceDto {
   @IsOptional()
   @IsEnum(AttendanceType)
   type?: AttendanceType;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === "true" || value === true)
+  summaryMode?: boolean;
 }

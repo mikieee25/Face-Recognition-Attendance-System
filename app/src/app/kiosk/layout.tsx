@@ -3,6 +3,7 @@
 import Box from "@mui/material/Box";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -28,20 +29,23 @@ const kioskTheme = createTheme({
   },
 });
 
-export default function KioskLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function KioskLayout({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={kioskTheme}>
         <CssBaseline />
-        <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-          {children}
-        </Box>
+        <GlobalStyles
+          styles={{
+            "html, body": {
+              backgroundColor: "#0d1b2a !important",
+              height: "100%",
+              overscrollBehavior: "none",
+            },
+          }}
+        />
+        <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>{children}</Box>
       </ThemeProvider>
     </QueryClientProvider>
   );

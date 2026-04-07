@@ -9,6 +9,20 @@ import { Station } from "../../stations/station.entity";
 
 @Entity("personnel")
 export class Personnel {
+  @Column({ type: "varchar", length: 255, nullable: true })
+  address: string | null;
+
+  @Column({
+    type: "varchar",
+    length: 50,
+    nullable: true,
+    name: "contact_number",
+  })
+  contactNumber: string | null;
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  gender: string | null;
+
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -36,19 +50,4 @@ export class Personnel {
 
   @Column({ type: "tinyint", default: 1, name: "is_active" })
   isActive: boolean;
-
-  @Column({ type: "time", nullable: true, name: "shift_start_time" })
-  shiftStartTime: string | null;
-
-  @Column({ type: "time", nullable: true, name: "shift_end_time" })
-  shiftEndTime: string | null;
-
-  @Column({ type: "tinyint", default: 0, name: "is_shifting" })
-  isShifting: boolean;
-
-  @Column({ type: "date", nullable: true, name: "shift_start_date" })
-  shiftStartDate: string | null;
-
-  @Column({ type: "int", default: 15, name: "shift_duration_days" })
-  shiftDurationDays: number;
 }

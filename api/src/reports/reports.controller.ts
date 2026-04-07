@@ -13,6 +13,7 @@ import { RolesGuard } from "../common/guards/roles.guard";
 import { Roles } from "../common/decorators/roles.decorator";
 import { ReportsService } from "./reports.service";
 import { QueryReportsDto } from "./dto/query-reports.dto";
+import { QueryCalendarDto } from "./dto/query-calendar.dto";
 
 @ApiTags("Reports")
 @ApiBearerAuth()
@@ -42,7 +43,7 @@ export class ReportsController {
   @ApiOperation({ summary: "Get monthly attendance summary per personnel" })
   async getMonthlySummary(
     @Query() query: QueryReportsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.reportsService.getMonthlySummary(query, req.user);
   }
@@ -57,8 +58,18 @@ export class ReportsController {
   async exportReports(
     @Query() query: QueryReportsDto,
     @Request() req: any,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     await this.reportsService.exportReports(query, req.user, res);
+  }
+
+  /**
+   * GET /api/v1/reports/calendar
+   * Monthly calendar attendance view per personnel.
+   */
+  @Get("calendar")
+  @ApiOperation({ summary: "Get monthly calendar attendance per personnel" })
+  async getCalendar(@Query() query: QueryCalendarDto, @Request() req: any) {
+    return this.reportsService.getCalendar(query, req.user);
   }
 }

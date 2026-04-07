@@ -47,11 +47,6 @@ const makePersonnel = (overrides: Partial<Personnel> = {}): Personnel =>
     dateCreated: new Date(),
     isActive: true,
     imagePath: null,
-    shiftStartTime: null,
-    shiftEndTime: null,
-    isShifting: false,
-    shiftStartDate: null,
-    shiftDurationDays: 15,
     station: null as any,
     ...overrides,
   } as Personnel);
@@ -123,7 +118,7 @@ describe("PersonnelService", () => {
     it("throws NotFoundException when personnel does not exist", async () => {
       personnelRepo.findOne.mockResolvedValue(null);
       await expect(service.findOne(99, adminUser)).rejects.toThrow(
-        NotFoundException,
+        NotFoundException
       );
     });
 
@@ -138,7 +133,7 @@ describe("PersonnelService", () => {
       const p = makePersonnel({ stationId: 99 }); // different station
       personnelRepo.findOne.mockResolvedValue(p);
       await expect(service.findOne(10, stationUser)).rejects.toThrow(
-        ForbiddenException,
+        ForbiddenException
       );
     });
 
@@ -168,7 +163,7 @@ describe("PersonnelService", () => {
       const result = await service.create(dto, adminUser);
 
       expect(personnelRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stationId: 5 }),
+        expect.objectContaining({ stationId: 5 })
       );
       expect(result).toBe(created);
     });
@@ -181,7 +176,7 @@ describe("PersonnelService", () => {
       await service.create(dto, stationUser);
 
       expect(personnelRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ stationId: stationUser.stationId }),
+        expect.objectContaining({ stationId: stationUser.stationId })
       );
     });
 
@@ -197,7 +192,7 @@ describe("PersonnelService", () => {
           firstName: "Maria",
           lastName: "Santos",
           rank: "FO2",
-        }),
+        })
       );
     });
   });
@@ -221,7 +216,7 @@ describe("PersonnelService", () => {
       personnelRepo.findOne.mockResolvedValue(p);
 
       await expect(
-        service.update(10, { stationId: 99 }, stationUser),
+        service.update(10, { stationId: 99 }, stationUser)
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -254,7 +249,7 @@ describe("PersonnelService", () => {
       faceEmbeddingRepo.count.mockResolvedValue(3);
 
       await expect(service.remove(10, adminUser, false)).rejects.toThrow(
-        BadRequestException,
+        BadRequestException
       );
       expect(personnelRepo.remove).not.toHaveBeenCalled();
     });
@@ -266,7 +261,7 @@ describe("PersonnelService", () => {
       personnelRepo.remove.mockResolvedValue(undefined);
 
       await expect(
-        service.remove(10, adminUser, true),
+        service.remove(10, adminUser, true)
       ).resolves.toBeUndefined();
       expect(personnelRepo.remove).toHaveBeenCalledWith(p);
     });
@@ -276,7 +271,7 @@ describe("PersonnelService", () => {
       personnelRepo.findOne.mockResolvedValue(p);
 
       await expect(service.remove(10, stationUser)).rejects.toThrow(
-        ForbiddenException,
+        ForbiddenException
       );
     });
   });
@@ -291,7 +286,7 @@ describe("PersonnelService", () => {
     it("throws NotFoundException when personnel does not exist", async () => {
       personnelRepo.findOne.mockResolvedValue(null);
       await expect(
-        service.registerFace(99, validImages, adminUser),
+        service.registerFace(99, validImages, adminUser)
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -301,7 +296,7 @@ describe("PersonnelService", () => {
 
       const badImages = ["data:image/gif;base64,R0lGOD", validJpeg, validJpeg];
       await expect(
-        service.registerFace(10, badImages, adminUser),
+        service.registerFace(10, badImages, adminUser)
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -312,7 +307,7 @@ describe("PersonnelService", () => {
       // Build a base64 string longer than the 10 MB limit
       const oversized = `data:image/jpeg;base64,${"A".repeat(14_000_000)}`;
       await expect(
-        service.registerFace(10, [oversized, validJpeg, validJpeg], adminUser),
+        service.registerFace(10, [oversized, validJpeg, validJpeg], adminUser)
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -322,7 +317,7 @@ describe("PersonnelService", () => {
 
       const badImages = ["data:image/bmp;base64,abc", validJpeg, validJpeg];
       await expect(
-        service.registerFace(10, badImages, adminUser),
+        service.registerFace(10, badImages, adminUser)
       ).rejects.toThrow(BadRequestException);
 
       expect(faceService.registerFace).not.toHaveBeenCalled();
@@ -345,11 +340,11 @@ describe("PersonnelService", () => {
       const p = makePersonnel({ stationId: adminUser.id });
       personnelRepo.findOne.mockResolvedValue(p);
       faceService.registerFace.mockRejectedValue(
-        new ServiceUnavailableException("Face recognition service unavailable"),
+        new ServiceUnavailableException("Face recognition service unavailable")
       );
 
       await expect(
-        service.registerFace(10, validImages, adminUser),
+        service.registerFace(10, validImages, adminUser)
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -358,7 +353,7 @@ describe("PersonnelService", () => {
       personnelRepo.findOne.mockResolvedValue(p);
 
       await expect(
-        service.registerFace(10, validImages, stationUser),
+        service.registerFace(10, validImages, stationUser)
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -370,7 +365,7 @@ describe("PersonnelService", () => {
       faceService.registerFace.mockResolvedValue(undefined);
 
       await expect(
-        service.registerFace(10, pngImages, adminUser),
+        service.registerFace(10, pngImages, adminUser)
       ).resolves.toBeUndefined();
     });
   });

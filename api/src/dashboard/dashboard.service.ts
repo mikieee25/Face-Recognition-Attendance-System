@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In, Between } from "typeorm";
+import { Schedule, ScheduleType } from "../database/entities/schedule.entity";
 import {
   AttendanceRecord,
   AttendanceStatus,
@@ -53,18 +54,18 @@ export class DashboardService {
     private readonly attendanceRepo: Repository<AttendanceRecord>,
     @InjectRepository(Personnel)
     private readonly personnelRepo: Repository<Personnel>,
+    @InjectRepository(Schedule)
+    private readonly scheduleRepo: Repository<Schedule>
   ) {}
 
   /**
-   * Determine if a personnel is currently in their shifting period.
+   * Helper to format date as YYYY-MM-DD string.
    */
-  private isShifting(personnel: Personnel, date: Date): boolean {
-    if (!personnel.isShifting || !personnel.shiftStartDate) return false;
-    const shiftStart = new Date(personnel.shiftStartDate);
-    const durationDays = personnel.shiftDurationDays ?? 15;
-    const shiftEnd = new Date(shiftStart);
-    shiftEnd.setDate(shiftEnd.getDate() + durationDays);
-    return date >= shiftStart && date < shiftEnd;
+  private getLocalDayStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
   /**
@@ -96,7 +97,7 @@ export class DashboardService {
       today.getDate(),
       0,
       0,
-      0,
+      0
     );
     const endOfDay = new Date(
       today.getFullYear(),
@@ -105,7 +106,7 @@ export class DashboardService {
       23,
       59,
       59,
-      999,
+      999
     );
 
     const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
@@ -115,17 +116,40 @@ export class DashboardService {
 
     const personnelIds = allPersonnel.map((p) => p.id);
 
-    // Get today's confirmed time_in records
+    // Get today's confirmed records to determine latest status
     const todayRecords = await this.attendanceRepo
       .createQueryBuilder("ar")
       .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
-      .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
       .andWhere("ar.status = :status", { status: AttendanceStatus.Confirmed })
       .andWhere("ar.createdAt >= :startOfDay", { startOfDay })
       .andWhere("ar.createdAt <= :endOfDay", { endOfDay })
+      .orderBy("ar.createdAt", "DESC")
       .getMany();
 
-    const presentIds = new Set(todayRecords.map((r) => r.personnelId));
+    const latestRecordMap = new Map<number, (typeof todayRecords)[0]>();
+    for (const r of todayRecords) {
+      if (!latestRecordMap.has(r.personnelId)) {
+        latestRecordMap.set(r.personnelId, r);
+      }
+    }
+
+    const presentIds = new Set(
+      Array.from(latestRecordMap.values())
+        .filter((r) => r.type === AttendanceType.TimeIn)
+        .map((r) => r.personnelId)
+    );
+
+    const dateStr = this.getLocalDayStr(today);
+    const schedules = await this.scheduleRepo.find({
+      where: {
+        date: dateStr,
+        personnelId: In(personnelIds),
+      },
+    });
+    const scheduleMap = new Map<number, ScheduleType>();
+    for (const s of schedules) {
+      scheduleMap.set(s.personnelId, s.type);
+    }
 
     let present = 0;
     let absent = 0;
@@ -135,11 +159,15 @@ export class DashboardService {
     for (const p of allPersonnel) {
       if (presentIds.has(p.id)) {
         present++;
-      } else if (this.isShifting(p, today)) {
-        shifting++;
       } else {
-        // TODO: when on_leave status is tracked, count it here
-        absent++;
+        const type = scheduleMap.get(p.id);
+        if (type === ScheduleType.SHIFTING) {
+          shifting++;
+        } else if (type === ScheduleType.LEAVE) {
+          onLeave++;
+        } else {
+          absent++;
+        }
       }
     }
 
@@ -153,7 +181,7 @@ export class DashboardService {
   async getSummary(
     currentUser: AuthenticatedUser,
     dateFrom?: string,
-    dateTo?: string,
+    dateTo?: string
   ): Promise<DailySummary[]> {
     const now = new Date();
     const to = dateTo ? new Date(dateTo) : now;
@@ -172,25 +200,60 @@ export class DashboardService {
     const records = await this.attendanceRepo
       .createQueryBuilder("ar")
       .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
-      .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
       .andWhere("ar.status = :status", { status: AttendanceStatus.Confirmed })
       .andWhere("ar.createdAt >= :from", { from })
       .andWhere("ar.createdAt <= :to", { to })
+      .orderBy("ar.createdAt", "DESC")
       .getMany();
 
-    // Group records by date
-    const recordsByDate = new Map<string, Set<number>>();
+    // Group records by date to find the latest record per day per personnel
+    const latestRecordsByDateAndPersonnel = new Map<
+      string,
+      Map<number, (typeof records)[0]>
+    >();
     for (const r of records) {
-      const key = r.createdAt.toISOString().slice(0, 10);
-      if (!recordsByDate.has(key)) recordsByDate.set(key, new Set());
-      recordsByDate.get(key)!.add(r.personnelId);
+      // Create local date string safely to match summary logic
+      const key = this.getLocalDayStr(r.createdAt);
+      if (!latestRecordsByDateAndPersonnel.has(key))
+        latestRecordsByDateAndPersonnel.set(key, new Map());
+      const dayMap = latestRecordsByDateAndPersonnel.get(key)!;
+      if (!dayMap.has(r.personnelId)) {
+        dayMap.set(r.personnelId, r);
+      }
+    }
+
+    const schedules = await this.scheduleRepo.find({
+      where: {
+        personnelId: In(personnelIds),
+        date: Between(this.getLocalDayStr(from), this.getLocalDayStr(to)),
+      },
+    });
+    const scheduleMap = new Map<string, Map<number, ScheduleType>>();
+    for (const s of schedules) {
+      if (!scheduleMap.has(s.date)) {
+        scheduleMap.set(s.date, new Map());
+      }
+      scheduleMap.get(s.date)!.set(s.personnelId, s.type);
+    }
+
+    const recordsByDate = new Map<string, Set<number>>();
+    for (const [date, dayMap] of latestRecordsByDateAndPersonnel.entries()) {
+      const presentSet = new Set<number>();
+      for (const [personnelId, latestRecord] of dayMap.entries()) {
+        if (latestRecord.type === AttendanceType.TimeIn) {
+          presentSet.add(personnelId);
+        }
+      }
+      recordsByDate.set(date, presentSet);
     }
 
     const summaries: DailySummary[] = [];
     const cursor = new Date(from);
     while (cursor <= to) {
-      const dateKey = cursor.toISOString().slice(0, 10);
+      const dateKey = this.getLocalDayStr(cursor);
       const presentIds = recordsByDate.get(dateKey) ?? new Set();
+      const dailySchedules =
+        scheduleMap.get(dateKey) ?? new Map<number, ScheduleType>();
 
       let present = 0;
       let absent = 0;
@@ -200,10 +263,15 @@ export class DashboardService {
       for (const p of allPersonnel) {
         if (presentIds.has(p.id)) {
           present++;
-        } else if (this.isShifting(p, cursor)) {
-          shifting++;
         } else {
-          absent++;
+          const type = dailySchedules.get(p.id);
+          if (type === ScheduleType.SHIFTING) {
+            shifting++;
+          } else if (type === ScheduleType.LEAVE) {
+            onLeave++;
+          } else {
+            absent++;
+          }
         }
       }
 
@@ -221,7 +289,7 @@ export class DashboardService {
   async getPersonnelStatus(
     currentUser: AuthenticatedUser,
     date?: string,
-    status?: string,
+    status?: string
   ): Promise<PersonnelAttendanceRow[]> {
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(
@@ -230,7 +298,7 @@ export class DashboardService {
       targetDate.getDate(),
       0,
       0,
-      0,
+      0
     );
     const endOfDay = new Date(
       targetDate.getFullYear(),
@@ -239,7 +307,7 @@ export class DashboardService {
       23,
       59,
       59,
-      999,
+      999
     );
 
     const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
@@ -250,22 +318,50 @@ export class DashboardService {
     const records = await this.attendanceRepo
       .createQueryBuilder("ar")
       .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
-      .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
       .andWhere("ar.status = :status", { status: AttendanceStatus.Confirmed })
       .andWhere("ar.createdAt >= :startOfDay", { startOfDay })
       .andWhere("ar.createdAt <= :endOfDay", { endOfDay })
+      .orderBy("ar.createdAt", "DESC")
       .getMany();
 
-    const presentIds = new Set(records.map((r) => r.personnelId));
+    const latestRecordMap = new Map<number, (typeof records)[0]>();
+    for (const r of records) {
+      if (!latestRecordMap.has(r.personnelId)) {
+        latestRecordMap.set(r.personnelId, r);
+      }
+    }
+
+    const presentIds = new Set(
+      Array.from(latestRecordMap.values())
+        .filter((r) => r.type === AttendanceType.TimeIn)
+        .map((r) => r.personnelId)
+    );
+
+    const dateStr = this.getLocalDayStr(targetDate);
+    const schedules = await this.scheduleRepo.find({
+      where: {
+        date: dateStr,
+        personnelId: In(personnelIds),
+      },
+    });
+    const scheduleMap = new Map<number, ScheduleType>();
+    for (const s of schedules) {
+      scheduleMap.set(s.personnelId, s.type);
+    }
 
     const rows: PersonnelAttendanceRow[] = allPersonnel.map((p) => {
       let personnelStatus: PersonnelAttendanceRow["status"];
       if (presentIds.has(p.id)) {
         personnelStatus = "present";
-      } else if (this.isShifting(p, targetDate)) {
-        personnelStatus = "shifting";
       } else {
-        personnelStatus = "absent";
+        const type = scheduleMap.get(p.id);
+        if (type === ScheduleType.SHIFTING) {
+          personnelStatus = "shifting";
+        } else if (type === ScheduleType.LEAVE) {
+          personnelStatus = "on_leave";
+        } else {
+          personnelStatus = "absent";
+        }
       }
 
       return {

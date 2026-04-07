@@ -38,7 +38,7 @@ export default function PersonnelStatusTable() {
       );
       return res.data.data ?? [];
     },
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
   return (

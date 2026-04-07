@@ -78,7 +78,7 @@ export default function StatsCards() {
       );
       return res.data.data!;
     },
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
   const cards = [

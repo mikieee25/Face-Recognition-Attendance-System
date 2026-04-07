@@ -7,6 +7,7 @@ import { AttendanceRecord } from "./entities/attendance.entity";
 import { PendingApproval } from "./entities/pending-attendance.entity";
 import { FaceEmbedding } from "./entities/face-data.entity";
 import { ActivityLog } from "./entities/activity-log.entity";
+import { Schedule } from "./entities/schedule.entity";
 import { Station } from "../stations/station.entity";
 
 @Module({
@@ -29,8 +30,9 @@ import { Station } from "../stations/station.entity";
           PendingApproval,
           FaceEmbedding,
           ActivityLog,
+          Schedule,
         ],
-        synchronize: false,
+        synchronize: true,
         logging: process.env.NODE_ENV === "development",
       }),
     }),

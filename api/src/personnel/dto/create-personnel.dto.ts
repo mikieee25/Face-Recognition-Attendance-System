@@ -11,6 +11,21 @@ import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreatePersonnelDto {
+  @ApiPropertyOptional({ example: "123 Main St" })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({ example: "09123456789" })
+  @IsOptional()
+  @IsString()
+  contactNumber?: string;
+
+  @ApiPropertyOptional({ example: "Male" })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
   @ApiProperty({ example: "Juan" })
   @IsString()
   @IsNotEmpty({ message: "firstName is required" })
@@ -31,32 +46,4 @@ export class CreatePersonnelDto {
   @Type(() => Number)
   @IsInt({ message: "stationId must be an integer" })
   stationId?: number;
-
-  @ApiPropertyOptional({ example: "08:00" })
-  @IsOptional()
-  @IsString()
-  shiftStartTime?: string;
-
-  @ApiPropertyOptional({ example: "17:00" })
-  @IsOptional()
-  @IsString()
-  shiftEndTime?: string;
-
-  @ApiPropertyOptional({ example: false })
-  @IsOptional()
-  @IsBoolean()
-  isShifting?: boolean;
-
-  @ApiPropertyOptional({ example: "2026-03-01" })
-  @IsOptional()
-  @IsString()
-  shiftStartDate?: string;
-
-  @ApiPropertyOptional({ example: 15 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(60)
-  shiftDurationDays?: number;
 }

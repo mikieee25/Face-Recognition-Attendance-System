@@ -62,12 +62,7 @@ function formatTime(iso: string): string {
   });
 }
 
-export default function PersonnelProfileModal({
-  open,
-  onClose,
-  personnel,
-  onFaceRegister,
-}: Props) {
+export default function PersonnelProfileModal({ open, onClose, personnel, onFaceRegister }: Props) {
   const qc = useQueryClient();
   const personnelId = personnel?.id;
 
@@ -81,22 +76,18 @@ export default function PersonnelProfileModal({
   const { data: stations } = useQuery({
     queryKey: ["stations"],
     queryFn: async () => {
-      const res =
-        await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+      const res = await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
       return res.data.data ?? [];
     },
     enabled: open,
   });
-  const stationName =
-    stations?.find((s) => s.id === personnel?.stationId)?.name ?? "—";
+  const stationName = stations?.find((s) => s.id === personnel?.stationId)?.name ?? "—";
 
   // Fetch face registrations
   const { data: faces, isLoading: facesLoading } = useQuery({
     queryKey: ["faces", personnelId],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<FaceRecord[]>>(
-        `/api/v1/personnel/${personnelId}/faces`,
-      );
+      const res = await apiClient.get<ApiEnvelope<FaceRecord[]>>(`/api/v1/personnel/${personnelId}/faces`);
       return res.data.data ?? [];
     },
     enabled: open && !!personnelId,
@@ -107,9 +98,7 @@ export default function PersonnelProfileModal({
   const { data: attendanceData, isLoading: attendanceLoading } = useQuery({
     queryKey: ["attendance-profile", personnelId],
     queryFn: async () => {
-      const res = await apiClient.get<
-        ApiEnvelope<PaginatedResponse<AttendanceRecord>>
-      >("/api/v1/attendance", {
+      const res = await apiClient.get<ApiEnvelope<PaginatedResponse<AttendanceRecord>>>("/api/v1/attendance", {
         params: { personnelId, limit: 20, page: 1 },
       });
       return res.data.data;
@@ -125,10 +114,7 @@ export default function PersonnelProfileModal({
 
   const handleDeleteFace = async (face: FaceRecord) => {
     try {
-      await apiClient.delete(
-        `/api/v1/personnel/${personnelId}/faces/${face.id}`,
-        {},
-      );
+      await apiClient.delete(`/api/v1/personnel/${personnelId}/faces/${face.id}`, {});
       invalidateFaces();
       setToast({
         open: true,
@@ -165,19 +151,14 @@ export default function PersonnelProfileModal({
 
   if (!personnel) return null;
 
-  const initials =
-    `${personnel.firstName[0]}${personnel.lastName[0]}`.toUpperCase();
+  const initials = `${personnel.firstName[0]}${personnel.lastName[0]}`.toUpperCase();
 
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ pr: 6 }}>
           Personnel Profile
-          <IconButton
-            aria-label="Close"
-            onClick={onClose}
-            sx={{ position: "absolute", right: 8, top: 8 }}
-          >
+          <IconButton aria-label="Close" onClick={onClose} sx={{ position: "absolute", right: 8, top: 8 }}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -199,22 +180,25 @@ export default function PersonnelProfileModal({
             <Typography variant="h6" fontWeight={700}>
               {personnel.rank} {personnel.firstName} {personnel.lastName}
             </Typography>
-            <Stack
-              direction="row"
-              spacing={1}
-              flexWrap="wrap"
-              justifyContent="center"
-            >
+            <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
               <Chip label={stationName} size="small" variant="outlined" />
-              <Chip
-                label={personnel.isActive ? "Active" : "Inactive"}
-                size="small"
-                color={personnel.isActive ? "success" : "default"}
-              />
+              <Chip label={personnel.isActive ? "Active" : "Inactive"} size="small" color={personnel.isActive ? "success" : "default"} />
             </Stack>
-            {personnel.shiftStartTime && personnel.shiftEndTime && (
+            <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+              {personnel.gender && (
+                <Typography variant="body2" color="text.secondary">
+                  Gender: {personnel.gender}
+                </Typography>
+              )}
+              {personnel.contactNumber && (
+                <Typography variant="body2" color="text.secondary">
+                  Contact: {personnel.contactNumber}
+                </Typography>
+              )}
+            </Stack>
+            {personnel.address && (
               <Typography variant="body2" color="text.secondary">
-                Shift: {personnel.shiftStartTime} — {personnel.shiftEndTime}
+                Address: {personnel.address}
               </Typography>
             )}
           </Stack>
@@ -222,37 +206,20 @@ export default function PersonnelProfileModal({
           <Divider sx={{ mb: 2 }} />
 
           {/* Face registrations section */}
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{ mb: 1 }}
-          >
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
             <Stack direction="row" spacing={1} alignItems="center">
               <FaceIcon fontSize="small" color="action" />
-              <Typography variant="subtitle2">
-                Registered Faces ({faceList.length})
-              </Typography>
+              <Typography variant="subtitle2">Registered Faces ({faceList.length})</Typography>
             </Stack>
             <Stack direction="row" spacing={0.5}>
               <Tooltip title="Add faces">
-                <IconButton
-                  size="small"
-                  color="primary"
-                  onClick={() => onFaceRegister?.(personnel)}
-                  aria-label="Add face registration"
-                >
+                <IconButton size="small" color="primary" onClick={() => onFaceRegister?.(personnel)} aria-label="Add face registration">
                   <AddAPhotoIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               {faceList.length > 0 && (
                 <Tooltip title="Remove all faces">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={handleDeleteAllFaces}
-                    aria-label="Remove all face registrations"
-                  >
+                  <IconButton size="small" color="error" onClick={handleDeleteAllFaces} aria-label="Remove all face registrations">
                     <DeleteSweepIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -277,12 +244,7 @@ export default function PersonnelProfileModal({
               <Typography variant="body2" color="text.secondary">
                 No faces registered.
               </Typography>
-              <Button
-                size="small"
-                startIcon={<AddAPhotoIcon />}
-                onClick={() => onFaceRegister?.(personnel)}
-                sx={{ mt: 1 }}
-              >
+              <Button size="small" startIcon={<AddAPhotoIcon />} onClick={() => onFaceRegister?.(personnel)} sx={{ mt: 1 }}>
                 Register Faces
               </Button>
             </Box>
@@ -302,12 +264,7 @@ export default function PersonnelProfileModal({
                     <TableRow key={`${face.source}-${face.id}`} hover>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
-                        <Chip
-                          label="Embedding"
-                          size="small"
-                          variant="outlined"
-                          color="info"
-                        />
+                        <Chip label="Embedding" size="small" variant="outlined" color="info" />
                       </TableCell>
                       <TableCell>{formatDate(face.createdAt)}</TableCell>
                       <TableCell align="right">
@@ -341,11 +298,7 @@ export default function PersonnelProfileModal({
               <CircularProgress size={28} />
             </Box>
           ) : records.length === 0 ? (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ py: 2, textAlign: "center" }}
-            >
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
               No attendance records yet.
             </Typography>
           ) : (

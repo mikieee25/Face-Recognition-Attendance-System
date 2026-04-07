@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback } from "react";
 import Webcam from "react-webcam";
 import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
+
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -42,10 +42,7 @@ export default function WebcamCapture() {
     setError(null);
 
     try {
-      const response = await apiClient.post<ApiEnvelope<CaptureResult>>(
-        "/api/v1/attendance/capture",
-        { image: screenshot },
-      );
+      const response = await apiClient.post<ApiEnvelope<CaptureResult>>("/api/v1/attendance/capture", { image: screenshot });
 
       if (response.data.success && response.data.data) {
         setResult(response.data.data);
@@ -54,8 +51,8 @@ export default function WebcamCapture() {
       }
     } catch (err: unknown) {
       const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "An error occurred during capture. Please try again.";
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "An error occurred during capture. Please try again.";
       setError(message);
     } finally {
       setProcessing(false);
@@ -67,11 +64,9 @@ export default function WebcamCapture() {
     setError(null);
   };
 
-  const attendanceTypeLabel = (type: AttendanceType) =>
-    type === "time_in" ? "Time In" : "Time Out";
+  const attendanceTypeLabel = (type: AttendanceType) => (type === "time_in" ? "Time In" : "Time Out");
 
-  const attendanceTypeColor = (type: AttendanceType): "success" | "warning" =>
-    type === "time_in" ? "success" : "warning";
+  const attendanceTypeColor = (type: AttendanceType): "success" | "warning" => (type === "time_in" ? "success" : "warning");
 
   return (
     <Stack spacing={3} alignItems="center">
@@ -110,11 +105,7 @@ export default function WebcamCapture() {
 
       {/* Error state */}
       {error && (
-        <Alert
-          severity="error"
-          sx={{ width: "100%", maxWidth: 480 }}
-          onClose={handleReset}
-        >
+        <Alert severity="error" sx={{ width: "100%", maxWidth: 480 }} onClose={handleReset}>
           {error}
         </Alert>
       )}
@@ -138,11 +129,7 @@ export default function WebcamCapture() {
             </Typography>
 
             <Stack spacing={1}>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="body2" color="text.secondary">
                   Personnel
                 </Typography>
@@ -151,46 +138,25 @@ export default function WebcamCapture() {
                 </Typography>
               </Stack>
 
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="body2" color="text.secondary">
                   Type
                 </Typography>
-                <Chip
-                  label={attendanceTypeLabel(result.type)}
-                  color={attendanceTypeColor(result.type)}
-                  size="small"
-                />
+                <Chip label={attendanceTypeLabel(result.type)} color={attendanceTypeColor(result.type)} size="small" />
               </Stack>
 
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="body2" color="text.secondary">
                   Confidence
                 </Typography>
-                <Typography variant="body1">
-                  {(result.confidence * 100).toFixed(1)}%
-                </Typography>
+                <Typography variant="body1">{(result.confidence * 100).toFixed(1)}%</Typography>
               </Stack>
 
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="body2" color="text.secondary">
                   Status
                 </Typography>
-                <Typography
-                  variant="body1"
-                  sx={{ textTransform: "capitalize" }}
-                >
+                <Typography variant="body1" sx={{ textTransform: "capitalize" }}>
                   {result.status}
                 </Typography>
               </Stack>

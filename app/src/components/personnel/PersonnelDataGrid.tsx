@@ -18,7 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
-import Chip from "@mui/material/Chip";
+
 import EditIcon from "@mui/icons-material/Edit";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
@@ -35,25 +35,18 @@ interface PersonnelDataGridProps {
 }
 
 async function fetchPersonnel(): Promise<Personnel[]> {
-  const res =
-    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  const res = await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
   return res.data.data ?? [];
 }
 
-export default function PersonnelDataGrid({
-  onEdit,
-  onFaceRegister,
-  onAdd,
-  onViewProfile,
-}: PersonnelDataGridProps) {
+export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onViewProfile }: PersonnelDataGridProps) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
 
   const { data: stationsData } = useQuery({
     queryKey: ["stations"],
     queryFn: async () => {
-      const res =
-        await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+      const res = await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
       return res.data.data ?? [];
     },
   });
@@ -72,9 +65,7 @@ export default function PersonnelDataGrid({
     setPage(newPage);
   };
 
-  const handleRowsPerPageChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
@@ -83,12 +74,7 @@ export default function PersonnelDataGrid({
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Typography variant="h5">Personnel</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onAdd}
-          aria-label="Add personnel"
-        >
+        <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd} aria-label="Add personnel">
           Add Personnel
         </Button>
       </Stack>
@@ -102,9 +88,7 @@ export default function PersonnelDataGrid({
 
         {isError && (
           <Box sx={{ p: 3 }}>
-            <Typography color="error">
-              Failed to load personnel. Please try again.
-            </Typography>
+            <Typography color="error">Failed to load personnel. Please try again.</Typography>
           </Box>
         )}
 
@@ -114,23 +98,13 @@ export default function PersonnelDataGrid({
               <Table aria-label="Personnel table" sx={{ minWidth: 400 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell
-                      sx={{ display: { xs: "none", sm: "table-cell" } }}
-                    >
-                      ID
-                    </TableCell>
+                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>ID</TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Rank</TableCell>
-                    <TableCell
-                      sx={{ display: { xs: "none", md: "table-cell" } }}
-                    >
-                      Station
-                    </TableCell>
-                    <TableCell
-                      sx={{ display: { xs: "none", sm: "table-cell" } }}
-                    >
-                      Schedule
-                    </TableCell>
+                    <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Station</TableCell>
+                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Gender</TableCell>
+                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Contact</TableCell>
+                    <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Address</TableCell>
                     <TableCell align="center">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -138,11 +112,7 @@ export default function PersonnelDataGrid({
                   {rows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} align="center">
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ py: 2 }}
-                        >
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                           No personnel found.
                         </Typography>
                       </TableCell>
@@ -150,11 +120,7 @@ export default function PersonnelDataGrid({
                   ) : (
                     rows.map((person) => (
                       <TableRow key={person.id} hover>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {person.id}
-                        </TableCell>
+                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{person.id}</TableCell>
                         <TableCell>
                           <Typography
                             component="span"
@@ -171,41 +137,14 @@ export default function PersonnelDataGrid({
                           </Typography>
                         </TableCell>
                         <TableCell>{person.rank}</TableCell>
-                        <TableCell
-                          sx={{ display: { xs: "none", md: "table-cell" } }}
-                        >
+                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
                           {stationMap.get(person.stationId) ?? person.stationId}
                         </TableCell>
-                        <TableCell
-                          sx={{ display: { xs: "none", sm: "table-cell" } }}
-                        >
-                          {!person.isActive ? (
-                            <Chip
-                              label="On Leave"
-                              size="small"
-                              color="secondary"
-                            />
-                          ) : person.isShifting ? (
-                            <Chip
-                              label="Shifting"
-                              size="small"
-                              color="warning"
-                            />
-                          ) : (
-                            <Chip
-                              label="Regular"
-                              size="small"
-                              color="success"
-                              variant="outlined"
-                            />
-                          )}
-                        </TableCell>
+                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{person.gender || "—"}</TableCell>
+                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{person.contactNumber || "—"}</TableCell>
+                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{person.address || "—"}</TableCell>
                         <TableCell align="center">
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            justifyContent="center"
-                          >
+                          <Stack direction="row" spacing={1} justifyContent="center">
                             <Tooltip title="Edit">
                               <IconButton
                                 size="small"

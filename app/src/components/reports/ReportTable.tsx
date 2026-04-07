@@ -57,9 +57,7 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
-function statusColor(
-  status: string,
-): "success" | "warning" | "error" | "default" {
+function statusColor(status: string): "success" | "warning" | "error" | "default" {
   if (status === "confirmed") return "success";
   if (status === "pending") return "warning";
   if (status === "rejected") return "error";
@@ -74,11 +72,7 @@ function typeLabel(type: string): string {
 
 // ─── API fetcher ──────────────────────────────────────────────────────────────
 
-async function fetchReports(
-  page: number,
-  limit: number,
-  filters: ReportFilterValues,
-): Promise<PaginatedResponse<ReportItem>> {
+async function fetchReports(page: number, limit: number, filters: ReportFilterValues): Promise<PaginatedResponse<ReportItem>> {
   const params: Record<string, string | number> = { page: page + 1, limit };
   if (filters.dateFrom) params.dateFrom = filters.dateFrom;
   if (filters.dateTo) params.dateTo = filters.dateTo;
@@ -86,10 +80,7 @@ async function fetchReports(
   if (filters.personnelId) params.personnelId = filters.personnelId;
   if (filters.type) params.type = filters.type;
 
-  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<ReportItem>>>(
-    "/api/v1/reports",
-    { params },
-  );
+  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<ReportItem>>>("/api/v1/reports", { params });
   return res.data.data!;
 }
 
@@ -122,17 +113,11 @@ export default function ReportTable({ filters }: ReportTableProps) {
   const { data: personnelData } = useQuery({
     queryKey: ["personnel", "list"],
     queryFn: async () => {
-      const res =
-        await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+      const res = await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
       return res.data.data ?? [];
     },
   });
-  const scheduleMap = new Map(
-    (personnelData ?? []).map((p) => [
-      p.id,
-      !p.isActive ? "on_leave" : p.isShifting ? "shifting" : "regular",
-    ]),
-  );
+  const scheduleMap = new Map((personnelData ?? []).map((p) => [p.id, !p.isActive ? "on_leave" : "regular"]));
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -153,10 +138,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
 
       {isError && (
         <Box sx={{ p: 2 }}>
-          <Alert severity="error">
-            {(error as { message?: string })?.message ??
-              "Failed to load report data. Please try again."}
-          </Alert>
+          <Alert severity="error">{(error as { message?: string })?.message ?? "Failed to load report data. Please try again."}</Alert>
         </Box>
       )}
 
@@ -178,61 +160,37 @@ export default function ReportTable({ filters }: ReportTableProps) {
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Confirmed:{" "}
-              <Typography
-                component="span"
-                variant="body2"
-                fontWeight={600}
-                color="success.main"
-              >
+              <Typography component="span" variant="body2" fontWeight={600} color="success.main">
                 {summary.confirmed}
               </Typography>
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Pending:{" "}
-              <Typography
-                component="span"
-                variant="body2"
-                fontWeight={600}
-                color="warning.main"
-              >
+              <Typography component="span" variant="body2" fontWeight={600} color="warning.main">
                 {summary.pending}
               </Typography>
             </Typography>
           </Stack>
 
           <TableContainer sx={{ overflowX: "auto" }}>
-            <Table
-              aria-label="Attendance report table"
-              size="small"
-              sx={{ minWidth: 500 }}
-            >
+            <Table aria-label="Attendance report table" size="small" sx={{ minWidth: 500 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Personnel</TableCell>
-                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
-                    Rank
-                  </TableCell>
-                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
-                    Station
-                  </TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Rank</TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Station</TableCell>
                   <TableCell>Date</TableCell>
                   <TableCell>Time</TableCell>
                   <TableCell>Type</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
-                    Schedule
-                  </TableCell>
+                  <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>Schedule</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} align="center">
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ py: 3 }}
-                      >
+                      <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
                         No records found for the selected filters.
                       </Typography>
                     </TableCell>
@@ -241,58 +199,20 @@ export default function ReportTable({ filters }: ReportTableProps) {
                   rows.map((row) => (
                     <TableRow key={row.id} hover>
                       <TableCell>{row.personnelName}</TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", sm: "table-cell" } }}
-                      >
-                        {row.rank}
-                      </TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", md: "table-cell" } }}
-                      >
-                        {row.station}
-                      </TableCell>
+                      <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{row.rank}</TableCell>
+                      <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{row.station}</TableCell>
                       <TableCell>{formatDate(row.date)}</TableCell>
-                      <TableCell>
-                        {formatTime(row.timeIn ?? row.timeOut)}
-                      </TableCell>
+                      <TableCell>{formatTime(row.timeIn ?? row.timeOut)}</TableCell>
                       <TableCell>{typeLabel(row.type)}</TableCell>
                       <TableCell>
-                        <Chip
-                          label={row.status}
-                          color={statusColor(row.status)}
-                          size="small"
-                          sx={{ textTransform: "capitalize" }}
-                        />
+                        <Chip label={row.status} color={statusColor(row.status)} size="small" sx={{ textTransform: "capitalize" }} />
                       </TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", lg: "table-cell" } }}
-                      >
+                      <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
                         {(() => {
                           const sched = scheduleMap.get(row.personnelId);
-                          if (sched === "on_leave")
-                            return (
-                              <Chip
-                                label="On Leave"
-                                size="small"
-                                color="secondary"
-                              />
-                            );
-                          if (sched === "shifting")
-                            return (
-                              <Chip
-                                label="Shifting"
-                                size="small"
-                                color="warning"
-                              />
-                            );
-                          return (
-                            <Chip
-                              label="Regular"
-                              size="small"
-                              color="success"
-                              variant="outlined"
-                            />
-                          );
+                          if (sched === "on_leave") return <Chip label="On Leave" size="small" color="secondary" />;
+                          if (sched === "shifting") return <Chip label="Shifting" size="small" color="warning" />;
+                          return <Chip label="Regular" size="small" color="success" variant="outlined" />;
                         })()}
                       </TableCell>
                     </TableRow>
@@ -320,19 +240,9 @@ export default function ReportTable({ filters }: ReportTableProps) {
                     <TableCell />
                     <TableCell>
                       <Stack direction="row" spacing={0.5}>
-                        <Chip
-                          label={`${summary.confirmed} confirmed`}
-                          color="success"
-                          size="small"
-                          variant="outlined"
-                        />
+                        <Chip label={`${summary.confirmed} confirmed`} color="success" size="small" variant="outlined" />
                         {summary.pending > 0 && (
-                          <Chip
-                            label={`${summary.pending} pending`}
-                            color="warning"
-                            size="small"
-                            variant="outlined"
-                          />
+                          <Chip label={`${summary.pending} pending`} color="warning" size="small" variant="outlined" />
                         )}
                       </Stack>
                     </TableCell>

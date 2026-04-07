@@ -42,6 +42,17 @@ export interface PaginatedResult<T> {
   limit: number;
 }
 
+export interface DailyAttendanceSummary {
+  personnelId: number;
+  personnelName: string;
+  rank: string;
+  date: string;
+  firstIn: Date | string | null;
+  lastOut: Date | string | null;
+  firstInId: number | null;
+  lastOutId: number | null;
+}
+
 @Injectable()
 export class AttendanceService {
   constructor(
@@ -256,10 +267,94 @@ export class AttendanceService {
   async findAll(
     query: QueryAttendanceDto,
     currentUser: AuthenticatedUser
-  ): Promise<PaginatedResult<AttendanceRecord>> {
+  ): Promise<PaginatedResult<any>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
+
+    if (query.summaryMode) {
+      const qb = this.attendanceRepo
+        .createQueryBuilder("ar")
+        .leftJoinAndSelect("ar.personnel", "personnel")
+        .orderBy("ar.createdAt", "ASC");
+
+      if (currentUser.role === "station_user" && currentUser.stationId) {
+        qb.andWhere("personnel.stationId = :stationId", {
+          stationId: currentUser.stationId,
+        });
+      } else if (query.stationId) {
+        qb.andWhere("personnel.stationId = :stationId", {
+          stationId: query.stationId,
+        });
+      }
+
+      if (query.personnelId) {
+        qb.andWhere("ar.personnelId = :personnelId", {
+          personnelId: query.personnelId,
+        });
+      }
+
+      if (query.dateFrom) {
+        qb.andWhere("ar.createdAt >= :dateFrom", { dateFrom: query.dateFrom });
+      }
+
+      if (query.dateTo) {
+        qb.andWhere("ar.createdAt <= :dateTo", { dateTo: query.dateTo });
+      }
+
+      const allRecords = await qb.getMany();
+
+      const summaryMap = new Map<string, DailyAttendanceSummary>();
+      for (const record of allRecords) {
+        const dateStr = record.createdAt.toISOString().split("T")[0];
+        const key = `${record.personnelId}_${dateStr}`;
+
+        if (!summaryMap.has(key)) {
+          summaryMap.set(key, {
+            personnelId: record.personnelId,
+            personnelName: `${record.personnel?.firstName || ""} ${
+              record.personnel?.lastName || ""
+            }`.trim(),
+            rank: record.personnel?.rank || "",
+            date: dateStr,
+            firstIn: null,
+            lastOut: null,
+            firstInId: null,
+            lastOutId: null,
+          });
+        }
+
+        const summary = summaryMap.get(key)!;
+        if (record.type === AttendanceType.TimeIn) {
+          if (
+            !summary.firstIn ||
+            record.createdAt < new Date(summary.firstIn)
+          ) {
+            summary.firstIn = record.createdAt;
+            summary.firstInId = record.id;
+          }
+        } else if (record.type === AttendanceType.TimeOut) {
+          if (
+            !summary.lastOut ||
+            record.createdAt > new Date(summary.lastOut)
+          ) {
+            summary.lastOut = record.createdAt;
+            summary.lastOutId = record.id;
+          }
+        }
+      }
+
+      const summaryList = Array.from(summaryMap.values());
+      summaryList.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return a.personnelName.localeCompare(b.personnelName);
+      });
+
+      const total = summaryList.length;
+      const items = summaryList.slice(skip, skip + limit);
+
+      return { items, total, page, limit };
+    }
 
     const qb = this.attendanceRepo
       .createQueryBuilder("ar")

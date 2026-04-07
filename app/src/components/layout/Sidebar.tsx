@@ -13,6 +13,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
@@ -44,13 +45,11 @@ function usePendingCount(isAdmin: boolean) {
   return useQuery<number>({
     queryKey: ["pending", "count"],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<{ count: number }>>(
-        "/api/v1/pending/count",
-      );
+      const res = await apiClient.get<ApiEnvelope<{ count: number }>>("/api/v1/pending/count");
       return res.data.data?.count ?? 0;
     },
     enabled: isAdmin,
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 }
 
@@ -63,9 +62,7 @@ function SidebarContent() {
 
   if (isKiosk) {
     return (
-      <Box
-        sx={{ p: 2, display: "flex", flexDirection: "column", height: "100%" }}
-      >
+      <Box sx={{ p: 2, display: "flex", flexDirection: "column", height: "100%" }}>
         <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
           BFP Sorsogon
         </Typography>
@@ -73,12 +70,7 @@ function SidebarContent() {
           Kiosk Mode
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
-        <Button
-          variant="outlined"
-          startIcon={<LogoutIcon />}
-          onClick={logout}
-          fullWidth
-        >
+        <Button variant="outlined" startIcon={<LogoutIcon />} onClick={logout} fullWidth>
           Logout
         </Button>
       </Box>
@@ -88,6 +80,7 @@ function SidebarContent() {
   const navItems: NavItem[] = [
     { label: "Dashboard", href: "/", icon: <DashboardIcon /> },
     { label: "Personnel", href: "/personnel", icon: <PeopleIcon /> },
+    { label: "Schedule", href: "/schedule", icon: <CalendarTodayIcon /> },
     {
       label: "Attendance",
       href: "/attendance/history",
@@ -124,10 +117,7 @@ function SidebarContent() {
       <Divider />
       <List>
         {visibleItems.map((item) => {
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
 
           return (
             <ListItemButton
@@ -156,10 +146,7 @@ function SidebarContent() {
 
 export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   return (
-    <Box
-      component="nav"
-      sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}
-    >
+    <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
       {/* Mobile drawer */}
       <Drawer
         variant="temporary"

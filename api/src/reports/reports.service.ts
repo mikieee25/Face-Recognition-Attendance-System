@@ -9,7 +9,9 @@ import {
   AttendanceType,
 } from "../database/entities/attendance.entity";
 import { Personnel } from "../database/entities/personnel.entity";
+import { Schedule, ScheduleType } from "../database/entities/schedule.entity";
 import { QueryReportsDto } from "./dto/query-reports.dto";
+import { QueryCalendarDto } from "./dto/query-calendar.dto";
 
 export interface AuthenticatedUser {
   id: number;
@@ -52,6 +54,20 @@ export interface MonthlySummaryItem {
   totalHoursWorked: number;
 }
 
+export interface CalendarDay {
+  date: string;
+  status: "present" | "absent" | "leave" | "shifting" | "future";
+}
+
+export interface CalendarPersonnelItem {
+  personnelId: number;
+  name: string;
+  rank: string;
+  station: string;
+  imagePath: string | null;
+  calendar: CalendarDay[];
+}
+
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -60,7 +76,9 @@ export class ReportsService {
     @InjectRepository(AttendanceRecord)
     private readonly attendanceRepo: Repository<AttendanceRecord>,
     @InjectRepository(Personnel)
-    private readonly personnelRepo: Repository<Personnel>
+    private readonly personnelRepo: Repository<Personnel>,
+    @InjectRepository(Schedule)
+    private readonly scheduleRepo: Repository<Schedule>
   ) {}
 
   /**
@@ -260,23 +278,6 @@ export class ReportsService {
 
       // Late arrivals: time_in after shift_start_time
       let lateArrivals = 0;
-      if (personnel.shiftStartTime) {
-        const [shiftHour, shiftMinute] = personnel.shiftStartTime
-          .split(":")
-          .map(Number);
-        for (const record of confirmedTimeIns) {
-          const timeIn = record.createdAt;
-          const shiftStart = new Date(
-            timeIn.getFullYear(),
-            timeIn.getMonth(),
-            timeIn.getDate(),
-            shiftHour,
-            shiftMinute,
-            0
-          );
-          if (timeIn > shiftStart) lateArrivals++;
-        }
-      }
 
       // Total hours worked: pair each time_in with next time_out on same day
       const totalHoursWorked = this.calculateTotalHours(timeIns, timeOuts);
@@ -470,5 +471,123 @@ export class ReportsService {
     }
 
     return rows;
+  }
+
+  /**
+   * GET /api/v1/reports/calendar
+   * Monthly calendar attendance view per personnel.
+   */
+  async getCalendar(
+    query: QueryCalendarDto,
+    currentUser: AuthenticatedUser
+  ): Promise<CalendarPersonnelItem[]> {
+    const { year, month } = query;
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    // Determine the date range for the month
+    const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
+    const endStr = `${year}-${String(month).padStart(2, "0")}-${String(
+      daysInMonth
+    ).padStart(2, "0")}`;
+    const startDate = new Date(startStr);
+    const endDate = new Date(`${endStr}T23:59:59.999Z`);
+
+    // Fetch personnel scoped by role
+    const pQb = this.personnelRepo
+      .createQueryBuilder("p")
+      .leftJoinAndSelect("p.station", "station")
+      .where("p.isActive = :isActive", { isActive: true });
+
+    if (currentUser.role === "station_user" && currentUser.stationId) {
+      pQb.andWhere("p.stationId = :stationId", {
+        stationId: currentUser.stationId,
+      });
+    } else if (query.stationId) {
+      pQb.andWhere("p.stationId = :stationId", { stationId: query.stationId });
+    }
+
+    const personnelList = await pQb.getMany();
+    if (personnelList.length === 0) return [];
+
+    const personnelIds = personnelList.map((p) => p.id);
+
+    // Fetch schedules for the month
+    const schedules = await this.scheduleRepo
+      .createQueryBuilder("s")
+      .where("s.personnelId IN (:...personnelIds)", { personnelIds })
+      .andWhere("s.date >= :startStr AND s.date <= :endStr", {
+        startStr,
+        endStr,
+      })
+      .getMany();
+
+    // Fetch attendance (time_in) for the month
+    const attendanceRecords = await this.attendanceRepo
+      .createQueryBuilder("ar")
+      .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
+      .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
+      .andWhere("ar.createdAt >= :startDate AND ar.createdAt <= :endDate", {
+        startDate,
+        endDate,
+      })
+      .getMany();
+
+    const now = new Date();
+    const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 10);
+
+    const results: CalendarPersonnelItem[] = [];
+
+    for (const p of personnelList) {
+      const pSchedules = schedules.filter((s) => s.personnelId === p.id);
+      const pAttendance = attendanceRecords.filter(
+        (a) => a.personnelId === p.id
+      );
+
+      const calendar: CalendarDay[] = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
+
+        if (dateStr > todayStr) {
+          calendar.push({ date: dateStr, status: "future" });
+          continue;
+        }
+
+        const sched = pSchedules.find((s) => s.date === dateStr);
+        if (sched) {
+          if (sched.type === ScheduleType.LEAVE) {
+            calendar.push({ date: dateStr, status: "leave" });
+            continue;
+          }
+          if (sched.type === ScheduleType.SHIFTING) {
+            calendar.push({ date: dateStr, status: "shifting" });
+            continue;
+          }
+        }
+
+        const attended = pAttendance.some((a) =>
+          a.createdAt.toISOString().startsWith(dateStr)
+        );
+        if (attended) {
+          calendar.push({ date: dateStr, status: "present" });
+        } else {
+          calendar.push({ date: dateStr, status: "absent" });
+        }
+      }
+
+      results.push({
+        personnelId: p.id,
+        name: `${p.firstName} ${p.lastName}`,
+        rank: p.rank,
+        station: (p as any).station?.name ?? "",
+        imagePath: p.imagePath ?? null,
+        calendar,
+      });
+    }
+
+    return results;
   }
 }

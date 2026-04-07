@@ -28,12 +28,14 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
-import type { AttendanceRecord, Personnel } from "@/types/models";
+import type { AttendanceRecord, Personnel, DailyAttendanceSummary } from "@/types/models";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,14 +81,22 @@ function typeLabel(type: string): string {
 
 // ─── API fetchers ─────────────────────────────────────────────────────────────
 
-async function fetchAttendance(page: number, limit: number, filters: AttendanceFilters): Promise<PaginatedResponse<AttendanceRecord>> {
-  const params: Record<string, string | number> = { page: page + 1, limit };
+async function fetchAttendance(
+  page: number,
+  limit: number,
+  filters: AttendanceFilters,
+  summaryMode: boolean,
+): Promise<PaginatedResponse<AttendanceRecord | DailyAttendanceSummary>> {
+  const params: Record<string, string | number | boolean> = { page: page + 1, limit };
   if (filters.dateFrom) params.dateFrom = filters.dateFrom;
   if (filters.dateTo) params.dateTo = filters.dateTo;
   if (filters.personnelId) params.personnelId = filters.personnelId;
-  if (filters.type) params.type = filters.type;
+  if (filters.type && !summaryMode) params.type = filters.type;
+  if (summaryMode) params.summaryMode = true;
 
-  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<AttendanceRecord>>>("/api/v1/attendance", { params });
+  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<AttendanceRecord | DailyAttendanceSummary>>>("/api/v1/attendance", {
+    params,
+  });
   return res.data.data!;
 }
 
@@ -209,6 +219,8 @@ export default function AttendanceHistoryGrid() {
     type: "",
   });
 
+  const [summaryMode, setSummaryMode] = useState(false);
+
   // Edit dialog
   const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -225,8 +237,8 @@ export default function AttendanceHistoryGrid() {
     isError,
     error,
   } = useQuery({
-    queryKey: ["attendance", { page, limit: rowsPerPage, ...filters }],
-    queryFn: () => fetchAttendance(page, rowsPerPage, filters),
+    queryKey: ["attendance", { page, limit: rowsPerPage, ...filters, summaryMode }],
+    queryFn: () => fetchAttendance(page, rowsPerPage, filters, summaryMode),
   });
 
   const { data: personnelList = [] } = useQuery({
@@ -323,7 +335,21 @@ export default function AttendanceHistoryGrid() {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <Typography variant="h5">Attendance History</Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Typography variant="h5">Attendance History</Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={summaryMode}
+              onChange={(e) => {
+                setSummaryMode(e.target.checked);
+                setPage(0);
+              }}
+            />
+          }
+          label="Summary Mode"
+        />
+      </Stack>
 
       {/* Filters */}
       <Paper sx={{ p: 2 }}>
@@ -369,24 +395,26 @@ export default function AttendanceHistoryGrid() {
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="filter-type-label">Type</InputLabel>
-            <Select
-              labelId="filter-type-label"
-              value={filters.type}
-              label="Type"
-              onChange={(e) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  type: e.target.value as string,
-                }))
-              }
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="time_in">Time In</MenuItem>
-              <MenuItem value="time_out">Time Out</MenuItem>
-            </Select>
-          </FormControl>
+          {!summaryMode && (
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel id="filter-type-label">Type</InputLabel>
+              <Select
+                labelId="filter-type-label"
+                value={filters.type}
+                label="Type"
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    type: e.target.value as string,
+                  }))
+                }
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="time_in">Time In</MenuItem>
+                <MenuItem value="time_out">Time Out</MenuItem>
+              </Select>
+            </FormControl>
+          )}
         </Stack>
       </Paper>
 
@@ -411,66 +439,96 @@ export default function AttendanceHistoryGrid() {
             <TableContainer sx={{ overflowX: "auto" }}>
               <Table aria-label="Attendance history table" sx={{ minWidth: 500 }}>
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Personnel</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Time</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Status</TableCell>
-                    {(canEdit || canDelete) && <TableCell align="center">Actions</TableCell>}
-                  </TableRow>
+                  {summaryMode ? (
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Rank</TableCell>
+                      <TableCell>Time In</TableCell>
+                      <TableCell>Time Out</TableCell>
+                    </TableRow>
+                  ) : (
+                    <TableRow>
+                      <TableCell>Personnel</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Time</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Status</TableCell>
+                      {(canEdit || canDelete) && <TableCell align="center">Actions</TableCell>}
+                    </TableRow>
+                  )}
                 </TableHead>
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={canEdit || canDelete ? 6 : 5} align="center">
+                      <TableCell colSpan={summaryMode ? 5 : canEdit || canDelete ? 6 : 5} align="center">
                         <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                           No attendance records found.
                         </Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((record) => (
-                      <TableRow key={record.id} hover>
-                        <TableCell>{personnelMap.get(record.personnelId) ?? "—"}</TableCell>
-                        <TableCell>{formatDate(record.createdAt)}</TableCell>
-                        <TableCell>{formatTime(record.createdAt)}</TableCell>
-                        <TableCell>{typeLabel(record.type)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={record.status}
-                            color={statusColor(record.status)}
-                            size="small"
-                            sx={{ textTransform: "capitalize" }}
-                          />
-                        </TableCell>
-                        {(canEdit || canDelete) && (
-                          <TableCell align="center">
-                            <Stack direction="row" spacing={1} justifyContent="center">
-                              {canEdit && (
-                                <Tooltip title="Edit">
-                                  <IconButton size="small" aria-label={`Edit record ${record.id}`} onClick={() => handleEditOpen(record)}>
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                              {canDelete && (
-                                <Tooltip title="Delete">
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    aria-label={`Delete record ${record.id}`}
-                                    onClick={() => handleDeleteOpen(record.id)}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </Stack>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
+                    rows.map((row: AttendanceRecord | DailyAttendanceSummary, i: number) => {
+                      if (summaryMode) {
+                        const record = row as DailyAttendanceSummary;
+                        return (
+                          <TableRow key={`${record.personnelId}-${record.date}-${i}`} hover>
+                            <TableCell>{record.date}</TableCell>
+                            <TableCell>{record.personnelName}</TableCell>
+                            <TableCell>{record.rank}</TableCell>
+                            <TableCell>{record.firstIn ? new Date(record.firstIn).toLocaleTimeString() : "--"}</TableCell>
+                            <TableCell>{record.lastOut ? new Date(record.lastOut).toLocaleTimeString() : "--"}</TableCell>
+                          </TableRow>
+                        );
+                      } else {
+                        const record = row as AttendanceRecord;
+                        return (
+                          <TableRow key={record.id} hover>
+                            <TableCell>{personnelMap.get(record.personnelId) ?? "—"}</TableCell>
+                            <TableCell>{formatDate(record.createdAt)}</TableCell>
+                            <TableCell>{formatTime(record.createdAt)}</TableCell>
+                            <TableCell>{typeLabel(record.type)}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={record.status}
+                                color={statusColor(record.status)}
+                                size="small"
+                                sx={{ textTransform: "capitalize" }}
+                              />
+                            </TableCell>
+                            {(canEdit || canDelete) && (
+                              <TableCell align="center">
+                                <Stack direction="row" spacing={1} justifyContent="center">
+                                  {canEdit && (
+                                    <Tooltip title="Edit">
+                                      <IconButton
+                                        size="small"
+                                        aria-label={`Edit record ${record.id}`}
+                                        onClick={() => handleEditOpen(record)}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
+                                  {canDelete && (
+                                    <Tooltip title="Delete">
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        aria-label={`Delete record ${record.id}`}
+                                        onClick={() => handleDeleteOpen(record.id)}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
+                                </Stack>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      }
+                    })
                   )}
                 </TableBody>
               </Table>

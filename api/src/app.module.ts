@@ -16,6 +16,7 @@ import { ReportsModule } from "./reports/reports.module";
 import { PendingModule } from "./pending/pending.module";
 import { KioskGuard } from "./common/guards/kiosk.guard";
 import { HealthModule } from "./health/health.module";
+import { ScheduleModule } from "./schedule/schedule.module";
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { HealthModule } from "./health/health.module";
     ReportsModule,
     PendingModule,
     HealthModule,
+    ScheduleModule,
   ],
   providers: [
     // KioskGuard runs globally after JWT auth resolves the user.

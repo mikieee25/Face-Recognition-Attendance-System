@@ -34,7 +34,7 @@ export default function KioskRecentList({ refreshKey }: Props) {
       );
       return res.data.data ?? [];
     },
-    refetchInterval: 15000,
+    refetchInterval: 3000,
   });
 
   const formatTime = (iso: string) => {

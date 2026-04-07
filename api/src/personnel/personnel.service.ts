@@ -105,11 +105,9 @@ export class PersonnelService {
       lastName: dto.lastName,
       rank: dto.rank,
       stationId,
-      shiftStartTime: dto.shiftStartTime ?? "08:00",
-      shiftEndTime: dto.shiftEndTime ?? "17:00",
-      isShifting: dto.isShifting ?? false,
-      shiftStartDate: dto.shiftStartDate ?? null,
-      shiftDurationDays: dto.shiftDurationDays ?? 15,
+      address: dto.address ?? null,
+      contactNumber: dto.contactNumber ?? null,
+      gender: dto.gender ?? null,
       dateCreated: new Date(),
       isActive: true,
     });
@@ -136,15 +134,6 @@ export class PersonnelService {
     if (dto.lastName !== undefined) personnel.lastName = dto.lastName;
     if (dto.rank !== undefined) personnel.rank = dto.rank;
     if (dto.isActive !== undefined) personnel.isActive = dto.isActive;
-    if (dto.shiftStartTime !== undefined)
-      personnel.shiftStartTime = dto.shiftStartTime;
-    if (dto.shiftEndTime !== undefined)
-      personnel.shiftEndTime = dto.shiftEndTime;
-    if (dto.isShifting !== undefined) personnel.isShifting = dto.isShifting;
-    if (dto.shiftStartDate !== undefined)
-      personnel.shiftStartDate = dto.shiftStartDate;
-    if (dto.shiftDurationDays !== undefined)
-      personnel.shiftDurationDays = dto.shiftDurationDays;
 
     // Only admin can change stationId
     if (dto.stationId !== undefined) {

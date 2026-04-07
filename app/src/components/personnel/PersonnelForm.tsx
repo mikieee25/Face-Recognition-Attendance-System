@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Box from "@mui/material/Box";
+
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
@@ -10,13 +10,13 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
-import FormControlLabel from "@mui/material/FormControlLabel";
+
 import FormHelperText from "@mui/material/FormHelperText";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
+
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,11 +56,9 @@ interface FormValues {
   lastName: string;
   rank: string;
   stationId: string;
-  shiftStartTime: string;
-  shiftEndTime: string;
-  isShifting: boolean;
-  shiftStartDate: string;
-  shiftDurationDays: number;
+  address: string;
+  contactNumber: string;
+  gender: string;
 }
 
 interface FormErrors {
@@ -75,11 +73,9 @@ const INITIAL_VALUES: FormValues = {
   lastName: "",
   rank: "",
   stationId: "",
-  shiftStartTime: "08:00",
-  shiftEndTime: "17:00",
-  isShifting: false,
-  shiftStartDate: "",
-  shiftDurationDays: 15,
+  address: "",
+  contactNumber: "",
+  gender: "",
 };
 
 function validate(values: FormValues, isAdmin: boolean): FormErrors {
@@ -109,14 +105,9 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
           lastName: personnel.lastName,
           rank: personnel.rank,
           stationId: String(personnel.stationId),
-          // Strip seconds from "HH:mm:ss" → "HH:mm" for <input type="time">
-          shiftStartTime: (personnel.shiftStartTime ?? "08:00").slice(0, 5),
-          shiftEndTime: (personnel.shiftEndTime ?? "17:00").slice(0, 5),
-          // DB stores tinyint (0/1) — cast to real boolean so @IsBoolean() passes
-          isShifting: Boolean(personnel.isShifting),
-          shiftStartDate: personnel.shiftStartDate ?? "",
-          // DB may store 0 (default) — fall back to 15 so @Min(1) never fires
-          shiftDurationDays: personnel.shiftDurationDays || 15,
+          address: personnel.address ?? "",
+          contactNumber: personnel.contactNumber ?? "",
+          gender: personnel.gender ?? "",
         });
       } else {
         setValues(INITIAL_VALUES);
@@ -160,19 +151,13 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         rank: values.rank,
-        shiftStartTime: values.shiftStartTime || "08:00",
-        shiftEndTime: values.shiftEndTime || "17:00",
-        isShifting: values.isShifting,
-        // Always send a valid shiftDurationDays so @Min(1) never rejects it
-        shiftDurationDays: values.shiftDurationDays || 15,
+        address: values.address.trim(),
+        contactNumber: values.contactNumber.trim(),
+        gender: values.gender,
       };
 
       if (isAdmin) {
         payload.stationId = Number(values.stationId);
-      }
-
-      if (values.isShifting && values.shiftStartDate) {
-        payload.shiftStartDate = values.shiftStartDate;
       }
 
       if (isEditMode && personnel) {
@@ -261,74 +246,37 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
             )}
           </Stack>
 
-          {/* Shift Schedule Section */}
+          {/* Additional Info Section */}
           <Divider />
           <Typography variant="subtitle2" color="primary" fontWeight={600}>
-            Shift Schedule
+            Additional Information
           </Typography>
+
+          <TextField
+            label="Address"
+            value={values.address}
+            onChange={(e) => handleChange("address", e.target.value)}
+            disabled={submitting}
+            fullWidth
+          />
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField
-              label="Shift Start Time"
-              type="time"
-              value={values.shiftStartTime}
-              onChange={(e) => handleChange("shiftStartTime", e.target.value)}
+              label="Contact Number"
+              value={values.contactNumber}
+              onChange={(e) => handleChange("contactNumber", e.target.value)}
               disabled={submitting}
               fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
-              helperText="Default work start time"
             />
-            <TextField
-              label="Shift End Time"
-              type="time"
-              value={values.shiftEndTime}
-              onChange={(e) => handleChange("shiftEndTime", e.target.value)}
-              disabled={submitting}
-              fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
-              helperText="Default work end time"
-            />
+            <FormControl fullWidth disabled={submitting}>
+              <InputLabel>Gender</InputLabel>
+              <Select value={values.gender} label="Gender" onChange={(e) => handleChange("gender", e.target.value)}>
+                <MenuItem value="Male">Male</MenuItem>
+                <MenuItem value="Female">Female</MenuItem>
+                <MenuItem value="Other">Other</MenuItem>
+              </Select>
+            </FormControl>
           </Stack>
-
-          <Box>
-            <FormControlLabel
-              control={
-                <Switch checked={values.isShifting} onChange={(e) => handleChange("isShifting", e.target.checked)} disabled={submitting} />
-              }
-              label="Rotation Shift"
-            />
-            <Typography variant="caption" color="text.secondary" display="block">
-              Enable for rotation schedule
-            </Typography>
-          </Box>
-
-          {values.isShifting && (
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
-                label="Shift Cycle Start Date"
-                type="date"
-                value={values.shiftStartDate}
-                onChange={(e) => handleChange("shiftStartDate", e.target.value)}
-                disabled={submitting}
-                fullWidth
-                slotProps={{ inputLabel: { shrink: true } }}
-                helperText="When does their current shift cycle begin?"
-              />
-              <TextField
-                label="Shift Duration (Days)"
-                type="number"
-                value={values.shiftDurationDays}
-                onChange={(e) => handleChange("shiftDurationDays", Number(e.target.value))}
-                disabled={submitting}
-                fullWidth
-                slotProps={{
-                  inputLabel: { shrink: true },
-                  htmlInput: { min: 1, max: 60 },
-                }}
-                helperText="Number of days ON duty (same for OFF)"
-              />
-            </Stack>
-          )}
         </Stack>
       </DialogContent>
 

@@ -59,14 +59,18 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   on_leave: "On Leave",
 };
 
+function formatDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function getThisWeekRange() {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
   return {
-    dateFrom: monday.toISOString().slice(0, 10),
-    dateTo: now.toISOString().slice(0, 10),
+    dateFrom: formatDateStr(monday),
+    dateTo: formatDateStr(now),
   };
 }
 
@@ -82,7 +86,7 @@ export default function AttendanceSummaryTable() {
 
   const getRange = () => {
     if (preset === "today") {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = formatDateStr(new Date());
       return { dateFrom: today, dateTo: today };
     }
     if (preset === "this_week") return getThisWeekRange();
@@ -90,8 +94,8 @@ export default function AttendanceSummaryTable() {
       const now = new Date();
       const first = new Date(now.getFullYear(), now.getMonth(), 1);
       return {
-        dateFrom: first.toISOString().slice(0, 10),
-        dateTo: now.toISOString().slice(0, 10),
+        dateFrom: formatDateStr(first),
+        dateTo: formatDateStr(now),
       };
     }
     return { dateFrom: customFrom, dateTo: customTo };
@@ -102,25 +106,21 @@ export default function AttendanceSummaryTable() {
   const { data: summaries = [], isLoading } = useQuery<DailySummary[]>({
     queryKey: ["dashboard", "summary", range.dateFrom, range.dateTo],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<DailySummary[]>>(
-        "/api/v1/dashboard/summary",
-        { params: { dateFrom: range.dateFrom, dateTo: range.dateTo } },
-      );
+      const res = await apiClient.get<ApiEnvelope<DailySummary[]>>("/api/v1/dashboard/summary", {
+        params: { dateFrom: range.dateFrom, dateTo: range.dateTo },
+      });
       return res.data.data ?? [];
     },
     enabled: !!range.dateFrom && !!range.dateTo,
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
-  const { data: personnelList = [], isLoading: personnelLoading } = useQuery<
-    PersonnelRow[]
-  >({
+  const { data: personnelList = [], isLoading: personnelLoading } = useQuery<PersonnelRow[]>({
     queryKey: ["dashboard", "personnel-status", modalDate, modalStatus],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<PersonnelRow[]>>(
-        "/api/v1/dashboard/personnel-status",
-        { params: { date: modalDate, status: modalStatus } },
-      );
+      const res = await apiClient.get<ApiEnvelope<PersonnelRow[]>>("/api/v1/dashboard/personnel-status", {
+        params: { date: modalDate, status: modalStatus },
+      });
       return res.data.data ?? [];
     },
     enabled: modalOpen && !!modalDate,
@@ -155,11 +155,7 @@ export default function AttendanceSummaryTable() {
           <Stack direction="row" spacing={2} alignItems="center">
             <FormControl size="small" sx={{ minWidth: 140 }}>
               <InputLabel>Range</InputLabel>
-              <Select
-                value={preset}
-                label="Range"
-                onChange={(e) => setPreset(e.target.value as RangePreset)}
-              >
+              <Select value={preset} label="Range" onChange={(e) => setPreset(e.target.value as RangePreset)}>
                 <MenuItem value="today">Today</MenuItem>
                 <MenuItem value="this_week">This Week</MenuItem>
                 <MenuItem value="this_month">This Month</MenuItem>
@@ -194,28 +190,16 @@ export default function AttendanceSummaryTable() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: STATUS_COLORS.present }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.present }}>
                   Present
                 </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: STATUS_COLORS.absent }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.absent }}>
                   Absent
                 </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: STATUS_COLORS.shifting }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.shifting }}>
                   Shifting
                 </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: STATUS_COLORS.on_leave }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.on_leave }}>
                   On Leave
                 </TableCell>
               </TableRow>
@@ -234,9 +218,7 @@ export default function AttendanceSummaryTable() {
                 : summaries.map((row) => (
                     <TableRow key={row.date} hover>
                       <TableCell>{formatDate(row.date)}</TableCell>
-                      {(
-                        ["present", "absent", "shifting", "on_leave"] as const
-                      ).map((s) => (
+                      {(["present", "absent", "shifting", "on_leave"] as const).map((s) => (
                         <TableCell
                           key={s}
                           align="center"
@@ -268,12 +250,7 @@ export default function AttendanceSummaryTable() {
       </Paper>
 
       {/* Modal: personnel list for a specific date + status */}
-      <Dialog
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle
           sx={{
             display: "flex",
@@ -289,24 +266,15 @@ export default function AttendanceSummaryTable() {
               {modalDate && formatDate(modalDate)}
             </Typography>
           </Box>
-          <IconButton
-            onClick={() => setModalOpen(false)}
-            size="small"
-            aria-label="Close"
-          >
+          <IconButton onClick={() => setModalOpen(false)} size="small" aria-label="Close">
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
           {personnelLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} variant="text" height={40} />
-            ))
+            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} variant="text" height={40} />)
           ) : personnelList.length === 0 ? (
-            <Typography
-              color="text.secondary"
-              sx={{ py: 2, textAlign: "center" }}
-            >
+            <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
               No personnel found.
             </Typography>
           ) : (

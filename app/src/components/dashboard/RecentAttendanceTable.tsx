@@ -1,6 +1,5 @@
 "use client";
 
-import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Table from "@mui/material/Table";
@@ -12,17 +11,8 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import type { AttendanceRecord, AttendanceStatus } from "@/types/models";
-import type { ApiEnvelope } from "@/types/api";
-
-type RecentRecord = AttendanceRecord & { personnelName: string };
-
-const STATUS_COLORS: Record<AttendanceStatus, "success" | "warning" | "error"> =
-  {
-    confirmed: "success",
-    pending: "warning",
-    rejected: "error",
-  };
+import type { DailyAttendanceSummary } from "@/types/models";
+import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
 
 function SkeletonRows() {
   return (
@@ -36,7 +26,10 @@ function SkeletonRows() {
             <Skeleton variant="text" width={80} />
           </TableCell>
           <TableCell>
-            <Skeleton variant="rounded" width={80} height={24} />
+            <Skeleton variant="text" width={80} />
+          </TableCell>
+          <TableCell>
+            <Skeleton variant="text" width={100} />
           </TableCell>
           <TableCell>
             <Skeleton variant="text" width={100} />
@@ -48,15 +41,15 @@ function SkeletonRows() {
 }
 
 export default function RecentAttendanceTable() {
-  const { data: records, isLoading } = useQuery<RecentRecord[]>({
-    queryKey: ["dashboard", "recent"],
+  const { data: records, isLoading } = useQuery<DailyAttendanceSummary[]>({
+    queryKey: ["dashboard", "recent-summary"],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<RecentRecord[]>>(
-        "/api/v1/dashboard/recent",
-      );
-      return res.data.data ?? [];
+      const res = await apiClient.get<ApiEnvelope<PaginatedResponse<DailyAttendanceSummary>>>("/api/v1/attendance", {
+        params: { summaryMode: true, limit: 10 },
+      });
+      return res.data.data?.items ?? [];
     },
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
   return (
@@ -68,10 +61,11 @@ export default function RecentAttendanceTable() {
         <Table size="small" sx={{ minWidth: 400 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Personnel</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Time</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Rank</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Time In</TableCell>
+              <TableCell>Time Out</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -79,21 +73,12 @@ export default function RecentAttendanceTable() {
               <SkeletonRows />
             ) : (
               records?.map((record) => (
-                <TableRow key={record.id} hover>
+                <TableRow key={`${record.personnelId}-${record.date}`} hover>
                   <TableCell>{record.personnelName}</TableCell>
-                  <TableCell>
-                    {record.type === "time_in" ? "Time In" : "Time Out"}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={record.status}
-                      color={STATUS_COLORS[record.status]}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {new Date(record.createdAt).toLocaleTimeString()}
-                  </TableCell>
+                  <TableCell>{record.rank}</TableCell>
+                  <TableCell>{record.date}</TableCell>
+                  <TableCell>{record.firstIn ? new Date(record.firstIn).toLocaleTimeString() : "--"}</TableCell>
+                  <TableCell>{record.lastOut ? new Date(record.lastOut).toLocaleTimeString() : "--"}</TableCell>
                 </TableRow>
               ))
             )}

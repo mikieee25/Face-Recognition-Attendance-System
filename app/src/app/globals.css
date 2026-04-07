@@ -40,3 +40,4 @@ a {
     color-scheme: dark;
   }
 }
+.inter-fallback { --font-inter: 'Helvetica Neue', Inter, Arial, sans-serif; }

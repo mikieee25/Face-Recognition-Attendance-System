@@ -29,11 +29,9 @@ export interface Personnel {
   imagePath?: string;
   isActive: boolean;
   dateCreated: string;
-  shiftStartTime?: string;
-  shiftEndTime?: string;
-  isShifting: boolean;
-  shiftStartDate?: string;
-  shiftDurationDays?: number;
+  address?: string;
+  contactNumber?: string;
+  gender?: string;
 }
 
 export interface AttendanceRecord {
@@ -58,4 +56,15 @@ export interface PendingApproval {
   reviewedBy?: number;
   reviewedAt?: string;
   createdAt: string;
+}
+
+export interface DailyAttendanceSummary {
+  personnelId: number;
+  personnelName: string;
+  rank: string;
+  date: string;
+  firstIn: string | null; // ISO string
+  lastOut: string | null; // ISO string
+  firstInId: number | null;
+  lastOutId: number | null;
 }
