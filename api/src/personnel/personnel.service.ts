@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import {
   BadRequestException,
   ForbiddenException,
@@ -42,7 +43,10 @@ export class PersonnelService {
    */
   async findAll(currentUser: AuthenticatedUser): Promise<Personnel[]> {
     if (currentUser.role === "admin") {
-      return this.personnelRepo.find({ order: { id: "ASC" } });
+      return this.personnelRepo.find({
+        order: { id: "ASC" },
+        relations: ["station"],
+      });
     }
 
     // station_user: filter by their assigned stationId
@@ -52,6 +56,7 @@ export class PersonnelService {
     return this.personnelRepo.find({
       where: { stationId: currentUser.stationId },
       order: { id: "ASC" },
+      relations: ["station"],
     });
   }
 
@@ -62,7 +67,10 @@ export class PersonnelService {
     id: number,
     currentUser: AuthenticatedUser
   ): Promise<Personnel> {
-    const personnel = await this.personnelRepo.findOne({ where: { id } });
+    const personnel = await this.personnelRepo.findOne({
+      where: { id },
+      relations: ["station"],
+    });
     if (!personnel) {
       throw new NotFoundException(`Personnel #${id} not found`);
     }
@@ -112,7 +120,20 @@ export class PersonnelService {
       isActive: true,
     });
 
-    return this.personnelRepo.save(personnel);
+    const savedPersonnel = await this.personnelRepo.save(personnel);
+    
+    if (dto.photo) {
+      const base64Data = dto.photo.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const filename = `profile-${savedPersonnel.id}-${Date.now()}.jpg`;
+      const dir = "uploads/profiles";
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(`${dir}/${filename}`, buffer);
+      savedPersonnel.imagePath = `${dir}/${filename}`;
+      await this.personnelRepo.save(savedPersonnel);
+    }
+    
+    return savedPersonnel;
   }
 
   /**
@@ -134,6 +155,16 @@ export class PersonnelService {
     if (dto.lastName !== undefined) personnel.lastName = dto.lastName;
     if (dto.rank !== undefined) personnel.rank = dto.rank;
     if (dto.isActive !== undefined) personnel.isActive = dto.isActive;
+
+    if (dto.photo) {
+      const base64Data = dto.photo.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const filename = `profile-${personnel.id}-${Date.now()}.jpg`;
+      const dir = "uploads/profiles";
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(`${dir}/${filename}`, buffer);
+      personnel.imagePath = `${dir}/${filename}`;
+    }
 
     // Only admin can change stationId
     if (dto.stationId !== undefined) {

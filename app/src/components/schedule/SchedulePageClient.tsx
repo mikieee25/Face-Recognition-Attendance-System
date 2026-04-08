@@ -33,6 +33,7 @@ interface Personnel {
   firstName: string;
   lastName: string;
   rank?: { name: string } | string;
+  station?: { name: string };
 }
 
 type ScheduleType = "regular" | "shifting" | "leave";
@@ -106,6 +107,7 @@ export default function SchedulePageClient() {
                   <TableRow>
                     <TableCell>Rank</TableCell>
                     <TableCell>Name</TableCell>
+                    <TableCell>Station</TableCell>
                     <TableCell>Today&apos;s Schedule</TableCell>
                     <TableCell align="right">Action</TableCell>
                   </TableRow>
@@ -118,6 +120,7 @@ export default function SchedulePageClient() {
                       <TableRow key={person.id} hover>
                         <TableCell>{typeof person.rank === "object" ? person.rank?.name : person.rank || ""}</TableCell>
                         <TableCell>{`${person.firstName} ${person.lastName}`}</TableCell>
+                        <TableCell>{person.station?.name || ""}</TableCell>
                         <TableCell>
                           <Chip
                             label={scheduleType.charAt(0).toUpperCase() + scheduleType.slice(1)}

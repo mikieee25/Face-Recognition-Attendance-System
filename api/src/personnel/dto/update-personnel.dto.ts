@@ -50,4 +50,9 @@ export class UpdatePersonnelDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ example: "data:image/png;base64,iVBORw0KGgo..." })
+  @IsOptional()
+  @IsString()
+  photo?: string;
 }

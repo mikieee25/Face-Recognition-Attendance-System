@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
@@ -12,6 +14,7 @@ import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 
 import FormHelperText from "@mui/material/FormHelperText";
+import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -19,6 +22,7 @@ import Stack from "@mui/material/Stack";
 
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,6 +63,7 @@ interface FormValues {
   address: string;
   contactNumber: string;
   gender: string;
+  photo?: string;
 }
 
 interface FormErrors {
@@ -76,6 +81,7 @@ const INITIAL_VALUES: FormValues = {
   address: "",
   contactNumber: "",
   gender: "",
+  photo: undefined,
 };
 
 function validate(values: FormValues, isAdmin: boolean): FormErrors {
@@ -108,6 +114,7 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
           address: personnel.address ?? "",
           contactNumber: personnel.contactNumber ?? "",
           gender: personnel.gender ?? "",
+          photo: undefined,
         });
       } else {
         setValues(INITIAL_VALUES);
@@ -138,6 +145,17 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
     }
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setValues((prev) => ({ ...prev, photo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   async function handleSubmit() {
     const validationErrors = validate(values, isAdmin);
     if (Object.keys(validationErrors).length > 0) {
@@ -155,6 +173,10 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
         contactNumber: values.contactNumber.trim(),
         gender: values.gender,
       };
+
+      if (values.photo) {
+        payload.photo = values.photo;
+      }
 
       if (isAdmin) {
         payload.stationId = Number(values.stationId);
@@ -185,6 +207,29 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
 
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+            <input
+              accept="image/*"
+              style={{ display: "none" }}
+              id="personnel-photo-upload"
+              type="file"
+              onChange={handleFileChange}
+              disabled={submitting}
+            />
+            <label htmlFor="personnel-photo-upload">
+              <IconButton color="primary" aria-label="upload picture" component="span" disabled={submitting}>
+                <Avatar
+                  src={
+                    values.photo || (personnel?.imagePath ? `${(process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "")}/${personnel.imagePath.replace(/^\//, "")}` : undefined)
+                  }
+                  sx={{ width: 100, height: 100 }}
+                >
+                  {!(values.photo || personnel?.imagePath) && <CameraAltIcon sx={{ fontSize: 40 }} />}
+                </Avatar>
+              </IconButton>
+            </label>
+          </Box>
+
           {/* Basic Info */}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField

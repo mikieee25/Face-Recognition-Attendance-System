@@ -46,4 +46,9 @@ export class CreatePersonnelDto {
   @Type(() => Number)
   @IsInt({ message: "stationId must be an integer" })
   stationId?: number;
+
+  @ApiPropertyOptional({ example: "data:image/png;base64,iVBORw0KGgo..." })
+  @IsOptional()
+  @IsString()
+  photo?: string;
 }
