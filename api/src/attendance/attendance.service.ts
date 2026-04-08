@@ -16,6 +16,7 @@ import {
 } from "../database/entities/attendance.entity";
 import { PendingApproval } from "../database/entities/pending-attendance.entity";
 import { Personnel } from "../database/entities/personnel.entity";
+import { Schedule, ScheduleType } from "../database/entities/schedule.entity";
 import { FaceService } from "../face/face.service";
 import { CaptureAttendanceDto } from "./dto/capture-attendance.dto";
 import { ManualAttendanceDto } from "./dto/manual-attendance.dto";
@@ -62,6 +63,8 @@ export class AttendanceService {
     private readonly pendingRepo: Repository<PendingApproval>,
     @InjectRepository(Personnel)
     private readonly personnelRepo: Repository<Personnel>,
+    @InjectRepository(Schedule)
+    private readonly scheduleRepo: Repository<Schedule>,
     private readonly faceService: FaceService
   ) {}
 
@@ -105,6 +108,31 @@ export class AttendanceService {
       : AttendanceType.TimeIn;
   }
 
+  private getLocalDayStr(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  private async validateCaptureAllowed(
+    personnelId: number,
+    capturedAt: Date
+  ): Promise<void> {
+    const schedule = await this.scheduleRepo.findOne({
+      where: {
+        personnelId,
+        date: this.getLocalDayStr(capturedAt),
+      },
+    });
+
+    if (schedule?.type === ScheduleType.LEAVE) {
+      throw new BadRequestException(
+        "Cannot record attendance. Personnel is on leave today."
+      );
+    }
+  }
+
   /**
    * POST /api/v1/attendance/capture
    * Validate image → call FaceService.recognize() → route by confidence threshold.
@@ -132,6 +160,8 @@ export class AttendanceService {
         err instanceof Error ? err.message : "Face recognition failed";
       throw new UnprocessableEntityException(message);
     }
+
+    await this.validateCaptureAllowed(personnelId, new Date());
 
     if (confidence >= 0.6) {
       // High confidence → confirmed AttendanceRecord (Requirement 5.6)

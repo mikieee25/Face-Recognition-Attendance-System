@@ -15,6 +15,7 @@ import {
 } from "../database/entities/attendance.entity";
 import { PendingApproval } from "../database/entities/pending-attendance.entity";
 import { Personnel } from "../database/entities/personnel.entity";
+import { Schedule, ScheduleType } from "../database/entities/schedule.entity";
 import { FaceService } from "../face/face.service";
 import { AttendanceService, AuthenticatedUser } from "./attendance.service";
 import { CaptureAttendanceDto } from "./dto/capture-attendance.dto";
@@ -67,6 +68,7 @@ describe("AttendanceService", () => {
   let attendanceRepo: any;
   let pendingRepo: any;
   let personnelRepo: any;
+  let scheduleRepo: any;
   let faceService: jest.Mocked<FaceService>;
 
   const makeQb = (items: any[] = [], total = 0) => ({
@@ -106,6 +108,12 @@ describe("AttendanceService", () => {
           },
         },
         {
+          provide: getRepositoryToken(Schedule),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
           provide: FaceService,
           useValue: {
             recognize: jest.fn(),
@@ -118,6 +126,7 @@ describe("AttendanceService", () => {
     attendanceRepo = module.get(getRepositoryToken(AttendanceRecord));
     pendingRepo = module.get(getRepositoryToken(PendingApproval));
     personnelRepo = module.get(getRepositoryToken(Personnel));
+    scheduleRepo = module.get(getRepositoryToken(Schedule));
     faceService = module.get(FaceService);
   });
 
@@ -140,6 +149,27 @@ describe("AttendanceService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it("throws BadRequestException when personnel is on leave today", async () => {
+      faceService.recognize.mockResolvedValue({
+        personnelId: 10,
+        confidence: 0.9,
+      });
+      scheduleRepo.findOne.mockResolvedValue({
+        id: 1,
+        personnelId: 10,
+        date: new Date().toISOString().slice(0, 10),
+        type: ScheduleType.LEAVE,
+      });
+
+      await expect(service.capture(dto, adminUser)).rejects.toThrow(
+        new BadRequestException(
+          "Cannot record attendance. Personnel is on leave today.",
+        ),
+      );
+      expect(attendanceRepo.save).not.toHaveBeenCalled();
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+    });
+
     it("creates confirmed AttendanceRecord when confidence >= 0.7", async () => {
       faceService.recognize.mockResolvedValue({
         personnelId: 10,
@@ -158,19 +188,19 @@ describe("AttendanceService", () => {
       );
     });
 
-    it("creates PendingApproval when 0.5 <= confidence < 0.7", async () => {
+    it("creates PendingApproval when 0.4 <= confidence < 0.6", async () => {
       faceService.recognize.mockResolvedValue({
         personnelId: 10,
-        confidence: 0.6,
+        confidence: 0.5,
       });
-      const pending = { id: 1, personnelId: 10, confidence: 0.6 };
+      const pending = { id: 1, personnelId: 10, confidence: 0.5 };
       pendingRepo.create.mockReturnValue(pending);
       pendingRepo.save.mockResolvedValue(pending);
 
       const result = await service.capture(dto, adminUser);
 
       expect(pendingRepo.save).toHaveBeenCalled();
-      expect((result as any).confidence).toBe(0.6);
+      expect((result as any).confidence).toBe(0.5);
     });
 
     it("throws UnprocessableEntityException when confidence < 0.5", async () => {
@@ -184,13 +214,15 @@ describe("AttendanceService", () => {
       );
     });
 
-    it("propagates ServiceUnavailableException from FaceService", async () => {
+    it("wraps FaceService errors as UnprocessableEntityException", async () => {
       faceService.recognize.mockRejectedValue(
         new ServiceUnavailableException("Face recognition service unavailable"),
       );
 
       await expect(service.capture(dto, adminUser)).rejects.toThrow(
-        ServiceUnavailableException,
+        new UnprocessableEntityException(
+          "Face recognition service unavailable",
+        ),
       );
     });
 
@@ -281,26 +313,40 @@ describe("AttendanceService", () => {
       );
     });
 
-    it("creates record with is_manual=true and created_by", async () => {
+    it("creates a pending manual entry for admin review", async () => {
       personnelRepo.findOne.mockResolvedValue(mockPersonnel());
-      const created = mockRecord({ isManual: true, createdBy: stationUser.id });
-      attendanceRepo.create.mockReturnValue(created);
-      attendanceRepo.save.mockResolvedValue(created);
+      const pending = {
+        id: 1,
+        personnelId: dto.personnelId,
+        attendanceType: "TIME_IN",
+        reviewStatus: "pending",
+        createdAt: new Date(dto.date),
+      };
+      pendingRepo.create.mockReturnValue(pending);
+      pendingRepo.save.mockResolvedValue(pending);
 
-      const result = await service.createManual(dto, stationUser);
+      await service.createManual(dto, stationUser);
 
-      const createCall = attendanceRepo.create.mock.calls[0][0];
-      expect(createCall.isManual).toBe(true);
-      expect(createCall.createdBy).toBe(stationUser.id);
+      const createCall = pendingRepo.create.mock.calls[0][0];
+      expect(createCall.personnelId).toBe(dto.personnelId);
+      expect(createCall.attendanceType).toBe("TIME_IN");
+      expect(createCall.reviewStatus).toBe("pending");
     });
 
     it("admin can create manual entry for any station's personnel", async () => {
       personnelRepo.findOne.mockResolvedValue(mockPersonnel({ stationId: 99 }));
-      const created = mockRecord({ isManual: true, createdBy: adminUser.id });
-      attendanceRepo.create.mockReturnValue(created);
-      attendanceRepo.save.mockResolvedValue(created);
+      const pending = {
+        id: 2,
+        personnelId: dto.personnelId,
+        attendanceType: "TIME_IN",
+        reviewStatus: "pending",
+      };
+      pendingRepo.create.mockReturnValue(pending);
+      pendingRepo.save.mockResolvedValue(pending);
 
-      await expect(service.createManual(dto, adminUser)).resolves.toBeDefined();
+      await expect(service.createManual(dto, adminUser)).resolves.toEqual(
+        pending,
+      );
     });
   });
 

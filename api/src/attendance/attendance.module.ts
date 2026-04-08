@@ -3,13 +3,19 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AttendanceRecord } from "../database/entities/attendance.entity";
 import { PendingApproval } from "../database/entities/pending-attendance.entity";
 import { Personnel } from "../database/entities/personnel.entity";
+import { Schedule } from "../database/entities/schedule.entity";
 import { AttendanceService } from "./attendance.service";
 import { AttendanceController } from "./attendance.controller";
 import { FaceModule } from "../face/face.module";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AttendanceRecord, PendingApproval, Personnel]),
+    TypeOrmModule.forFeature([
+      AttendanceRecord,
+      PendingApproval,
+      Personnel,
+      Schedule,
+    ]),
     FaceModule,
   ],
   controllers: [AttendanceController],
