@@ -159,6 +159,11 @@ export class PersonnelService {
     if (dto.lastName !== undefined) personnel.lastName = dto.lastName;
     if (dto.rank !== undefined) personnel.rank = dto.rank;
     if (dto.section !== undefined) personnel.section = dto.section;
+    if (dto.address !== undefined) personnel.address = dto.address || null;
+    if (dto.contactNumber !== undefined) {
+      personnel.contactNumber = dto.contactNumber || null;
+    }
+    if (dto.gender !== undefined) personnel.gender = dto.gender || null;
     if (dto.isActive !== undefined) personnel.isActive = dto.isActive;
 
     if (dto.photo) {
