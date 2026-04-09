@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -279,15 +279,13 @@ function ScheduleModal({
     message: "",
     severity: "success",
   });
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    `${year}-${String(month + 1).padStart(2, "0")}-01`
-  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<Record<string, ScheduleOverride>>(
     {},
   );
   const queryClient = useQueryClient();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
 
   const { data: existingSchedules = [], isLoading: isLoadingSchedules } =
     useQuery({
@@ -303,17 +301,16 @@ function ScheduleModal({
       enabled: open,
     });
 
-  const [prevMonth, setPrevMonth] = useState(month);
-  const [prevYear, setPrevYear] = useState(year);
-
-  // Derive state from props during render (React 18 recommended way to reset/adjust state on prop changes)
-  if (month !== prevMonth || year !== prevYear) {
-    setPrevMonth(month);
-    setPrevYear(year);
-    if (open) {
-      setSelectedDate(`${year}-${String(month + 1).padStart(2, "0")}-01`);
+  useEffect(() => {
+    if (!open) {
+      setSelectedDate(null);
+      setOverrides({});
+      return;
     }
-  }
+
+    const firstDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    setSelectedDate(firstDate);
+  }, [month, open, year]);
 
   const mutation = useMutation({
     mutationFn: async (
