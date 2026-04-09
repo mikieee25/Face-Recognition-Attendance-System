@@ -219,7 +219,7 @@ export default function AttendanceHistoryGrid() {
     type: "",
   });
 
-  const [summaryMode, setSummaryMode] = useState(false);
+  const [summaryMode, setSummaryMode] = useState(true);
 
   // Edit dialog
   const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
@@ -340,14 +340,14 @@ export default function AttendanceHistoryGrid() {
         <FormControlLabel
           control={
             <Switch
-              checked={summaryMode}
+              checked={!summaryMode}
               onChange={(e) => {
-                setSummaryMode(e.target.checked);
+                setSummaryMode(!e.target.checked);
                 setPage(0);
               }}
             />
           }
-          label="Summary Mode"
+          label="Logs Mode"
         />
       </Stack>
 

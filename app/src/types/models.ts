@@ -1,6 +1,7 @@
 export type Role = "admin" | "station_user" | "kiosk";
 export type AttendanceType = "time_in" | "time_out";
 export type AttendanceStatus = "confirmed" | "pending" | "rejected";
+export type PersonnelSection = "admin" | "operation";
 
 export interface Station {
   id: number;
@@ -25,6 +26,7 @@ export interface Personnel {
   firstName: string;
   lastName: string;
   rank: string;
+  section: PersonnelSection;
   stationId: number;
   imagePath?: string;
   isActive: boolean;

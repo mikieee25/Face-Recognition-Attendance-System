@@ -47,6 +47,10 @@ interface Props {
   onFaceRegister?: (personnel: Personnel) => void;
 }
 
+function formatSectionLabel(section: Personnel["section"]): string {
+  return section === "admin" ? "Administrative" : "Operation";
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-PH", {
     year: "numeric",
@@ -182,6 +186,7 @@ export default function PersonnelProfileModal({ open, onClose, personnel, onFace
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
               <Chip label={stationName} size="small" variant="outlined" />
+              <Chip label={formatSectionLabel(personnel.section)} size="small" variant="outlined" />
               <Chip label={personnel.isActive ? "Active" : "Inactive"} size="small" color={personnel.isActive ? "success" : "default"} />
             </Stack>
             <Stack direction="row" spacing={2} sx={{ mt: 1 }}>

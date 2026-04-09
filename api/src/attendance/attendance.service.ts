@@ -15,8 +15,16 @@ import {
   AttendanceType,
 } from "../database/entities/attendance.entity";
 import { PendingApproval } from "../database/entities/pending-attendance.entity";
-import { Personnel } from "../database/entities/personnel.entity";
-import { Schedule, ScheduleType } from "../database/entities/schedule.entity";
+import {
+  Personnel,
+  PersonnelSection,
+} from "../database/entities/personnel.entity";
+import {
+  DEFAULT_SHIFT_END_TIME,
+  DEFAULT_SHIFT_START_TIME,
+  Schedule,
+  ScheduleType,
+} from "../database/entities/schedule.entity";
 import { FaceService } from "../face/face.service";
 import { CaptureAttendanceDto } from "./dto/capture-attendance.dto";
 import { ManualAttendanceDto } from "./dto/manual-attendance.dto";
@@ -29,6 +37,24 @@ const ALLOWED_MIME_PREFIXES = [
   "data:image/jpeg;base64,",
   "data:image/png;base64,",
 ];
+const SHIFT_GRACE_MINUTES = 30;
+
+interface DayAttendanceState {
+  confirmedRecords: AttendanceRecord[];
+  hasTimeIn: boolean;
+  hasTimeOut: boolean;
+}
+
+interface DutyValidationResult {
+  shouldPend: boolean;
+  reason?: string;
+}
+
+interface EffectiveSchedule {
+  type: ScheduleType | "off_duty";
+  shiftStartTime: string;
+  shiftEndTime: string;
+}
 
 export interface AuthenticatedUser {
   id: number;
@@ -115,22 +141,225 @@ export class AttendanceService {
     )}-${String(date.getDate()).padStart(2, "0")}`;
   }
 
-  private async validateCaptureAllowed(
+  private getLocalDayBounds(date: Date): { start: Date; end: Date } {
+    return {
+      start: new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0,
+        0,
+        0,
+        0
+      ),
+      end: new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        23,
+        59,
+        59,
+        999
+      ),
+    };
+  }
+
+  private normalizeTime(time: string): string {
+    return time.length === 5 ? `${time}:00` : time;
+  }
+
+  private buildShiftDate(date: Date, time: string): Date {
+    const normalizedTime = this.normalizeTime(time);
+    const [hours, minutes, seconds] = normalizedTime.split(":").map(Number);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      hours,
+      minutes,
+      seconds ?? 0,
+      0
+    );
+  }
+
+  private async getDayAttendanceState(
     personnelId: number,
     capturedAt: Date
-  ): Promise<void> {
-    const schedule = await this.scheduleRepo.findOne({
+  ): Promise<DayAttendanceState> {
+    const { start, end } = this.getLocalDayBounds(capturedAt);
+    const confirmedRecords = await this.attendanceRepo.find({
       where: {
         personnelId,
-        date: this.getLocalDayStr(capturedAt),
+        status: AttendanceStatus.Confirmed,
+        createdAt: Between(start, end),
+      },
+      order: { createdAt: "ASC" },
+    });
+
+    return {
+      confirmedRecords,
+      hasTimeIn: confirmedRecords.some(
+        (record) => record.type === AttendanceType.TimeIn
+      ),
+      hasTimeOut: confirmedRecords.some(
+        (record) => record.type === AttendanceType.TimeOut
+      ),
+    };
+  }
+
+  private resolveRequestedType(
+    dto: CaptureAttendanceDto,
+    dayState: DayAttendanceState
+  ): AttendanceType {
+    if (dto.type) {
+      return dto.type;
+    }
+
+    if (!dayState.hasTimeIn) {
+      return AttendanceType.TimeIn;
+    }
+
+    if (!dayState.hasTimeOut) {
+      return AttendanceType.TimeOut;
+    }
+
+    throw new BadRequestException(
+      "Attendance already completed for today."
+    );
+  }
+
+  private validateOncePerDayAttendance(
+    type: AttendanceType,
+    dayState: DayAttendanceState
+  ): void {
+    if (type === AttendanceType.TimeIn && dayState.hasTimeIn) {
+      throw new BadRequestException("Time In already recorded for today.");
+    }
+
+    if (type === AttendanceType.TimeOut && !dayState.hasTimeIn) {
+      throw new BadRequestException(
+        "Cannot record Time Out. You need to Time In first."
+      );
+    }
+
+    if (type === AttendanceType.TimeOut && dayState.hasTimeOut) {
+      throw new BadRequestException("Time Out already recorded for today.");
+    }
+  }
+
+  private async getEffectiveSchedule(
+    personnel: Personnel,
+    capturedAt: Date
+  ): Promise<EffectiveSchedule> {
+    const dateStr = this.getLocalDayStr(capturedAt);
+    const schedule = await this.scheduleRepo.findOne({
+      where: {
+        personnelId: personnel.id,
+        date: dateStr,
       },
     });
 
-    if (schedule?.type === ScheduleType.LEAVE) {
-      throw new BadRequestException(
-        "Cannot record attendance. Personnel is on leave today."
-      );
+    if (schedule) {
+      return {
+        type: schedule.type,
+        shiftStartTime:
+          schedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
+        shiftEndTime: schedule.shiftEndTime ?? DEFAULT_SHIFT_END_TIME,
+      };
     }
+
+    if (personnel.section === PersonnelSection.ADMIN) {
+      const dayOfWeek = capturedAt.getDay();
+      const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+      return {
+        type: isWeekday ? ScheduleType.REGULAR : "off_duty",
+        shiftStartTime: DEFAULT_SHIFT_START_TIME,
+        shiftEndTime: DEFAULT_SHIFT_END_TIME,
+      };
+    }
+
+    return {
+      type: "off_duty",
+      shiftStartTime: DEFAULT_SHIFT_START_TIME,
+      shiftEndTime: DEFAULT_SHIFT_END_TIME,
+    };
+  }
+
+  private async validateCaptureDuty(
+    personnel: Personnel,
+    type: AttendanceType,
+    capturedAt: Date
+  ): Promise<DutyValidationResult> {
+    if (personnel.section === PersonnelSection.OPERATION) {
+      return {
+        shouldPend: true,
+        reason: "Operation personnel attendance requires admin review.",
+      };
+    }
+
+    const effectiveSchedule = await this.getEffectiveSchedule(
+      personnel,
+      capturedAt
+    );
+
+    if (effectiveSchedule.type === ScheduleType.LEAVE) {
+      return {
+        shouldPend: true,
+        reason: "Personnel is on leave today.",
+      };
+    }
+
+    if (effectiveSchedule.type === "off_duty") {
+      return {
+        shouldPend: true,
+        reason: "Personnel is currently off duty.",
+      };
+    }
+
+    const shiftStart = this.buildShiftDate(
+      capturedAt,
+      effectiveSchedule.shiftStartTime
+    );
+    const shiftEnd = this.buildShiftDate(
+      capturedAt,
+      effectiveSchedule.shiftEndTime
+    );
+    const earliestAllowed = new Date(
+      shiftStart.getTime() - SHIFT_GRACE_MINUTES * 60 * 1000
+    );
+    const latestAllowed = new Date(
+      shiftEnd.getTime() + SHIFT_GRACE_MINUTES * 60 * 1000
+    );
+
+    if (capturedAt < earliestAllowed || capturedAt > latestAllowed) {
+      return {
+        shouldPend: true,
+        reason: `Outside the scheduled duty window for ${
+          type === AttendanceType.TimeIn ? "Time In" : "Time Out"
+        }.`,
+      };
+    }
+
+    return { shouldPend: false };
+  }
+
+  private async createPendingAttendance(
+    personnelId: number,
+    type: AttendanceType,
+    confidence: number | null,
+    capturedAt?: Date
+  ): Promise<PendingApproval> {
+    const attendanceType =
+      type === AttendanceType.TimeIn ? "TIME_IN" : "TIME_OUT";
+    const pending = this.pendingRepo.create({
+      personnelId,
+      attendanceType: attendanceType as "TIME_IN" | "TIME_OUT",
+      confidence,
+      imagePath: "",
+      reviewStatus: "pending" as any,
+      createdAt: capturedAt,
+    });
+    return this.pendingRepo.save(pending);
   }
 
   /**
@@ -151,6 +380,7 @@ export class AttendanceService {
     // Call Face Service (Requirements 5.3, 5.4, 5.5)
     let personnelId: number;
     let confidence: number;
+    const capturedAt = new Date();
     try {
       const result = await this.faceService.recognize(dto.image, stationId);
       personnelId = result.personnelId;
@@ -161,49 +391,51 @@ export class AttendanceService {
       throw new UnprocessableEntityException(message);
     }
 
-    await this.validateCaptureAllowed(personnelId, new Date());
+    const personnel = await this.personnelRepo.findOne({
+      where: { id: personnelId },
+    });
+    if (!personnel) {
+      throw new NotFoundException(`Personnel #${personnelId} not found`);
+    }
+
+    const dayState = await this.getDayAttendanceState(personnelId, capturedAt);
+    const resolvedType = this.resolveRequestedType(dto, dayState);
+    this.validateOncePerDayAttendance(resolvedType, dayState);
 
     if (confidence >= 0.6) {
-      // High confidence → confirmed AttendanceRecord (Requirement 5.6)
-      const expectedType = await this.determineAttendanceType(personnelId);
+      const dutyValidation = await this.validateCaptureDuty(
+        personnel,
+        resolvedType,
+        capturedAt
+      );
 
-      // If the user explicitly requested a type, validate it matches the expected sequence
-      if (dto.type && dto.type !== expectedType) {
-        const label =
-          dto.type === AttendanceType.TimeIn ? "Time In" : "Time Out";
-        const expectedLabel =
-          expectedType === AttendanceType.TimeIn ? "Time In" : "Time Out";
-        throw new BadRequestException(
-          `Cannot record ${label}. You need to ${expectedLabel} first.`
+      if (dutyValidation.shouldPend) {
+        return this.createPendingAttendance(
+          personnelId,
+          resolvedType,
+          confidence,
+          capturedAt
         );
       }
 
-      const type = dto.type ?? expectedType;
       const record = this.attendanceRepo.create({
         personnelId,
-        type,
+        type: resolvedType,
         status: AttendanceStatus.Confirmed,
         confidence,
         imagePath: null,
         isManual: false,
         createdBy: currentUser.id,
-        createdAt: new Date(),
+        createdAt: capturedAt,
       });
       return this.attendanceRepo.save(record);
     } else if (confidence >= 0.4) {
-      // Medium confidence → PendingApproval (Requirement 5.14)
-      const expectedType = await this.determineAttendanceType(personnelId);
-      const resolvedType = dto.type ?? expectedType;
-      const attendanceType =
-        resolvedType === AttendanceType.TimeIn ? "TIME_IN" : "TIME_OUT";
-      const pending = this.pendingRepo.create({
+      return this.createPendingAttendance(
         personnelId,
-        attendanceType: attendanceType as "TIME_IN" | "TIME_OUT",
+        resolvedType,
         confidence,
-        imagePath: "",
-        reviewStatus: "pending" as any,
-      });
-      return this.pendingRepo.save(pending);
+        capturedAt
+      );
     } else {
       // Low confidence → HTTP 422 (Requirement 5.7)
       throw new UnprocessableEntityException(

@@ -16,7 +16,7 @@ import type { ApiEnvelope } from "@/types/api";
 
 interface DashboardStats {
   present: number;
-  absent: number;
+  late: number;
   shifting: number;
   onLeave: number;
 }
@@ -89,9 +89,9 @@ export default function StatsCards() {
       icon: <PeopleIcon />,
     },
     {
-      label: "Absent",
-      value: data?.absent,
-      color: "#C62828",
+      label: "Late",
+      value: data?.late,
+      color: "#F9A825",
       icon: <PersonOffIcon />,
     },
     {
@@ -103,7 +103,7 @@ export default function StatsCards() {
     {
       label: "On Leave",
       value: data?.onLeave,
-      color: "#7B1FA2",
+      color: "#CDB4F5",
       icon: <EventBusyIcon />,
     },
   ];

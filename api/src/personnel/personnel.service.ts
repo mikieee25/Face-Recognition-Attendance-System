@@ -7,7 +7,10 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Personnel } from "../database/entities/personnel.entity";
+import {
+  Personnel,
+  PersonnelSection,
+} from "../database/entities/personnel.entity";
 import { FaceEmbedding } from "../database/entities/face-data.entity";
 import { CreatePersonnelDto } from "./dto/create-personnel.dto";
 import { UpdatePersonnelDto } from "./dto/update-personnel.dto";
@@ -112,6 +115,7 @@ export class PersonnelService {
       firstName: dto.firstName,
       lastName: dto.lastName,
       rank: dto.rank,
+      section: dto.section ?? PersonnelSection.ADMIN,
       stationId,
       address: dto.address ?? null,
       contactNumber: dto.contactNumber ?? null,
@@ -154,6 +158,7 @@ export class PersonnelService {
     if (dto.firstName !== undefined) personnel.firstName = dto.firstName;
     if (dto.lastName !== undefined) personnel.lastName = dto.lastName;
     if (dto.rank !== undefined) personnel.rank = dto.rank;
+    if (dto.section !== undefined) personnel.section = dto.section;
     if (dto.isActive !== undefined) personnel.isActive = dto.isActive;
 
     if (dto.photo) {

@@ -1,13 +1,13 @@
 import {
   IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
-  Min,
-  Max,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
+import { PersonnelSection } from "../../database/entities/personnel.entity";
 
 export class UpdatePersonnelDto {
   @ApiPropertyOptional({ example: "123 Main St" })
@@ -39,6 +39,11 @@ export class UpdatePersonnelDto {
   @IsOptional()
   @IsString()
   rank?: string;
+
+  @ApiPropertyOptional({ enum: PersonnelSection })
+  @IsOptional()
+  @IsEnum(PersonnelSection)
+  section?: PersonnelSection;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()

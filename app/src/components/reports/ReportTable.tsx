@@ -29,6 +29,7 @@ interface ReportItem {
   personnelId: number;
   personnelName: string;
   rank: string;
+  section: string;
   station: string;
   date: string;
   timeIn: string | null;
@@ -68,6 +69,10 @@ function typeLabel(type: string): string {
   if (type === "time_in") return "Time In";
   if (type === "time_out") return "Time Out";
   return type;
+}
+
+function formatSectionLabel(section: string): string {
+  return section === "admin" ? "Administrative" : "Operation";
 }
 
 // ─── API fetcher ──────────────────────────────────────────────────────────────
@@ -178,6 +183,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
                 <TableRow>
                   <TableCell>Personnel</TableCell>
                   <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Rank</TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Section</TableCell>
                   <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Station</TableCell>
                   <TableCell>Date</TableCell>
                   <TableCell>Time</TableCell>
@@ -189,7 +195,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
                         No records found for the selected filters.
                       </Typography>
@@ -200,6 +206,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
                     <TableRow key={row.id} hover>
                       <TableCell>{row.personnelName}</TableCell>
                       <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{row.rank}</TableCell>
+                      <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{formatSectionLabel(row.section)}</TableCell>
                       <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{row.station}</TableCell>
                       <TableCell>{formatDate(row.date)}</TableCell>
                       <TableCell>{formatTime(row.timeIn ?? row.timeOut)}</TableCell>
@@ -210,7 +217,15 @@ export default function ReportTable({ filters }: ReportTableProps) {
                       <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
                         {(() => {
                           const sched = scheduleMap.get(row.personnelId);
-                          if (sched === "on_leave") return <Chip label="On Leave" size="small" color="secondary" />;
+                          if (sched === "on_leave") {
+                            return (
+                              <Chip
+                                label="On Leave"
+                                size="small"
+                                sx={{ bgcolor: "#CDB4F5", color: "#4E3A74" }}
+                              />
+                            );
+                          }
                           if (sched === "shifting") return <Chip label="Shifting" size="small" color="warning" />;
                           return <Chip label="Regular" size="small" color="success" variant="outlined" />;
                         })()}
@@ -232,7 +247,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
                       },
                     }}
                   >
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={6}>
                       <Typography variant="body2" fontWeight={600}>
                         Page Summary ({rows.length} records)
                       </Typography>

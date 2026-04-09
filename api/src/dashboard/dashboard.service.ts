@@ -17,7 +17,7 @@ export interface AuthenticatedUser {
 
 export interface DashboardStats {
   present: number;
-  absent: number;
+  late: number;
   shifting: number;
   onLeave: number;
 }
@@ -25,7 +25,7 @@ export interface DashboardStats {
 export interface DailySummary {
   date: string;
   present: number;
-  absent: number;
+  late: number;
   shifting: number;
   onLeave: number;
 }
@@ -35,7 +35,9 @@ export interface PersonnelAttendanceRow {
   name: string;
   rank: string;
   stationName: string;
-  status: "present" | "absent" | "shifting" | "on_leave";
+  imagePath: string | null;
+  section: string;
+  status: "present" | "late" | "shifting" | "on_leave";
 }
 
 export interface RecentRecord {
@@ -87,7 +89,7 @@ export class DashboardService {
 
   /**
    * GET /api/v1/dashboard/stats
-   * Today's present/absent/shifting/on-leave counts scoped by role.
+   * Today's present/late/shifting/on-leave counts scoped by role.
    */
   async getStats(currentUser: AuthenticatedUser): Promise<DashboardStats> {
     const today = new Date();
@@ -111,7 +113,7 @@ export class DashboardService {
 
     const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
     if (allPersonnel.length === 0) {
-      return { present: 0, absent: 0, shifting: 0, onLeave: 0 };
+      return { present: 0, late: 0, shifting: 0, onLeave: 0 };
     }
 
     const personnelIds = allPersonnel.map((p) => p.id);
@@ -152,7 +154,7 @@ export class DashboardService {
     }
 
     let present = 0;
-    let absent = 0;
+    let late = 0;
     let shifting = 0;
     let onLeave = 0;
 
@@ -166,12 +168,12 @@ export class DashboardService {
         } else if (type === ScheduleType.LEAVE) {
           onLeave++;
         } else {
-          absent++;
+          late++;
         }
       }
     }
 
-    return { present, absent, shifting, onLeave };
+    return { present, late, shifting, onLeave };
   }
 
   /**
@@ -256,7 +258,7 @@ export class DashboardService {
         scheduleMap.get(dateKey) ?? new Map<number, ScheduleType>();
 
       let present = 0;
-      let absent = 0;
+      let late = 0;
       let shifting = 0;
       let onLeave = 0;
 
@@ -270,12 +272,12 @@ export class DashboardService {
           } else if (type === ScheduleType.LEAVE) {
             onLeave++;
           } else {
-            absent++;
+            late++;
           }
         }
       }
 
-      summaries.push({ date: dateKey, present, absent, shifting, onLeave });
+      summaries.push({ date: dateKey, present, late, shifting, onLeave });
       cursor.setDate(cursor.getDate() + 1);
     }
 
@@ -360,7 +362,7 @@ export class DashboardService {
         } else if (type === ScheduleType.LEAVE) {
           personnelStatus = "on_leave";
         } else {
-          personnelStatus = "absent";
+          personnelStatus = "late";
         }
       }
 
@@ -369,6 +371,8 @@ export class DashboardService {
         name: `${p.firstName} ${p.lastName}`,
         rank: p.rank,
         stationName: (p as any).station?.name ?? "Unknown",
+        imagePath: p.imagePath ?? null,
+        section: p.section,
         status: personnelStatus,
       };
     });

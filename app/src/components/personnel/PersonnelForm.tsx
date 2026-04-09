@@ -29,23 +29,52 @@ import { useAuth } from "@/hooks/useAuth";
 import type { Personnel, Station } from "@/types/models";
 import type { ApiEnvelope } from "@/types/api";
 
-const RANKS = [
-  "NUP",
-  "Fire Officer 1",
-  "Fire Officer 2",
-  "Fire Officer 3",
-  "Senior Fire Officer 1",
-  "Senior Fire Officer 2",
-  "Senior Fire Officer 3",
-  "Senior Fire Officer 4",
-  "Fire Inspector",
-  "Fire Senior Inspector",
-  "Fire Chief Inspector",
-  "Fire Superintendent",
-  "Fire Senior Superintendent",
-  "Fire Chief Superintendent",
-  "Fire Director",
-];
+const RANK_OPTIONS = [
+  { value: "NUP", label: "NUP" },
+  { value: "FO1", label: "Fire Officer 1" },
+  { value: "FO2", label: "Fire Officer 2" },
+  { value: "FO3", label: "Fire Officer 3" },
+  { value: "SFO1", label: "Senior Fire Officer 1" },
+  { value: "SFO2", label: "Senior Fire Officer 2" },
+  { value: "SFO3", label: "Senior Fire Officer 3" },
+  { value: "SFO4", label: "Senior Fire Officer 4" },
+  { value: "INSP", label: "Fire Inspector" },
+  { value: "SINSP", label: "Fire Senior Inspector" },
+  { value: "CINSP", label: "Fire Chief Inspector" },
+  { value: "SUPT", label: "Fire Superintendent" },
+  { value: "SSUPT", label: "Fire Senior Superintendent" },
+  { value: "CSUPT", label: "Fire Chief Superintendent" },
+  { value: "FDIR", label: "Fire Director" },
+] as const;
+
+const LEGACY_RANK_TO_CODE: Record<string, string> = {
+  "Fire Officer 1": "FO1",
+  "Fire Officer 2": "FO2",
+  "Fire Officer 3": "FO3",
+  "Senior Fire Officer 1": "SFO1",
+  "Senior Fire Officer 2": "SFO2",
+  "Senior Fire Officer 3": "SFO3",
+  "Senior Fire Officer 4": "SFO4",
+  "Fire Inspector": "INSP",
+  "Fire Senior Inspector": "SINSP",
+  "Fire Chief Inspector": "CINSP",
+  "Fire Superintendent": "SUPT",
+  "Fire Senior Superintendent": "SSUPT",
+  "Fire Chief Superintendent": "CSUPT",
+  "Fire Director": "FDIR",
+};
+
+function normalizeRank(rank: string): string {
+  if (!rank) return "";
+  if (RANK_OPTIONS.some((option) => option.value === rank)) {
+    return rank;
+  }
+  return LEGACY_RANK_TO_CODE[rank] ?? rank;
+}
+
+function formatSectionLabel(section: "admin" | "operation"): string {
+  return section === "admin" ? "Administrative" : "Operation";
+}
 
 interface PersonnelFormProps {
   open: boolean;
@@ -59,6 +88,7 @@ interface FormValues {
   firstName: string;
   lastName: string;
   rank: string;
+  section: "admin" | "operation";
   stationId: string;
   address: string;
   contactNumber: string;
@@ -70,6 +100,7 @@ interface FormErrors {
   firstName?: string;
   lastName?: string;
   rank?: string;
+  section?: string;
   stationId?: string;
 }
 
@@ -77,6 +108,7 @@ const INITIAL_VALUES: FormValues = {
   firstName: "",
   lastName: "",
   rank: "",
+  section: "admin",
   stationId: "",
   address: "",
   contactNumber: "",
@@ -89,6 +121,7 @@ function validate(values: FormValues, isAdmin: boolean): FormErrors {
   if (!values.firstName.trim()) errors.firstName = "First name is required.";
   if (!values.lastName.trim()) errors.lastName = "Last name is required.";
   if (!values.rank) errors.rank = "Rank is required.";
+  if (!values.section) errors.section = "Section is required.";
   if (isAdmin && !values.stationId) errors.stationId = "Station is required.";
   return errors;
 }
@@ -109,7 +142,8 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
         setValues({
           firstName: personnel.firstName,
           lastName: personnel.lastName,
-          rank: personnel.rank,
+          rank: normalizeRank(personnel.rank),
+          section: personnel.section,
           stationId: String(personnel.stationId),
           address: personnel.address ?? "",
           contactNumber: personnel.contactNumber ?? "",
@@ -169,6 +203,7 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         rank: values.rank,
+        section: values.section,
         address: values.address.trim(),
         contactNumber: values.contactNumber.trim(),
         gender: values.gender,
@@ -255,20 +290,29 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
           </Stack>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            {/* Rank Dropdown */}
             <FormControl fullWidth required error={Boolean(errors.rank)}>
               <InputLabel>Rank</InputLabel>
               <Select value={values.rank} label="Rank" onChange={(e) => handleChange("rank", e.target.value)} disabled={submitting}>
-                {RANKS.map((r) => (
-                  <MenuItem key={r} value={r}>
-                    {r}
+                {RANK_OPTIONS.map((rank) => (
+                  <MenuItem key={rank.value} value={rank.value}>
+                    {rank.label}
                   </MenuItem>
                 ))}
               </Select>
               {errors.rank && <FormHelperText>{errors.rank}</FormHelperText>}
             </FormControl>
 
-            {/* Station — Admin: dropdown, Station user: read-only */}
+            <FormControl fullWidth required error={Boolean(errors.section)}>
+              <InputLabel>Section</InputLabel>
+              <Select value={values.section} label="Section" onChange={(e) => handleChange("section", e.target.value)} disabled={submitting}>
+                <MenuItem value="admin">{formatSectionLabel("admin")}</MenuItem>
+                <MenuItem value="operation">{formatSectionLabel("operation")}</MenuItem>
+              </Select>
+              {errors.section && <FormHelperText>{errors.section}</FormHelperText>}
+            </FormControl>
+          </Stack>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             {isAdmin ? (
               <FormControl fullWidth required error={Boolean(errors.stationId)}>
                 <InputLabel>Station</InputLabel>

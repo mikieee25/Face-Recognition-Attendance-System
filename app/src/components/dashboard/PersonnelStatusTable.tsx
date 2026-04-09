@@ -1,5 +1,6 @@
 "use client";
 
+import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
@@ -19,15 +20,35 @@ interface PersonnelRow {
   name: string;
   rank: string;
   stationName: string;
-  status: "present" | "absent" | "shifting" | "on_leave";
+  imagePath: string | null;
+  section: string;
+  status: "present" | "late" | "shifting" | "on_leave";
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   present: { label: "Present", color: "#2E7D32" },
-  absent: { label: "Absent", color: "#C62828" },
+  late: { label: "Late", color: "#F9A825" },
   shifting: { label: "Shifting", color: "#F57C00" },
-  on_leave: { label: "On Leave", color: "#7B1FA2" },
+  on_leave: { label: "On Leave", color: "#CDB4F5" },
 };
+
+function formatSectionLabel(section: string): string {
+  return section === "admin" ? "Administrative" : "Operation";
+}
+
+function buildImageUrl(imagePath: string | null): string | undefined {
+  if (!imagePath) return undefined;
+  if (imagePath.startsWith("http")) return imagePath;
+
+  const assetBase =
+    process.env.NEXT_PUBLIC_ASSET_BASE_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_API_BASE_URL ??
+    "";
+  const normalizedBase = assetBase.replace(/\/+$/, "");
+  const normalizedPath = imagePath.replace(/^\//, "");
+  return normalizedBase ? `${normalizedBase}/${normalizedPath}` : `/${normalizedPath}`;
+}
 
 export default function PersonnelStatusTable() {
   const { data: personnel = [], isLoading } = useQuery<PersonnelRow[]>({
@@ -50,8 +71,17 @@ export default function PersonnelStatusTable() {
         <Table size="small" sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
+              <TableCell sx={{ fontWeight: 700 }}>Profile</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Rank</TableCell>
+              <TableCell
+                sx={{
+                  fontWeight: 700,
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Section
+              </TableCell>
               <TableCell
                 sx={{
                   fontWeight: 700,
@@ -67,11 +97,11 @@ export default function PersonnelStatusTable() {
             {isLoading
               ? Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 4 }).map((__, j) => (
+                    {Array.from({ length: 6 }).map((__, j) => (
                       <TableCell
                         key={j}
                         sx={
-                          j === 2
+                          j === 4
                             ? { display: { xs: "none", sm: "table-cell" } }
                             : {}
                         }
@@ -82,11 +112,25 @@ export default function PersonnelStatusTable() {
                   </TableRow>
                 ))
               : personnel.map((p) => {
-                  const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.absent;
+                  const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.late;
                   return (
                     <TableRow key={p.personnelId} hover>
+                      <TableCell>
+                        <Avatar
+                          src={buildImageUrl(p.imagePath)}
+                          alt={p.name}
+                          sx={{ width: 36, height: 36 }}
+                        />
+                      </TableCell>
                       <TableCell>{p.name}</TableCell>
                       <TableCell>{p.rank}</TableCell>
+                      <TableCell
+                        sx={{
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        {formatSectionLabel(p.section)}
+                      </TableCell>
                       <TableCell
                         sx={{ display: { xs: "none", sm: "table-cell" } }}
                       >

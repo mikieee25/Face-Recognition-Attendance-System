@@ -16,7 +16,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get("stats")
-  @ApiOperation({ summary: "Today's present/absent/shifting/on-leave counts" })
+  @ApiOperation({ summary: "Today's present/late/shifting/on-leave counts" })
   async getStats(@Request() req: any) {
     return this.dashboardService.getStats(req.user);
   }

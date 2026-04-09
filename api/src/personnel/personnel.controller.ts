@@ -25,6 +25,7 @@ import { PersonnelService } from "./personnel.service";
 import { CreatePersonnelDto } from "./dto/create-personnel.dto";
 import { UpdatePersonnelDto } from "./dto/update-personnel.dto";
 import { RegisterFaceDto } from "./dto/register-face.dto";
+import { PersonnelSection } from "../database/entities/personnel.entity";
 
 @ApiTags("Personnel")
 @ApiBearerAuth()
@@ -174,6 +175,7 @@ export class PersonnelController {
         firstName,
         lastName,
         rank: "FO1",
+        section: PersonnelSection.ADMIN,
         stationId: req.user?.stationId || 1,
       } as any,
       req.user || { role: "admin", id: 1 }

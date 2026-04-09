@@ -30,7 +30,7 @@ import type { ApiEnvelope } from "@/types/api";
 interface DailySummary {
   date: string;
   present: number;
-  absent: number;
+  late: number;
   shifting: number;
   onLeave: number;
 }
@@ -40,21 +40,21 @@ interface PersonnelRow {
   name: string;
   rank: string;
   stationName: string;
-  status: "present" | "absent" | "shifting" | "on_leave";
+  status: "present" | "late" | "shifting" | "on_leave";
 }
 
-type StatusFilter = "present" | "absent" | "shifting" | "on_leave";
+type StatusFilter = "present" | "late" | "shifting" | "on_leave";
 
 const STATUS_COLORS: Record<StatusFilter, string> = {
   present: "#2E7D32",
-  absent: "#C62828",
+  late: "#F9A825",
   shifting: "#F57C00",
-  on_leave: "#7B1FA2",
+  on_leave: "#CDB4F5",
 };
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   present: "Present",
-  absent: "Absent",
+  late: "Late",
   shifting: "Shifting",
   on_leave: "On Leave",
 };
@@ -193,8 +193,8 @@ export default function AttendanceSummaryTable() {
                 <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.present }}>
                   Present
                 </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.absent }}>
-                  Absent
+                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.late }}>
+                  Late
                 </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.shifting }}>
                   Shifting
@@ -218,7 +218,7 @@ export default function AttendanceSummaryTable() {
                 : summaries.map((row) => (
                     <TableRow key={row.date} hover>
                       <TableCell>{formatDate(row.date)}</TableCell>
-                      {(["present", "absent", "shifting", "on_leave"] as const).map((s) => (
+                      {(["present", "late", "shifting", "on_leave"] as const).map((s) => (
                         <TableCell
                           key={s}
                           align="center"

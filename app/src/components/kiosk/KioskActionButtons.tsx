@@ -1,8 +1,8 @@
 "use client";
 
 import ButtonBase from "@mui/material/ButtonBase";
+import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -39,36 +39,52 @@ const buttons = [
 
 export default function KioskActionButtons({ onAction, disabled }: Props) {
   return (
-    <Paper sx={{ p: 2, bgcolor: "#243447", border: "1px solid #2e4460" }}>
+    <Paper
+      sx={{
+        p: { xs: 2, sm: 2.5 },
+        bgcolor: "#243447",
+        border: "1px solid #2e4460",
+        borderRadius: 3,
+      }}
+    >
       <Typography
         variant="overline"
         sx={{
           color: "#7a9cc0",
           fontWeight: 700,
           letterSpacing: "0.06em",
-          mb: 1.5,
+          mb: { xs: 2, sm: 1.5 },
           display: "block",
         }}
       >
         Record Attendance
       </Typography>
-      <Stack spacing={2} direction="row" flexWrap="wrap">
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
+          gap: { xs: 1.75, sm: 2 },
+          alignItems: "stretch",
+        }}
+      >
         {buttons.map((btn) => (
           <ButtonBase
             key={btn.type}
             onClick={() => onAction(btn.type)}
             disabled={disabled}
             sx={{
-              flex: { xs: "1 1 100%", sm: "1 1 calc(33.333% - 11px)" },
-              minHeight: { xs: 100, sm: 140 },
-              borderRadius: 1.8,
+              width: "100%",
+              minHeight: { xs: 92, sm: btn.minHeight },
+              px: { xs: 2, sm: 2.5 },
+              py: { xs: 2.25, sm: 2 },
+              borderRadius: { xs: 3, sm: 1.8 },
               background: btn.gradient,
               color: "#fff",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: 0.5,
+              gap: { xs: 0.85, sm: 0.5 },
               boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
               transition: "transform 0.12s, box-shadow 0.12s",
               "&:hover": {
@@ -79,19 +95,32 @@ export default function KioskActionButtons({ onAction, disabled }: Props) {
               "&:disabled": { opacity: 0.5 },
             }}
           >
-            {btn.icon}
+            <Box
+              sx={{
+                lineHeight: 0,
+                "& svg": {
+                  fontSize: { xs: btn.type === "manual" ? 32 : 42, sm: btn.type === "manual" ? 36 : 48 },
+                },
+              }}
+            >
+              {btn.icon}
+            </Box>
             <Typography
               variant="h6"
               fontWeight={800}
               letterSpacing="0.04em"
               textTransform="uppercase"
-              sx={{ fontSize: { xs: "0.85rem", sm: "1.25rem" } }}
+              sx={{
+                fontSize: { xs: "0.95rem", sm: "1.25rem" },
+                lineHeight: 1.2,
+                textAlign: "center",
+              }}
             >
               {btn.label}
             </Typography>
           </ButtonBase>
         ))}
-      </Stack>
+      </Box>
     </Paper>
   );
 }

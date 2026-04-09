@@ -14,7 +14,10 @@ import {
   AttendanceType,
 } from "../database/entities/attendance.entity";
 import { PendingApproval } from "../database/entities/pending-attendance.entity";
-import { Personnel } from "../database/entities/personnel.entity";
+import {
+  Personnel,
+  PersonnelSection,
+} from "../database/entities/personnel.entity";
 import { Schedule, ScheduleType } from "../database/entities/schedule.entity";
 import { FaceService } from "../face/face.service";
 import { AttendanceService, AuthenticatedUser } from "./attendance.service";
@@ -40,6 +43,7 @@ const mockPersonnel = (overrides: Partial<Personnel> = {}): Personnel =>
     lastName: "dela Cruz",
     rank: "FO1",
     stationId: 1,
+    section: PersonnelSection.ADMIN,
     isActive: true,
     ...overrides,
   } as Personnel);
@@ -87,6 +91,7 @@ describe("AttendanceService", () => {
         {
           provide: getRepositoryToken(AttendanceRecord),
           useValue: {
+            find: jest.fn(),
             findOne: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
@@ -128,6 +133,16 @@ describe("AttendanceService", () => {
     personnelRepo = module.get(getRepositoryToken(Personnel));
     scheduleRepo = module.get(getRepositoryToken(Schedule));
     faceService = module.get(FaceService);
+    attendanceRepo.find.mockResolvedValue([]);
+    personnelRepo.findOne.mockResolvedValue(mockPersonnel());
+    scheduleRepo.findOne.mockResolvedValue({
+      id: 1,
+      personnelId: 10,
+      date: new Date().toISOString().slice(0, 10),
+      type: ScheduleType.REGULAR,
+      shiftStartTime: "00:00:00",
+      shiftEndTime: "23:59:00",
+    });
   });
 
   // ─── capture ───────────────────────────────────────────────────────────────
@@ -149,25 +164,28 @@ describe("AttendanceService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("throws BadRequestException when personnel is on leave today", async () => {
+    it("routes leave captures to pending approval", async () => {
       faceService.recognize.mockResolvedValue({
         personnelId: 10,
         confidence: 0.9,
       });
+      const pending = { id: 9, personnelId: 10, confidence: 0.9 };
+      pendingRepo.create.mockReturnValue(pending);
+      pendingRepo.save.mockResolvedValue(pending);
       scheduleRepo.findOne.mockResolvedValue({
         id: 1,
         personnelId: 10,
         date: new Date().toISOString().slice(0, 10),
         type: ScheduleType.LEAVE,
+        shiftStartTime: "08:00:00",
+        shiftEndTime: "17:00:00",
       });
 
-      await expect(service.capture(dto, adminUser)).rejects.toThrow(
-        new BadRequestException(
-          "Cannot record attendance. Personnel is on leave today.",
-        ),
-      );
+      const result = await service.capture(dto, adminUser);
+
+      expect(result).toBe(pending);
       expect(attendanceRepo.save).not.toHaveBeenCalled();
-      expect(pendingRepo.save).not.toHaveBeenCalled();
+      expect(pendingRepo.save).toHaveBeenCalled();
     });
 
     it("creates confirmed AttendanceRecord when confidence >= 0.7", async () => {
@@ -175,7 +193,6 @@ describe("AttendanceService", () => {
         personnelId: 10,
         confidence: 0.85,
       });
-      attendanceRepo.findOne.mockResolvedValue(null); // no prior record → time_in
       const created = mockRecord({ type: AttendanceType.TimeIn });
       attendanceRepo.create.mockReturnValue(created);
       attendanceRepo.save.mockResolvedValue(created);
@@ -231,14 +248,14 @@ describe("AttendanceService", () => {
         personnelId: 10,
         confidence: 0.9,
       });
-      attendanceRepo.findOne.mockResolvedValue(
+      attendanceRepo.find.mockResolvedValue([
         mockRecord({ type: AttendanceType.TimeIn }),
-      );
+      ]);
       const created = mockRecord({ type: AttendanceType.TimeOut });
       attendanceRepo.create.mockReturnValue(created);
       attendanceRepo.save.mockResolvedValue(created);
 
-      const result = await service.capture(dto, adminUser);
+      await service.capture(dto, adminUser);
 
       const createCall = attendanceRepo.create.mock.calls[0][0];
       expect(createCall.type).toBe(AttendanceType.TimeOut);
@@ -249,9 +266,7 @@ describe("AttendanceService", () => {
         personnelId: 10,
         confidence: 0.9,
       });
-      attendanceRepo.findOne.mockResolvedValue(
-        mockRecord({ type: AttendanceType.TimeOut }),
-      );
+      attendanceRepo.find.mockResolvedValue([]);
       const created = mockRecord({ type: AttendanceType.TimeIn });
       attendanceRepo.create.mockReturnValue(created);
       attendanceRepo.save.mockResolvedValue(created);
@@ -267,7 +282,6 @@ describe("AttendanceService", () => {
         personnelId: 10,
         confidence: 0.9,
       });
-      attendanceRepo.findOne.mockResolvedValue(null);
       const created = mockRecord({ type: AttendanceType.TimeIn });
       attendanceRepo.create.mockReturnValue(created);
       attendanceRepo.save.mockResolvedValue(created);
@@ -276,6 +290,38 @@ describe("AttendanceService", () => {
 
       const createCall = attendanceRepo.create.mock.calls[0][0];
       expect(createCall.type).toBe(AttendanceType.TimeIn);
+    });
+
+    it("blocks duplicate Time In on the same day", async () => {
+      faceService.recognize.mockResolvedValue({
+        personnelId: 10,
+        confidence: 0.9,
+      });
+      attendanceRepo.find.mockResolvedValue([
+        mockRecord({ type: AttendanceType.TimeIn }),
+      ]);
+
+      await expect(
+        service.capture({ ...dto, type: AttendanceType.TimeIn }, adminUser),
+      ).rejects.toThrow(
+        new BadRequestException("Time In already recorded for today."),
+      );
+    });
+
+    it("blocks Time Out if there is no Time In yet today", async () => {
+      faceService.recognize.mockResolvedValue({
+        personnelId: 10,
+        confidence: 0.9,
+      });
+      attendanceRepo.find.mockResolvedValue([]);
+
+      await expect(
+        service.capture({ ...dto, type: AttendanceType.TimeOut }, adminUser),
+      ).rejects.toThrow(
+        new BadRequestException(
+          "Cannot record Time Out. You need to Time In first.",
+        ),
+      );
     });
   });
 
