@@ -7,6 +7,11 @@ import {
 } from "typeorm";
 import { Station } from "../../stations/station.entity";
 
+export enum PersonnelSection {
+  ADMIN = "admin",
+  OPERATION = "operation",
+}
+
 @Entity("personnel")
 export class Personnel {
   @Column({ type: "varchar", length: 255, nullable: true })
@@ -34,6 +39,13 @@ export class Personnel {
 
   @Column({ type: "varchar", length: 100 })
   rank: string;
+
+  @Column({
+    type: "enum",
+    enum: PersonnelSection,
+    default: PersonnelSection.ADMIN,
+  })
+  section: PersonnelSection;
 
   @Column({ type: "int", name: "station_id" })
   stationId: number;

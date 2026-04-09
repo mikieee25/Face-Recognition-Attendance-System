@@ -24,6 +24,7 @@ export interface ReportItem {
   personnelId: number;
   personnelName: string;
   rank: string;
+  section: string;
   station: string;
   date: string;
   timeIn: string | null;
@@ -56,7 +57,7 @@ export interface MonthlySummaryItem {
 
 export interface CalendarDay {
   date: string;
-  status: "present" | "absent" | "leave" | "shifting" | "future";
+  status: "present" | "late" | "leave" | "shifting" | "future";
 }
 
 export interface CalendarPersonnelItem {
@@ -161,6 +162,7 @@ export class ReportsService {
         ? `${personnel.firstName} ${personnel.lastName}`
         : "Unknown",
       rank: personnel?.rank ?? "",
+      section: personnel?.section ?? "",
       station: station?.name ?? "",
       date: record.createdAt.toISOString().slice(0, 10),
       timeIn:
@@ -370,6 +372,7 @@ export class ReportsService {
     sheet.columns = [
       { header: "Personnel Name", key: "personnelName", width: 25 },
       { header: "Rank", key: "rank", width: 15 },
+      { header: "Section", key: "section", width: 15 },
       { header: "Station", key: "station", width: 20 },
       { header: "Date", key: "date", width: 12 },
       { header: "Time In", key: "timeIn", width: 20 },
@@ -458,6 +461,7 @@ export class ReportsService {
           ? `${personnel.firstName} ${personnel.lastName}`
           : "Unknown",
         rank: personnel?.rank ?? "",
+        section: personnel?.section ?? "",
         station: station?.name ?? "",
         date: record.createdAt.toISOString().slice(0, 10),
         timeIn: firstIn
@@ -574,7 +578,7 @@ export class ReportsService {
         if (attended) {
           calendar.push({ date: dateStr, status: "present" });
         } else {
-          calendar.push({ date: dateStr, status: "absent" });
+          calendar.push({ date: dateStr, status: "late" });
         }
       }
 

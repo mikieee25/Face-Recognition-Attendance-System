@@ -39,6 +39,10 @@ async function fetchPersonnel(): Promise<Personnel[]> {
   return res.data.data ?? [];
 }
 
+function formatSectionLabel(section: Personnel["section"]): string {
+  return section === "admin" ? "Administrative" : "Operation";
+}
+
 export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onViewProfile }: PersonnelDataGridProps) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
@@ -101,6 +105,7 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
                     <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>ID</TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Rank</TableCell>
+                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Section</TableCell>
                     <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Station</TableCell>
                     <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Gender</TableCell>
                     <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Contact</TableCell>
@@ -137,6 +142,9 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
                           </Typography>
                         </TableCell>
                         <TableCell>{person.rank}</TableCell>
+                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                          {formatSectionLabel(person.section)}
+                        </TableCell>
                         <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
                           {stationMap.get(person.stationId) ?? person.stationId}
                         </TableCell>

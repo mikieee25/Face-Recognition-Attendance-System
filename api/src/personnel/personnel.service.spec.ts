@@ -7,7 +7,10 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { PersonnelService } from "./personnel.service";
-import { Personnel } from "../database/entities/personnel.entity";
+import {
+  Personnel,
+  PersonnelSection,
+} from "../database/entities/personnel.entity";
 import { FaceEmbedding } from "../database/entities/face-data.entity";
 import { FaceService } from "../face/face.service";
 
@@ -32,6 +35,7 @@ const mockFaceEmbeddingRepo = () => ({
 
 const mockFaceService = () => ({
   registerFace: jest.fn(),
+  invalidateCache: jest.fn(),
 });
 
 const adminUser = { id: 1, role: "admin", stationId: null };
@@ -43,6 +47,7 @@ const makePersonnel = (overrides: Partial<Personnel> = {}): Personnel =>
     firstName: "Juan",
     lastName: "Dela Cruz",
     rank: "FO1",
+    section: PersonnelSection.ADMIN,
     stationId: 2,
     dateCreated: new Date(),
     isActive: true,
@@ -152,6 +157,7 @@ describe("PersonnelService", () => {
       firstName: "Maria",
       lastName: "Santos",
       rank: "FO2",
+      section: PersonnelSection.OPERATION,
       stationId: 5,
     };
 
@@ -192,6 +198,7 @@ describe("PersonnelService", () => {
           firstName: "Maria",
           lastName: "Santos",
           rank: "FO2",
+          section: PersonnelSection.OPERATION,
         })
       );
     });
@@ -209,6 +216,23 @@ describe("PersonnelService", () => {
 
       expect(personnelRepo.save).toHaveBeenCalled();
       expect(result.rank).toBe("FO3");
+    });
+
+    it("updates section when provided", async () => {
+      const p = makePersonnel({ section: PersonnelSection.ADMIN });
+      personnelRepo.findOne.mockResolvedValue(p);
+      personnelRepo.save.mockResolvedValue({
+        ...p,
+        section: PersonnelSection.OPERATION,
+      });
+
+      const result = await service.update(
+        10,
+        { section: PersonnelSection.OPERATION },
+        adminUser
+      );
+
+      expect(result.section).toBe(PersonnelSection.OPERATION);
     });
 
     it("station_user cannot change stationId", async () => {

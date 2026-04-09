@@ -1,7 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Between } from "typeorm";
-import { Schedule, ScheduleType } from "../database/entities/schedule.entity";
+import {
+  DEFAULT_SHIFT_END_TIME,
+  DEFAULT_SHIFT_START_TIME,
+  Schedule,
+  ScheduleType,
+} from "../database/entities/schedule.entity";
 import { Personnel } from "../database/entities/personnel.entity";
 import { UpdateScheduleDto } from "./dto/update-schedule.dto";
 
@@ -41,24 +46,49 @@ export class ScheduleService {
   }
 
   async updateSchedule(personnelId: number, dto: UpdateScheduleDto) {
+    const normalizeTime = (
+      value: string | undefined,
+      fallback: string
+    ): string => {
+      if (!value) return fallback;
+      return value.length === 5 ? `${value}:00` : value;
+    };
+
     for (const item of dto.schedules) {
+      const shiftStartTime = normalizeTime(
+        item.shiftStartTime,
+        DEFAULT_SHIFT_START_TIME
+      );
+      const shiftEndTime = normalizeTime(
+        item.shiftEndTime,
+        DEFAULT_SHIFT_END_TIME
+      );
+      const shouldDelete =
+        item.type === ScheduleType.REGULAR &&
+        shiftStartTime === DEFAULT_SHIFT_START_TIME &&
+        shiftEndTime === DEFAULT_SHIFT_END_TIME;
+
       let record = await this.scheduleRepo.findOne({
         where: { personnelId, date: item.date },
       });
 
       if (record) {
-        if (item.type === ScheduleType.REGULAR) {
+        if (shouldDelete) {
           await this.scheduleRepo.delete({ id: record.id });
         } else {
           record.type = item.type;
+          record.shiftStartTime = shiftStartTime;
+          record.shiftEndTime = shiftEndTime;
           await this.scheduleRepo.save(record);
         }
       } else {
-        if (item.type !== ScheduleType.REGULAR) {
+        if (!shouldDelete) {
           record = this.scheduleRepo.create({
             personnelId,
             date: item.date,
             type: item.type,
+            shiftStartTime,
+            shiftEndTime,
           });
           await this.scheduleRepo.save(record);
         }

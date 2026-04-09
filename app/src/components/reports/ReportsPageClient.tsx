@@ -15,12 +15,13 @@ import Alert from "@mui/material/Alert";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope } from "@/types/api";
+import ExportButtons from "./ExportButtons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CalendarDay {
   date: string;
-  status: "present" | "absent" | "leave" | "shifting" | "future";
+  status: "present" | "late" | "leave" | "shifting" | "future";
 }
 
 interface CalendarPersonnelItem {
@@ -35,15 +36,21 @@ interface CalendarPersonnelItem {
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const LEAVE_COLOR = "#CDB4F5";
+const LEAVE_TEXT_COLOR = "#4E3A74";
+
+function formatDateParam(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 const getStatusColor = (status: CalendarDay["status"]) => {
   switch (status) {
     case "present":
       return "#4caf50"; // success
-    case "absent":
-      return "#f44336"; // error
+    case "late":
+      return "#f9a825"; // warning
     case "leave":
-      return "#ff9800"; // warning
+      return LEAVE_COLOR;
     case "shifting":
       return "#2196f3"; // info
     case "future":
@@ -53,6 +60,7 @@ const getStatusColor = (status: CalendarDay["status"]) => {
 };
 
 const getTextColor = (status: CalendarDay["status"]) => {
+  if (status === "leave") return LEAVE_TEXT_COLOR;
   return status === "future" ? "text.secondary" : "#fff";
 };
 
@@ -144,6 +152,14 @@ export default function ReportsPageClient() {
   const now = new Date();
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const exportFilters = {
+    dateFrom: formatDateParam(year, month, 1),
+    dateTo: formatDateParam(year, month, daysInMonth),
+    stationId: "",
+    personnelId: "",
+    type: "",
+  };
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["reports", "calendar", year, month],
@@ -178,9 +194,19 @@ export default function ReportsPageClient() {
         alignItems={{ xs: "flex-start", md: "center" }}
         spacing={2}
       >
-        <Typography variant="h5">Personnel Attendance Calendar</Typography>
+        <Box>
+          <Typography variant="h5">Personnel Attendance Calendar</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Export covers the selected month.
+          </Typography>
+        </Box>
 
-        <Stack direction="row" spacing={2}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          sx={{ width: { xs: "100%", md: "auto" } }}
+          alignItems={{ xs: "stretch", sm: "center" }}
+        >
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel id="month-select-label">Month</InputLabel>
             <Select labelId="month-select-label" value={month} label="Month" onChange={(e) => setMonth(Number(e.target.value))}>
@@ -202,6 +228,8 @@ export default function ReportsPageClient() {
               ))}
             </Select>
           </FormControl>
+
+          <ExportButtons filters={exportFilters} />
         </Stack>
       </Stack>
 
@@ -209,7 +237,7 @@ export default function ReportsPageClient() {
       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
         {[
           { label: "Present", status: "present" as const },
-          { label: "Absent", status: "absent" as const },
+          { label: "Late", status: "late" as const },
           { label: "Leave", status: "leave" as const },
           { label: "Shifting", status: "shifting" as const },
         ].map((legend) => (
