@@ -29,7 +29,6 @@ import { ScheduleModule } from "./schedule/schedule.module";
       serveRoot: "/uploads",
       serveStaticOptions: {
         index: false,
-        fallthrough: false,
       },
     }),
     ThrottlerModule.forRoot([

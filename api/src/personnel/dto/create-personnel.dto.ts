@@ -1,4 +1,6 @@
 import {
+  Allow,
+  IsIn,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -8,6 +10,8 @@ import {
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { PersonnelSection } from "../../database/entities/personnel.entity";
+
+const PERSONNEL_SECTION_VALUES = ["admin", "operation"] as const;
 
 export class CreatePersonnelDto {
   @ApiPropertyOptional({ example: "123 Main St" })
@@ -40,8 +44,12 @@ export class CreatePersonnelDto {
   @IsNotEmpty({ message: "rank is required" })
   rank: string;
 
-  @ApiProperty({ enum: PersonnelSection, example: PersonnelSection.ADMIN })
-  @IsEnum(PersonnelSection)
+  @ApiProperty({
+    enum: PERSONNEL_SECTION_VALUES,
+    example: PersonnelSection.ADMIN,
+  })
+  @Allow()
+  @IsIn(PERSONNEL_SECTION_VALUES)
   section: PersonnelSection;
 
   @ApiPropertyOptional({ example: 1 })

@@ -99,7 +99,10 @@ describe("PersonnelService", () => {
 
       const result = await service.findAll(adminUser);
 
-      expect(personnelRepo.find).toHaveBeenCalledWith({ order: { id: "ASC" } });
+      expect(personnelRepo.find).toHaveBeenCalledWith({
+        order: { id: "ASC" },
+        relations: ["station"],
+      });
       expect(result).toHaveLength(2);
     });
 
@@ -112,6 +115,7 @@ describe("PersonnelService", () => {
       expect(personnelRepo.find).toHaveBeenCalledWith({
         where: { stationId: stationUser.stationId },
         order: { id: "ASC" },
+        relations: ["station"],
       });
       expect(result).toHaveLength(1);
     });
@@ -233,6 +237,37 @@ describe("PersonnelService", () => {
       );
 
       expect(result.section).toBe(PersonnelSection.OPERATION);
+    });
+
+    it("updates nullable profile fields when provided", async () => {
+      const p = makePersonnel({
+        address: "Old address",
+        contactNumber: "09123456789",
+        gender: "Male",
+      });
+      personnelRepo.findOne.mockResolvedValue(p);
+      personnelRepo.save.mockImplementation(async (entity: Personnel) => entity);
+
+      const result = await service.update(
+        10,
+        {
+          address: "123 Main St",
+          contactNumber: "",
+          gender: "",
+        },
+        adminUser
+      );
+
+      expect(personnelRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          address: "123 Main St",
+          contactNumber: null,
+          gender: null,
+        })
+      );
+      expect(result.address).toBe("123 Main St");
+      expect(result.contactNumber).toBeNull();
+      expect(result.gender).toBeNull();
     });
 
     it("station_user cannot change stationId", async () => {
