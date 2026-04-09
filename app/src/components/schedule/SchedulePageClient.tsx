@@ -279,15 +279,16 @@ function ScheduleModal({
     message: "",
     severity: "success",
   });
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    `${year}-${String(month + 1).padStart(2, "0")}-01`
-  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevMonth, setPrevMonth] = useState(currentDate.getMonth());
+  const [prevYear, setPrevYear] = useState(currentDate.getFullYear());
   const [overrides, setOverrides] = useState<Record<string, ScheduleOverride>>(
     {},
   );
   const queryClient = useQueryClient();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
 
   const { data: existingSchedules = [], isLoading: isLoadingSchedules } =
     useQuery({
@@ -303,16 +304,19 @@ function ScheduleModal({
       enabled: open,
     });
 
-  const [prevMonth, setPrevMonth] = useState(month);
-  const [prevYear, setPrevYear] = useState(year);
-
-  // Derive state from props during render (React 18 recommended way to reset/adjust state on prop changes)
-  if (month !== prevMonth || year !== prevYear) {
-    setPrevMonth(month);
-    setPrevYear(year);
-    if (open) {
+  // Sync state derived from props (React 18 style)
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (!open) {
+      setSelectedDate(null);
+      setOverrides({});
+    } else {
       setSelectedDate(`${year}-${String(month + 1).padStart(2, "0")}-01`);
     }
+  } else if (open && (month !== prevMonth || year !== prevYear)) {
+    setPrevMonth(month);
+    setPrevYear(year);
+    setSelectedDate(`${year}-${String(month + 1).padStart(2, "0")}-01`);
   }
 
   const mutation = useMutation({
