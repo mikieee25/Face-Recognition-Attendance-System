@@ -18,11 +18,12 @@ export default async function AttendanceHistoryPage() {
         dateTo: "",
         personnelId: "",
         type: "",
+        summaryMode: true,
       },
     ],
     queryFn: async () => {
       const res = await apiClient.get("/api/v1/attendance", {
-        params: { page: 1, limit: 20 },
+        params: { page: 1, limit: 20, summaryMode: true },
       });
       return res.data.data;
     },

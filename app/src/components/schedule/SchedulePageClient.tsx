@@ -1,20 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Divider from "@mui/material/Divider";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
+import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -31,6 +35,11 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
+import {
+  buildImageUrl,
+  formatSectionLabel,
+  getPersonnelInitials,
+} from "@/lib/personnel-display";
 import type { ApiEnvelope } from "@/types/api";
 import type { Personnel, Station } from "@/types/models";
 
@@ -93,8 +102,28 @@ function toOverride(schedule?: ScheduleDto): ScheduleOverride {
   };
 }
 
-function formatSectionLabel(section: Personnel["section"]): string {
-  return section === "admin" ? "Administrative" : "Operation";
+function ScheduleSelectCardSkeleton() {
+  return (
+    <Card
+      sx={{
+        height: "100%",
+        border: "1px solid",
+        borderColor: "divider",
+      }}
+    >
+      <Skeleton variant="rectangular" height={136} />
+      <CardContent>
+        <Skeleton variant="text" width="60%" height={32} />
+        <Skeleton variant="text" width="40%" />
+        <Stack direction="row" spacing={1} sx={{ mt: 2, mb: 2 }}>
+          <Skeleton variant="rounded" width={88} height={28} />
+          <Skeleton variant="rounded" width={110} height={28} />
+        </Stack>
+        <Skeleton variant="text" />
+        <Skeleton variant="text" width="75%" />
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function SchedulePageClient() {
@@ -156,90 +185,161 @@ export default function SchedulePageClient() {
             Select Personnel
           </Typography>
           {isLoadingPersonnel || isLoadingAllSchedules ? (
-            <Typography>Loading...</Typography>
+            <Grid container spacing={2.5}>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Grid key={index} size={{ xs: 12, md: 6, xl: 4 }}>
+                  <ScheduleSelectCardSkeleton />
+                </Grid>
+              ))}
+            </Grid>
           ) : (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Rank</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Station</TableCell>
-                    <TableCell>Section</TableCell>
-                    <TableCell>Today&apos;s Schedule</TableCell>
-                    <TableCell>Shift Window</TableCell>
-                    <TableCell align="right">Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {personnelList.map((person) => {
-                    const todaySched = allSchedules.find(
-                      (schedule) =>
-                        schedule.personnelId === person.id &&
-                        schedule.date === todayStr,
-                    );
-                    const scheduleType = todaySched?.type ?? "regular";
-                    const shiftStartTime =
-                      todaySched?.shiftStartTime ?? DEFAULT_SHIFT_START;
-                    const shiftEndTime =
-                      todaySched?.shiftEndTime ?? DEFAULT_SHIFT_END;
+            <Grid container spacing={2.5}>
+              {personnelList.map((person) => {
+                const todaySched = allSchedules.find(
+                  (schedule) =>
+                    schedule.personnelId === person.id &&
+                    schedule.date === todayStr,
+                );
+                const scheduleType = todaySched?.type ?? "regular";
+                const shiftStartTime =
+                  todaySched?.shiftStartTime ?? DEFAULT_SHIFT_START;
+                const shiftEndTime =
+                  todaySched?.shiftEndTime ?? DEFAULT_SHIFT_END;
 
-                    return (
-                      <TableRow key={person.id} hover>
-                        <TableCell>{person.rank || ""}</TableCell>
-                        <TableCell>{`${person.firstName} ${person.lastName}`}</TableCell>
-                        <TableCell>
-                          {stationMap.get(person.stationId) ??
-                            `Station #${person.stationId}`}
-                        </TableCell>
-                        <TableCell>
-                          {formatSectionLabel(person.section)}
-                        </TableCell>
-                        <TableCell>
+                return (
+                  <Grid key={person.id} size={{ xs: 12, md: 6, xl: 4 }}>
+                    <Card
+                      sx={{
+                        height: "100%",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        boxShadow: "0 16px 36px rgba(24, 33, 52, 0.08)",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          px: 2.5,
+                          pt: 2.5,
+                          pb: 2,
+                          minHeight: 146,
+                          display: "flex",
+                          alignItems: "flex-end",
+                          justifyContent: "space-between",
+                          gap: 2,
+                          background:
+                            "linear-gradient(160deg, rgba(198,40,40,0.10) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
+                        }}
+                      >
+                        <Avatar
+                          src={buildImageUrl(person.imagePath)}
+                          alt={`${person.firstName} ${person.lastName}`}
+                          sx={{
+                            width: 78,
+                            height: 78,
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                            fontSize: "1.45rem",
+                            fontWeight: 700,
+                            border: "4px solid rgba(255,255,255,0.94)",
+                            boxShadow: "0 10px 22px rgba(0,0,0,0.14)",
+                          }}
+                        >
+                          {getPersonnelInitials(person.firstName, person.lastName)}
+                        </Avatar>
+                        <Chip
+                          label={
+                            scheduleType.charAt(0).toUpperCase() +
+                            scheduleType.slice(1)
+                          }
+                          color={
+                            scheduleType === "shifting"
+                              ? "warning"
+                              : scheduleType === "regular"
+                                ? "success"
+                                : "default"
+                          }
+                          variant={
+                            scheduleType === "regular" ? "outlined" : "filled"
+                          }
+                          size="small"
+                          sx={
+                            scheduleType === "leave"
+                              ? {
+                                  bgcolor: "#CDB4F5",
+                                  color: "#4E3A74",
+                                  fontWeight: 700,
+                                }
+                              : { fontWeight: 700 }
+                          }
+                        />
+                      </Box>
+
+                      <CardContent>
+                        <Typography variant="h6" sx={{ mb: 0.5 }}>
+                          {person.firstName} {person.lastName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {person.rank || "No rank assigned"}
+                        </Typography>
+
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          flexWrap="wrap"
+                          useFlexGap
+                          sx={{ mt: 2 }}
+                        >
                           <Chip
-                            label={
-                              scheduleType.charAt(0).toUpperCase() +
-                              scheduleType.slice(1)
-                            }
-                            color={
-                              scheduleType === "shifting"
-                                ? "warning"
-                                : scheduleType === "regular"
-                                  ? "success"
-                                  : "default"
-                            }
-                            variant={
-                              scheduleType === "regular" ? "outlined" : "filled"
-                            }
-                            size="small"
-                            sx={
-                              scheduleType === "leave"
-                                ? {
-                                    bgcolor: "#CDB4F5",
-                                    color: "#4E3A74",
-                                  }
-                                : undefined
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {formatShiftRange(shiftStartTime, shiftEndTime)}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Button
+                            label={formatSectionLabel(person.section)}
                             variant="outlined"
                             size="small"
-                            onClick={() => setSelectedPersonnel(person)}
-                          >
-                            View / Edit Schedule
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                          />
+                          <Chip
+                            label={
+                              stationMap.get(person.stationId) ??
+                              `Station #${person.stationId}`
+                            }
+                            variant="outlined"
+                            size="small"
+                          />
+                        </Stack>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        <Stack spacing={1}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Today&apos;s schedule
+                            </Typography>
+                            <Typography variant="body2">
+                              {scheduleType.charAt(0).toUpperCase() +
+                                scheduleType.slice(1)}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Shift window
+                            </Typography>
+                            <Typography variant="body2">
+                              {formatShiftRange(shiftStartTime, shiftEndTime)}
+                            </Typography>
+                          </Box>
+                        </Stack>
+
+                        <Button
+                          variant="outlined"
+                          fullWidth
+                          sx={{ mt: 2.5 }}
+                          onClick={() => setSelectedPersonnel(person)}
+                        >
+                          View / Edit Schedule
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
           )}
         </CardContent>
       </Card>
@@ -632,4 +732,3 @@ function LegendItem({ type, label }: { type: ScheduleType; label: string }) {
     </Stack>
   );
 }
-

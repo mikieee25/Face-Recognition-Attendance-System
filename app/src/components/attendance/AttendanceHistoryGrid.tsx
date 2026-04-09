@@ -5,13 +5,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Divider from "@mui/material/Divider";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
+import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -35,7 +39,11 @@ import EditIcon from "@mui/icons-material/Edit";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope, PaginatedResponse } from "@/types/api";
-import type { AttendanceRecord, Personnel, DailyAttendanceSummary } from "@/types/models";
+import type {
+  AttendanceRecord,
+  Personnel,
+  DailyAttendanceSummary,
+} from "@/types/models";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,7 +74,9 @@ function formatTime(iso: string): string {
   });
 }
 
-function statusColor(status: string): "success" | "warning" | "error" | "default" {
+function statusColor(
+  status: string,
+): "success" | "warning" | "error" | "default" {
   if (status === "confirmed") return "success";
   if (status === "pending") return "warning";
   if (status === "rejected") return "error";
@@ -79,6 +89,37 @@ function typeLabel(type: string): string {
   return type;
 }
 
+function formatSummaryDate(value: string): string {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-PH", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function SummaryCardSkeleton() {
+  return (
+    <Card
+      sx={{
+        height: "100%",
+        border: "1px solid",
+        borderColor: "divider",
+      }}
+    >
+      <CardContent>
+        <Chip label="Loading" size="small" sx={{ mb: 2 }} />
+        <Typography variant="h6">
+          <CircularProgress size={18} />
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Loading summary...
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── API fetchers ─────────────────────────────────────────────────────────────
 
 async function fetchAttendance(
@@ -87,21 +128,27 @@ async function fetchAttendance(
   filters: AttendanceFilters,
   summaryMode: boolean,
 ): Promise<PaginatedResponse<AttendanceRecord | DailyAttendanceSummary>> {
-  const params: Record<string, string | number | boolean> = { page: page + 1, limit };
+  const params: Record<string, string | number | boolean> = {
+    page: page + 1,
+    limit,
+  };
   if (filters.dateFrom) params.dateFrom = filters.dateFrom;
   if (filters.dateTo) params.dateTo = filters.dateTo;
   if (filters.personnelId) params.personnelId = filters.personnelId;
   if (filters.type && !summaryMode) params.type = filters.type;
   if (summaryMode) params.summaryMode = true;
 
-  const res = await apiClient.get<ApiEnvelope<PaginatedResponse<AttendanceRecord | DailyAttendanceSummary>>>("/api/v1/attendance", {
+  const res = await apiClient.get<
+    ApiEnvelope<PaginatedResponse<AttendanceRecord | DailyAttendanceSummary>>
+  >("/api/v1/attendance", {
     params,
   });
   return res.data.data!;
 }
 
 async function fetchPersonnel(): Promise<Personnel[]> {
-  const res = await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  const res =
+    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
   return res.data.data ?? [];
 }
 
@@ -115,9 +162,19 @@ interface EditDialogProps {
   saving: boolean;
 }
 
-function EditDialog({ record, open, onClose, onSave, saving }: EditDialogProps) {
-  const [type, setType] = useState<"time_in" | "time_out">(record?.type ?? "time_in");
-  const [status, setStatus] = useState<"confirmed" | "pending" | "rejected">(record?.status ?? "confirmed");
+function EditDialog({
+  record,
+  open,
+  onClose,
+  onSave,
+  saving,
+}: EditDialogProps) {
+  const [type, setType] = useState<"time_in" | "time_out">(
+    record?.type ?? "time_in",
+  );
+  const [status, setStatus] = useState<"confirmed" | "pending" | "rejected">(
+    record?.status ?? "confirmed",
+  );
   const [prevRecord, setPrevRecord] = useState<typeof record>(record);
 
   // Sync local state when record changes
@@ -141,7 +198,14 @@ function EditDialog({ record, open, onClose, onSave, saving }: EditDialogProps) 
         <Stack spacing={2} sx={{ pt: 1 }}>
           <FormControl fullWidth>
             <InputLabel id="edit-type-label">Type</InputLabel>
-            <Select labelId="edit-type-label" value={type} label="Type" onChange={(e) => setType(e.target.value as "time_in" | "time_out")}>
+            <Select
+              labelId="edit-type-label"
+              value={type}
+              label="Type"
+              onChange={(e) =>
+                setType(e.target.value as "time_in" | "time_out")
+              }
+            >
               <MenuItem value="time_in">Time In</MenuItem>
               <MenuItem value="time_out">Time Out</MenuItem>
             </Select>
@@ -152,7 +216,11 @@ function EditDialog({ record, open, onClose, onSave, saving }: EditDialogProps) 
               labelId="edit-status-label"
               value={status}
               label="Status"
-              onChange={(e) => setStatus(e.target.value as "confirmed" | "pending" | "rejected")}
+              onChange={(e) =>
+                setStatus(
+                  e.target.value as "confirmed" | "pending" | "rejected",
+                )
+              }
             >
               <MenuItem value="confirmed">Confirmed</MenuItem>
               <MenuItem value="pending">Pending</MenuItem>
@@ -182,18 +250,31 @@ interface DeleteDialogProps {
   deleting: boolean;
 }
 
-function DeleteDialog({ open, onClose, onConfirm, deleting }: DeleteDialogProps) {
+function DeleteDialog({
+  open,
+  onClose,
+  onConfirm,
+  deleting,
+}: DeleteDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Delete Attendance Record</DialogTitle>
       <DialogContent>
-        <Typography variant="body1">Are you sure you want to delete this attendance record? This action cannot be undone.</Typography>
+        <Typography variant="body1">
+          Are you sure you want to delete this attendance record? This action
+          cannot be undone.
+        </Typography>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={deleting}>
           Cancel
         </Button>
-        <Button variant="contained" color="error" onClick={onConfirm} disabled={deleting}>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={onConfirm}
+          disabled={deleting}
+        >
           {deleting ? <CircularProgress size={18} color="inherit" /> : "Delete"}
         </Button>
       </DialogActions>
@@ -237,7 +318,10 @@ export default function AttendanceHistoryGrid() {
     isError,
     error,
   } = useQuery({
-    queryKey: ["attendance", { page, limit: rowsPerPage, ...filters, summaryMode }],
+    queryKey: [
+      "attendance",
+      { page, limit: rowsPerPage, ...filters, summaryMode },
+    ],
     queryFn: () => fetchAttendance(page, rowsPerPage, filters, summaryMode),
   });
 
@@ -250,13 +334,24 @@ export default function AttendanceHistoryGrid() {
   const total = attendanceData?.total ?? 0;
 
   // Build personnel lookup map for displaying names
-  const personnelMap = new Map(personnelList.map((p) => [p.id, `${p.rank} ${p.firstName} ${p.lastName}`]));
+  const personnelMap = new Map(
+    personnelList.map((p) => [p.id, `${p.rank} ${p.firstName} ${p.lastName}`]),
+  );
 
   // ── Mutations ───────────────────────────────────────────────────────────────
 
   const editMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: number; payload: EditPayload }) => {
-      const res = await apiClient.patch<ApiEnvelope<AttendanceRecord>>(`/api/v1/attendance/${id}`, payload);
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: EditPayload;
+    }) => {
+      const res = await apiClient.patch<ApiEnvelope<AttendanceRecord>>(
+        `/api/v1/attendance/${id}`,
+        payload,
+      );
       return res.data;
     },
     onSuccess: () => {
@@ -284,13 +379,15 @@ export default function AttendanceHistoryGrid() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleFilterChange = (field: keyof AttendanceFilters) => (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
-    setFilters((prev) => ({
-      ...prev,
-      [field]: e.target.value as string,
-    }));
-    setPage(0);
-  };
+  const handleFilterChange =
+    (field: keyof AttendanceFilters) =>
+    (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
+      setFilters((prev) => ({
+        ...prev,
+        [field]: e.target.value as string,
+      }));
+      setPage(0);
+    };
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -353,7 +450,12 @@ export default function AttendanceHistoryGrid() {
 
       {/* Filters */}
       <Paper sx={{ p: 2 }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} flexWrap="wrap" useFlexGap>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          flexWrap="wrap"
+          useFlexGap
+        >
           <TextField
             label="From"
             type="date"
@@ -418,75 +520,204 @@ export default function AttendanceHistoryGrid() {
         </Stack>
       </Paper>
 
-      {/* Table */}
+      {/* Results */}
       <Paper>
-        {isLoading && (
-          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-            <CircularProgress aria-label="Loading attendance records" />
-          </Box>
-        )}
+        {isLoading &&
+          (summaryMode ? (
+            <Box sx={{ p: 2 }}>
+              <Grid container spacing={2}>
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Grid key={index} size={{ xs: 12, md: 6, xl: 4 }}>
+                    <SummaryCardSkeleton />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          ) : (
+            <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+              <CircularProgress aria-label="Loading attendance records" />
+            </Box>
+          ))}
 
         {isError && (
           <Box sx={{ p: 2 }}>
             <Alert severity="error">
-              {(error as { message?: string })?.message ?? "Failed to load attendance records. Please try again."}
+              {(error as { message?: string })?.message ??
+                "Failed to load attendance records. Please try again."}
             </Alert>
           </Box>
         )}
 
         {!isLoading && !isError && (
           <>
-            <TableContainer sx={{ overflowX: "auto" }}>
-              <Table aria-label="Attendance history table" sx={{ minWidth: 500 }}>
-                <TableHead>
-                  {summaryMode ? (
-                    <TableRow>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Rank</TableCell>
-                      <TableCell>Time In</TableCell>
-                      <TableCell>Time Out</TableCell>
-                    </TableRow>
-                  ) : (
+            {rows.length === 0 ? (
+              <Box
+                sx={{
+                  p: 4,
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  No attendance records found.
+                </Typography>
+              </Box>
+            ) : summaryMode ? (
+              <Box sx={{ p: 2 }}>
+                <Grid container spacing={2}>
+                  {rows.map(
+                    (
+                      row: AttendanceRecord | DailyAttendanceSummary,
+                      i: number,
+                    ) => {
+                      const record = row as DailyAttendanceSummary;
+                      return (
+                        <Grid
+                          key={`${record.personnelId}-${record.date}-${i}`}
+                          size={{ xs: 12, md: 6, xl: 4 }}
+                        >
+                          <Card
+                            sx={{
+                              height: "100%",
+                              border: "1px solid",
+                              borderColor: "divider",
+                              boxShadow: "0 12px 30px rgba(24, 33, 52, 0.08)",
+                            }}
+                          >
+                            <CardContent>
+                              <Stack
+                                direction="row"
+                                justifyContent="space-between"
+                                alignItems="flex-start"
+                                spacing={1.5}
+                              >
+                                <Box>
+                                  <Typography variant="h6">
+                                    {record.personnelName}
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                  >
+                                    {record.rank}
+                                  </Typography>
+                                </Box>
+                                <Chip
+                                  label={formatSummaryDate(record.date)}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                              </Stack>
+
+                              <Divider sx={{ my: 2 }} />
+
+                              <Grid container spacing={1.5}>
+                                <Grid size={{ xs: 6 }}>
+                                  <Box
+                                    sx={{
+                                      p: 1.5,
+                                      borderRadius: 2,
+                                      backgroundColor: "#CFFBCF",
+                                      border: "1.5px solid",
+                                      borderColor: "#A3FBA3",
+                                      color: "#000",
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ color: "#000", opacity: 0.9 }}
+                                    >
+                                      Time In
+                                    </Typography>
+                                    <Typography
+                                      variant="body1"
+                                      fontWeight={700}
+                                    >
+                                      {record.firstIn
+                                        ? new Date(
+                                            record.firstIn,
+                                          ).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })
+                                        : "--"}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                                <Grid size={{ xs: 6 }}>
+                                  <Box
+                                    sx={{
+                                      p: 1.5,
+                                      borderRadius: 2,
+                                      backgroundColor: "#D5E6F6",
+                                      border: "1.5px solid",
+                                      borderColor: "#B1D8F4",
+                                      color: "#000",
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ color: "#000", opacity: 0.9 }}
+                                    >
+                                      Time Out
+                                    </Typography>
+                                    <Typography
+                                      variant="body1"
+                                      fontWeight={700}
+                                    >
+                                      {record.lastOut
+                                        ? new Date(
+                                            record.lastOut,
+                                          ).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })
+                                        : "--"}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
+                              </Grid>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      );
+                    },
+                  )}
+                </Grid>
+              </Box>
+            ) : (
+              <TableContainer sx={{ overflowX: "auto" }}>
+                <Table
+                  aria-label="Attendance history table"
+                  sx={{ minWidth: 500 }}
+                >
+                  <TableHead>
                     <TableRow>
                       <TableCell>Personnel</TableCell>
                       <TableCell>Date</TableCell>
                       <TableCell>Time</TableCell>
                       <TableCell>Type</TableCell>
                       <TableCell>Status</TableCell>
-                      {(canEdit || canDelete) && <TableCell align="center">Actions</TableCell>}
+                      {(canEdit || canDelete) && (
+                        <TableCell align="center">Actions</TableCell>
+                      )}
                     </TableRow>
-                  )}
-                </TableHead>
-                <TableBody>
-                  {rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={summaryMode ? 5 : canEdit || canDelete ? 6 : 5} align="center">
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                          No attendance records found.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    rows.map((row: AttendanceRecord | DailyAttendanceSummary, i: number) => {
-                      if (summaryMode) {
-                        const record = row as DailyAttendanceSummary;
-                        return (
-                          <TableRow key={`${record.personnelId}-${record.date}-${i}`} hover>
-                            <TableCell>{record.date}</TableCell>
-                            <TableCell>{record.personnelName}</TableCell>
-                            <TableCell>{record.rank}</TableCell>
-                            <TableCell>{record.firstIn ? new Date(record.firstIn).toLocaleTimeString() : "--"}</TableCell>
-                            <TableCell>{record.lastOut ? new Date(record.lastOut).toLocaleTimeString() : "--"}</TableCell>
-                          </TableRow>
-                        );
-                      } else {
+                  </TableHead>
+                  <TableBody>
+                    {rows.map(
+                      (row: AttendanceRecord | DailyAttendanceSummary) => {
                         const record = row as AttendanceRecord;
                         return (
                           <TableRow key={record.id} hover>
-                            <TableCell>{personnelMap.get(record.personnelId) ?? "—"}</TableCell>
-                            <TableCell>{formatDate(record.createdAt)}</TableCell>
-                            <TableCell>{formatTime(record.createdAt)}</TableCell>
+                            <TableCell>
+                              {personnelMap.get(record.personnelId) ?? "—"}
+                            </TableCell>
+                            <TableCell>
+                              {formatDate(record.createdAt)}
+                            </TableCell>
+                            <TableCell>
+                              {formatTime(record.createdAt)}
+                            </TableCell>
                             <TableCell>{typeLabel(record.type)}</TableCell>
                             <TableCell>
                               <Chip
@@ -498,7 +729,11 @@ export default function AttendanceHistoryGrid() {
                             </TableCell>
                             {(canEdit || canDelete) && (
                               <TableCell align="center">
-                                <Stack direction="row" spacing={1} justifyContent="center">
+                                <Stack
+                                  direction="row"
+                                  spacing={1}
+                                  justifyContent="center"
+                                >
                                   {canEdit && (
                                     <Tooltip title="Edit">
                                       <IconButton
@@ -516,7 +751,9 @@ export default function AttendanceHistoryGrid() {
                                         size="small"
                                         color="error"
                                         aria-label={`Delete record ${record.id}`}
-                                        onClick={() => handleDeleteOpen(record.id)}
+                                        onClick={() =>
+                                          handleDeleteOpen(record.id)
+                                        }
                                       >
                                         <DeleteIcon fontSize="small" />
                                       </IconButton>
@@ -527,12 +764,12 @@ export default function AttendanceHistoryGrid() {
                             )}
                           </TableRow>
                         );
-                      }
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                      },
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
 
             <TablePagination
               component="div"
@@ -548,10 +785,22 @@ export default function AttendanceHistoryGrid() {
       </Paper>
 
       {/* Edit Dialog */}
-      <EditDialog record={editRecord} open={editOpen} onClose={handleEditClose} onSave={handleEditSave} saving={editMutation.isPending} />
+      <EditDialog
+        record={editRecord}
+        open={editOpen}
+        onClose={handleEditClose}
+        onSave={handleEditSave}
+        saving={editMutation.isPending}
+      />
 
       {/* Delete Confirmation Dialog */}
-      <DeleteDialog open={deleteOpen} onClose={handleDeleteClose} onConfirm={handleDeleteConfirm} deleting={deleteMutation.isPending} />
+      <DeleteDialog
+        open={deleteOpen}
+        onClose={handleDeleteClose}
+        onConfirm={handleDeleteConfirm}
+        deleting={deleteMutation.isPending}
+      />
     </Box>
   );
 }
+

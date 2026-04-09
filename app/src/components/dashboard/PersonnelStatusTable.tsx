@@ -1,18 +1,19 @@
 "use client";
 
 import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
 import Chip from "@mui/material/Chip";
-import Paper from "@mui/material/Paper";
+import Grid from "@mui/material/Grid";
 import Skeleton from "@mui/material/Skeleton";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
+import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import ApartmentIcon from "@mui/icons-material/Apartment";
+import BadgeIcon from "@mui/icons-material/Badge";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
+import { buildImageUrl, formatSectionLabel } from "@/lib/personnel-display";
 import type { ApiEnvelope } from "@/types/api";
 
 interface PersonnelRow {
@@ -25,29 +26,39 @@ interface PersonnelRow {
   status: "present" | "late" | "shifting" | "on_leave";
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  present: { label: "Present", color: "#2E7D32" },
-  late: { label: "Late", color: "#F9A825" },
-  shifting: { label: "Shifting", color: "#F57C00" },
-  on_leave: { label: "On Leave", color: "#CDB4F5" },
+const STATUS_CONFIG: Record<
+  PersonnelRow["status"],
+  { label: string; color: string; tint: string }
+> = {
+  present: { label: "Present", color: "#2E7D32", tint: "#E8F5E9" },
+  late: { label: "Late", color: "#F9A825", tint: "#FFF4D6" },
+  shifting: { label: "Shifting", color: "#F57C00", tint: "#FDEBDD" },
+  on_leave: { label: "On Leave", color: "#7B61A8", tint: "#F1EBFB" },
 };
 
-function formatSectionLabel(section: string): string {
-  return section === "admin" ? "Administrative" : "Operation";
-}
-
-function buildImageUrl(imagePath: string | null): string | undefined {
-  if (!imagePath) return undefined;
-  if (imagePath.startsWith("http")) return imagePath;
-
-  const assetBase =
-    process.env.NEXT_PUBLIC_ASSET_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "";
-  const normalizedBase = assetBase.replace(/\/+$/, "");
-  const normalizedPath = imagePath.replace(/^\//, "");
-  return normalizedBase ? `${normalizedBase}/${normalizedPath}` : `/${normalizedPath}`;
+function StatusCardSkeleton() {
+  return (
+    <Card
+      sx={{
+        height: "100%",
+        overflow: "hidden",
+        border: "1px solid",
+        borderColor: "divider",
+      }}
+    >
+      <Skeleton variant="rectangular" height={148} />
+      <Box sx={{ p: 2.5 }}>
+        <Skeleton variant="text" width="45%" height={32} />
+        <Skeleton variant="text" width="70%" />
+        <Stack direction="row" spacing={1} sx={{ mt: 2, mb: 2 }}>
+          <Skeleton variant="rounded" width={84} height={28} />
+          <Skeleton variant="rounded" width={96} height={28} />
+        </Stack>
+        <Skeleton variant="text" width="90%" />
+        <Skeleton variant="text" width="65%" />
+      </Box>
+    </Card>
+  );
 }
 
 export default function PersonnelStatusTable() {
@@ -63,96 +74,177 @@ export default function PersonnelStatusTable() {
   });
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Personnel Status Today
-      </Typography>
-      <TableContainer sx={{ overflowX: "auto" }}>
-        <Table size="small" sx={{ minWidth: 360 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>Profile</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Rank</TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 700,
-                  display: { xs: "none", sm: "table-cell" },
-                }}
-              >
-                Section
-              </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 700,
-                  display: { xs: "none", sm: "table-cell" },
-                }}
-              >
-                Station
-              </TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((__, j) => (
-                      <TableCell
-                        key={j}
-                        sx={
-                          j === 4
-                            ? { display: { xs: "none", sm: "table-cell" } }
-                            : {}
-                        }
-                      >
-                        <Skeleton variant="text" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              : personnel.map((p) => {
-                  const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.late;
-                  return (
-                    <TableRow key={p.personnelId} hover>
-                      <TableCell>
-                        <Avatar
-                          src={buildImageUrl(p.imagePath)}
-                          alt={p.name}
-                          sx={{ width: 36, height: 36 }}
-                        />
-                      </TableCell>
-                      <TableCell>{p.name}</TableCell>
-                      <TableCell>{p.rank}</TableCell>
-                      <TableCell
+    <Box
+      sx={{
+        p: { xs: 2, md: 3 },
+        borderRadius: 4,
+        border: "1px solid",
+        borderColor: "divider",
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(250,250,250,0.98) 100%)",
+      }}
+    >
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ sm: "center" }}
+        spacing={1}
+        sx={{ mb: 2.5 }}
+      >
+        <Box>
+          <Typography variant="h6">Personnel Status Today</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Live personnel presence in a cleaner, profile-focused view.
+          </Typography>
+        </Box>
+        <Chip
+          label={`${personnel.length} personnel tracked`}
+          size="small"
+          sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
+        />
+      </Stack>
+
+      <Grid container spacing={2.5}>
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <Grid key={index} size={{ xs: 12, sm: 6, lg: 3 }}>
+                <StatusCardSkeleton />
+              </Grid>
+            ))
+          : personnel.map((person) => {
+              const status = STATUS_CONFIG[person.status] ?? STATUS_CONFIG.late;
+
+              return (
+                <Grid key={person.personnelId} size={{ xs: 12, sm: 6, lg: 3 }}>
+                  <Card
+                    sx={{
+                      height: "100%",
+                      overflow: "hidden",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      boxShadow: "0 14px 34px rgba(25, 33, 61, 0.08)",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        position: "relative",
+                        minHeight: 156,
+                        px: 2.5,
+                        pt: 2.5,
+                        pb: 2,
+                        display: "flex",
+                        alignItems: "flex-end",
+                        background: `linear-gradient(160deg, ${status.tint} 0%, rgba(255,255,255,0.92) 100%)`,
+                      }}
+                    >
+                      <Chip
+                        label={status.label}
+                        size="small"
                         sx={{
-                          display: { xs: "none", sm: "table-cell" },
+                          position: "absolute",
+                          top: 16,
+                          right: 16,
+                          backgroundColor: status.color,
+                          color: "#fff",
+                          fontWeight: 700,
+                        }}
+                      />
+                      <Avatar
+                        src={buildImageUrl(person.imagePath)}
+                        alt={person.name}
+                        sx={{
+                          width: 76,
+                          height: 76,
+                          border: "4px solid rgba(255,255,255,0.92)",
+                          boxShadow: "0 12px 24px rgba(0,0,0,0.12)",
+                          bgcolor: "primary.main",
+                          color: "primary.contrastText",
+                          fontSize: "1.4rem",
+                          fontWeight: 700,
                         }}
                       >
-                        {formatSectionLabel(p.section)}
-                      </TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        {person.name
+                          .split(" ")
+                          .slice(0, 2)
+                          .map((part) => part[0] ?? "")
+                          .join("")
+                          .toUpperCase()}
+                      </Avatar>
+                    </Box>
+
+                    <Box sx={{ p: 2.5 }}>
+                      <Typography variant="h6" sx={{ mb: 0.5 }}>
+                        {person.name}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 2 }}
                       >
-                        {p.stationName}
-                      </TableCell>
-                      <TableCell>
+                        {person.rank}
+                      </Typography>
+
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        flexWrap="wrap"
+                        useFlexGap
+                        sx={{ mb: 2 }}
+                      >
                         <Chip
-                          label={cfg.label}
+                          icon={<BadgeIcon />}
+                          label={formatSectionLabel(person.section)}
+                          variant="outlined"
                           size="small"
-                          sx={{
-                            backgroundColor: `${cfg.color}20`,
-                            color: cfg.color,
-                            fontWeight: 600,
-                          }}
                         />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Paper>
+                        <Chip
+                          icon={<ApartmentIcon />}
+                          label={person.stationName}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </Stack>
+
+                      <Stack spacing={1}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <AccessTimeIcon
+                            sx={{ fontSize: 18, color: status.color }}
+                          />
+                          <Typography variant="body2" color="text.secondary">
+                            Current status:{" "}
+                            <Box
+                              component="span"
+                              sx={{ color: status.color, fontWeight: 700 }}
+                            >
+                              {status.label}
+                            </Box>
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                    </Box>
+                  </Card>
+                </Grid>
+              );
+            })}
+      </Grid>
+
+      {!isLoading && personnel.length === 0 && (
+        <Box
+          sx={{
+            mt: 2,
+            borderRadius: 3,
+            border: "1px dashed",
+            borderColor: "divider",
+            p: 4,
+            textAlign: "center",
+          }}
+        >
+          <Typography variant="body1">No personnel status available.</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Check back after attendance data is recorded for today.
+          </Typography>
+        </Box>
+      )}
+    </Box>
   );
 }

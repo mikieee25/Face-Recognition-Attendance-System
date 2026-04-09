@@ -1,31 +1,35 @@
 "use client";
 
 import { useState } from "react";
+import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
-import IconButton from "@mui/material/IconButton";
+import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
-import TableRow from "@mui/material/TableRow";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
-
 import EditIcon from "@mui/icons-material/Edit";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
+import {
+  buildImageUrl,
+  formatSectionLabel,
+  getPersonnelInitials,
+} from "@/lib/personnel-display";
 import type { Personnel, Station } from "@/types/models";
 import type { ApiEnvelope } from "@/types/api";
 
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 12;
 
 interface PersonnelDataGridProps {
   onEdit?: (personnel: Personnel) => void;
@@ -35,22 +39,50 @@ interface PersonnelDataGridProps {
 }
 
 async function fetchPersonnel(): Promise<Personnel[]> {
-  const res = await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  const res =
+    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
   return res.data.data ?? [];
 }
 
-function formatSectionLabel(section: Personnel["section"]): string {
-  return section === "admin" ? "Administrative" : "Operation";
+function LoadingCard() {
+  return (
+    <Card
+      sx={{
+        height: "100%",
+        border: "1px solid",
+        borderColor: "divider",
+        boxShadow: "0 12px 30px rgba(24, 33, 52, 0.08)",
+      }}
+    >
+      <Skeleton variant="rectangular" height={144} />
+      <CardContent>
+        <Skeleton variant="text" width="60%" height={34} />
+        <Skeleton variant="text" width="38%" />
+        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          <Skeleton variant="rounded" width={90} height={28} />
+          <Skeleton variant="rounded" width={110} height={28} />
+        </Stack>
+        <Skeleton variant="text" sx={{ mt: 2 }} />
+        <Skeleton variant="text" width="80%" />
+      </CardContent>
+    </Card>
+  );
 }
 
-export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onViewProfile }: PersonnelDataGridProps) {
+export default function PersonnelDataGrid({
+  onEdit,
+  onFaceRegister,
+  onAdd,
+  onViewProfile,
+}: PersonnelDataGridProps) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
 
   const { data: stationsData } = useQuery({
     queryKey: ["stations"],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+      const res =
+        await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
       return res.data.data ?? [];
     },
   });
@@ -69,123 +101,244 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
     setPage(newPage);
   };
 
-  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRowsPerPageChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h5">Personnel</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd} aria-label="Add personnel">
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ sm: "center" }}
+        spacing={1.5}
+      >
+        <Box>
+          <Typography variant="h4">Personnel Directory</Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={onAdd}
+          aria-label="Add personnel"
+        >
           Add Personnel
         </Button>
       </Stack>
 
-      <Paper>
+      <Paper
+        sx={{
+          p: { xs: 2, md: 3 },
+          borderRadius: 4,
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(247,247,247,1) 100%)",
+        }}
+      >
         {isLoading && (
-          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-            <CircularProgress aria-label="Loading personnel" />
-          </Box>
+          <Grid container spacing={2.5}>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Grid key={index} size={{ xs: 12, sm: 6, xl: 4 }}>
+                <LoadingCard />
+              </Grid>
+            ))}
+          </Grid>
         )}
 
         {isError && (
           <Box sx={{ p: 3 }}>
-            <Typography color="error">Failed to load personnel. Please try again.</Typography>
+            <Typography color="error">
+              Failed to load personnel. Please try again.
+            </Typography>
           </Box>
         )}
 
         {!isLoading && !isError && (
           <>
-            <TableContainer sx={{ overflowX: "auto" }}>
-              <Table aria-label="Personnel table" sx={{ minWidth: 400 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>ID</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Rank</TableCell>
-                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Section</TableCell>
-                    <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Station</TableCell>
-                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Gender</TableCell>
-                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Contact</TableCell>
-                    <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>Address</TableCell>
-                    <TableCell align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center">
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                          No personnel found.
+            {rows.length === 0 ? (
+              <Box
+                sx={{
+                  minHeight: 220,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 3,
+                  border: "1px dashed",
+                  borderColor: "divider",
+                }}
+              >
+                <Typography variant="body1" color="text.secondary">
+                  No personnel found.
+                </Typography>
+              </Box>
+            ) : (
+              <Grid container spacing={2.5}>
+                {rows.map((person) => (
+                  <Grid key={person.id} size={{ xs: 12, sm: 6, xl: 4 }}>
+                    <Card
+                      sx={{
+                        height: "100%",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        boxShadow: "0 16px 36px rgba(24, 33, 52, 0.08)",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          px: 2.5,
+                          pt: 2.5,
+                          pb: 2,
+                          minHeight: 150,
+                          display: "flex",
+                          alignItems: "flex-end",
+                          justifyContent: "space-between",
+                          gap: 2,
+                          background:
+                            "linear-gradient(160deg, rgba(198,40,40,0.12) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
+                        }}
+                      >
+                        <Avatar
+                          src={buildImageUrl(person.imagePath)}
+                          alt={`${person.firstName} ${person.lastName}`}
+                          sx={{
+                            width: 82,
+                            height: 82,
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                            fontSize: "1.5rem",
+                            fontWeight: 700,
+                            border: "4px solid rgba(255,255,255,0.94)",
+                            boxShadow: "0 10px 22px rgba(0,0,0,0.14)",
+                          }}
+                        >
+                          {getPersonnelInitials(
+                            person.firstName,
+                            person.lastName,
+                          )}
+                        </Avatar>
+                        <Chip
+                          label={person.isActive ? "Active" : "Inactive"}
+                          color={person.isActive ? "success" : "default"}
+                          size="small"
+                          sx={{ fontWeight: 700 }}
+                        />
+                      </Box>
+
+                      <CardContent sx={{ pb: 1.5 }}>
+                        <Typography variant="h6" sx={{ mb: 0.5 }}>
+                          {person.firstName} {person.lastName}
                         </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    rows.map((person) => (
-                      <TableRow key={person.id} hover>
-                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{person.id}</TableCell>
-                        <TableCell>
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            sx={{
-                              cursor: "pointer",
-                              color: "primary.main",
-                              fontWeight: 500,
-                              "&:hover": { textDecoration: "underline" },
-                            }}
-                            onClick={() => onViewProfile?.(person)}
+                        <Typography variant="body2" color="text.secondary">
+                          {person.rank}
+                        </Typography>
+
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          flexWrap="wrap"
+                          useFlexGap
+                          sx={{ mt: 2 }}
+                        >
+                          <Chip
+                            label={formatSectionLabel(person.section)}
+                            variant="outlined"
+                            size="small"
+                          />
+                          <Chip
+                            label={
+                              stationMap.get(person.stationId) ??
+                              `Station #${person.stationId}`
+                            }
+                            variant="outlined"
+                            size="small"
+                          />
+                          {person.gender && (
+                            <Chip
+                              label={person.gender}
+                              variant="outlined"
+                              size="small"
+                            />
+                          )}
+                        </Stack>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        <Stack spacing={1}>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Contact
+                            </Typography>
+                            <Typography variant="body2">
+                              {person.contactNumber || "No contact number"}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Address
+                            </Typography>
+                            <Typography variant="body2">
+                              {person.address || "No address on file"}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </CardContent>
+
+                      <CardActions
+                        sx={{
+                          px: 2.5,
+                          pb: 2.5,
+                          pt: 0.5,
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: 1,
+                        }}
+                      >
+                        <Button
+                          size="small"
+                          startIcon={<VisibilityIcon />}
+                          onClick={() => onViewProfile?.(person)}
+                        >
+                          View
+                        </Button>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<EditIcon />}
+                            onClick={() => onEdit?.(person)}
                           >
-                            {person.firstName} {person.lastName}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{person.rank}</TableCell>
-                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
-                          {formatSectionLabel(person.section)}
-                        </TableCell>
-                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
-                          {stationMap.get(person.stationId) ?? person.stationId}
-                        </TableCell>
-                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{person.gender || "—"}</TableCell>
-                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{person.contactNumber || "—"}</TableCell>
-                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{person.address || "—"}</TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={1} justifyContent="center">
-                            <Tooltip title="Edit">
-                              <IconButton
-                                size="small"
-                                aria-label={`Edit ${person.firstName} ${person.lastName}`}
-                                onClick={() => onEdit?.(person)}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Face Registration">
-                              <IconButton
-                                size="small"
-                                aria-label={`Register face for ${person.firstName} ${person.lastName}`}
-                                onClick={() => onFaceRegister?.(person)}
-                              >
-                                <CameraAltIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                            Edit
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<CameraAltIcon />}
+                            onClick={() => onFaceRegister?.(person)}
+                          >
+                            Face
+                          </Button>
+                        </Stack>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
 
             <TablePagination
               component="div"
               count={total}
               page={page}
               rowsPerPage={rowsPerPage}
-              rowsPerPageOptions={[25, 50, 100]}
+              rowsPerPageOptions={[6, 12, 24]}
               onPageChange={handlePageChange}
               onRowsPerPageChange={handleRowsPerPageChange}
             />
@@ -195,3 +348,4 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
     </Box>
   );
 }
+
