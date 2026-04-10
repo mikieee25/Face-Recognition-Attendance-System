@@ -28,3 +28,14 @@ export function getPersonnelInitials(
 ): string {
   return `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "P";
 }
+
+export function buildCoverBackground(
+  imagePath: string | null | undefined,
+  fallback: string,
+  overlay =
+    "linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.74) 100%)",
+): string {
+  const imageUrl = buildImageUrl(imagePath);
+  if (!imageUrl) return fallback;
+  return `${overlay}, url("${imageUrl}")`;
+}

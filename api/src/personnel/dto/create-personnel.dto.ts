@@ -1,7 +1,6 @@
 import {
   Allow,
   IsIn,
-  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -62,4 +61,9 @@ export class CreatePersonnelDto {
   @IsOptional()
   @IsString()
   photo?: string;
+
+  @ApiPropertyOptional({ example: "data:image/png;base64,iVBORw0KGgo..." })
+  @IsOptional()
+  @IsString()
+  coverPhoto?: string;
 }

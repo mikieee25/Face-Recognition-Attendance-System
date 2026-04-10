@@ -39,6 +39,20 @@ export class PersonnelService {
     private readonly faceService: FaceService
   ) {}
 
+  private savePersonnelImage(
+    image: string,
+    personnelId: number,
+    dir: string,
+    prefix: "profile" | "cover"
+  ): string {
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, "base64");
+    const filename = `${prefix}-${personnelId}-${Date.now()}.jpg`;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(`${dir}/${filename}`, buffer);
+    return `${dir}/${filename}`;
+  }
+
   /**
    * List personnel.
    * - Admin: returns all personnel (Requirement 3.5)
@@ -120,23 +134,35 @@ export class PersonnelService {
       address: dto.address ?? null,
       contactNumber: dto.contactNumber ?? null,
       gender: dto.gender ?? null,
+      coverImagePath: null,
       dateCreated: new Date(),
       isActive: true,
     });
 
     const savedPersonnel = await this.personnelRepo.save(personnel);
-    
+
     if (dto.photo) {
-      const base64Data = dto.photo.replace(/^data:image\/\w+;base64,/, "");
-      const buffer = Buffer.from(base64Data, "base64");
-      const filename = `profile-${savedPersonnel.id}-${Date.now()}.jpg`;
-      const dir = "uploads/profiles";
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(`${dir}/${filename}`, buffer);
-      savedPersonnel.imagePath = `${dir}/${filename}`;
+      savedPersonnel.imagePath = this.savePersonnelImage(
+        dto.photo,
+        savedPersonnel.id,
+        "uploads/profiles",
+        "profile"
+      );
+    }
+
+    if (dto.coverPhoto) {
+      savedPersonnel.coverImagePath = this.savePersonnelImage(
+        dto.coverPhoto,
+        savedPersonnel.id,
+        "uploads/covers",
+        "cover"
+      );
+    }
+
+    if (dto.photo || dto.coverPhoto) {
       await this.personnelRepo.save(savedPersonnel);
     }
-    
+
     return savedPersonnel;
   }
 
@@ -167,13 +193,21 @@ export class PersonnelService {
     if (dto.isActive !== undefined) personnel.isActive = dto.isActive;
 
     if (dto.photo) {
-      const base64Data = dto.photo.replace(/^data:image\/\w+;base64,/, "");
-      const buffer = Buffer.from(base64Data, "base64");
-      const filename = `profile-${personnel.id}-${Date.now()}.jpg`;
-      const dir = "uploads/profiles";
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(`${dir}/${filename}`, buffer);
-      personnel.imagePath = `${dir}/${filename}`;
+      personnel.imagePath = this.savePersonnelImage(
+        dto.photo,
+        personnel.id,
+        "uploads/profiles",
+        "profile"
+      );
+    }
+
+    if (dto.coverPhoto) {
+      personnel.coverImagePath = this.savePersonnelImage(
+        dto.coverPhoto,
+        personnel.id,
+        "uploads/covers",
+        "cover"
+      );
     }
 
     // Only admin can change stationId

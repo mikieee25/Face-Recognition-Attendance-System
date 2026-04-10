@@ -13,7 +13,11 @@ import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import { buildImageUrl, formatSectionLabel } from "@/lib/personnel-display";
+import {
+  buildCoverBackground,
+  buildImageUrl,
+  formatSectionLabel,
+} from "@/lib/personnel-display";
 import type { ApiEnvelope } from "@/types/api";
 
 interface PersonnelRow {
@@ -22,6 +26,7 @@ interface PersonnelRow {
   rank: string;
   stationName: string;
   imagePath: string | null;
+  coverImagePath: string | null;
   section: string;
   status: "present" | "late" | "shifting" | "on_leave";
 }
@@ -33,7 +38,7 @@ const STATUS_CONFIG: Record<
   present: { label: "Present", color: "#2E7D32", tint: "#E8F5E9" },
   late: { label: "Late", color: "#F9A825", tint: "#FFF4D6" },
   shifting: { label: "Shifting", color: "#F57C00", tint: "#FDEBDD" },
-  on_leave: { label: "On Leave", color: "#7B61A8", tint: "#F1EBFB" },
+  on_leave: { label: "On Leave", color: "#6F42A6", tint: "#ECE2F8" },
 };
 
 function StatusCardSkeleton() {
@@ -134,7 +139,13 @@ export default function PersonnelStatusTable() {
                         pb: 2,
                         display: "flex",
                         alignItems: "flex-end",
-                        background: `linear-gradient(160deg, ${status.tint} 0%, rgba(255,255,255,0.92) 100%)`,
+                        backgroundImage: buildCoverBackground(
+                          person.coverImagePath,
+                          `linear-gradient(160deg, ${status.tint} 0%, rgba(255,255,255,0.92) 100%)`,
+                          `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, ${status.tint} 100%)`
+                        ),
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
                       }}
                     >
                       <Chip

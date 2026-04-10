@@ -36,6 +36,7 @@ export interface PersonnelAttendanceRow {
   rank: string;
   stationName: string;
   imagePath: string | null;
+  coverImagePath: string | null;
   section: string;
   status: "present" | "late" | "shifting" | "on_leave";
 }
@@ -372,6 +373,7 @@ export class DashboardService {
         rank: p.rank,
         stationName: (p as any).station?.name ?? "Unknown",
         imagePath: p.imagePath ?? null,
+        coverImagePath: p.coverImagePath ?? null,
         section: p.section,
         status: personnelStatus,
       };

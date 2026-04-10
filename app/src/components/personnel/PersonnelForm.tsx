@@ -14,7 +14,6 @@ import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 
 import FormHelperText from "@mui/material/FormHelperText";
-import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -23,9 +22,14 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import WallpaperIcon from "@mui/icons-material/Wallpaper";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  buildImageUrl,
+  getPersonnelInitials,
+} from "@/lib/personnel-display";
 import type { Personnel, Station } from "@/types/models";
 import type { ApiEnvelope } from "@/types/api";
 
@@ -94,6 +98,7 @@ interface FormValues {
   contactNumber: string;
   gender: string;
   photo?: string;
+  coverPhoto?: string;
 }
 
 interface FormErrors {
@@ -114,6 +119,7 @@ const INITIAL_VALUES: FormValues = {
   contactNumber: "",
   gender: "",
   photo: undefined,
+  coverPhoto: undefined,
 };
 
 function validate(values: FormValues, isAdmin: boolean): FormErrors {
@@ -149,6 +155,7 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
           contactNumber: personnel.contactNumber ?? "",
           gender: personnel.gender ?? "",
           photo: undefined,
+          coverPhoto: undefined,
         });
       } else {
         setValues(INITIAL_VALUES);
@@ -179,16 +186,22 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange =
+    (field: "photo" | "coverPhoto") =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setValues((prev) => ({ ...prev, photo: reader.result as string }));
+        setValues((prev) => ({ ...prev, [field]: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
   };
+
+  const profilePreviewSrc = values.photo || buildImageUrl(personnel?.imagePath);
+  const coverPreviewSrc =
+    values.coverPhoto || buildImageUrl(personnel?.coverImagePath);
 
   async function handleSubmit() {
     const validationErrors = validate(values, isAdmin);
@@ -211,6 +224,10 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
 
       if (values.photo) {
         payload.photo = values.photo;
+      }
+
+      if (values.coverPhoto) {
+        payload.coverPhoto = values.coverPhoto;
       }
 
       if (isAdmin) {
@@ -242,27 +259,104 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
 
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+          <Box
+            sx={{
+              position: "relative",
+              minHeight: 220,
+              borderRadius: 3,
+              overflow: "hidden",
+              border: "1px solid",
+              borderColor: "divider",
+              backgroundImage: coverPreviewSrc
+                ? `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.74) 100%), url("${coverPreviewSrc}")`
+                : "linear-gradient(160deg, rgba(198,40,40,0.10) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
             <input
               accept="image/*"
               style={{ display: "none" }}
               id="personnel-photo-upload"
               type="file"
-              onChange={handleFileChange}
+              onChange={handleImageFileChange("photo")}
               disabled={submitting}
             />
-            <label htmlFor="personnel-photo-upload">
-              <IconButton color="primary" aria-label="upload picture" component="span" disabled={submitting}>
+            <input
+              accept="image/*"
+              style={{ display: "none" }}
+              id="personnel-cover-upload"
+              type="file"
+              onChange={handleImageFileChange("coverPhoto")}
+              disabled={submitting}
+            />
+            <Box
+              sx={{
+                position: "relative",
+                zIndex: 1,
+                minHeight: 220,
+                p: 2.5,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Card Media Preview
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Upload a profile photo and an optional cover photo for the new card layout.
+                </Typography>
+              </Box>
+
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                alignItems={{ xs: "flex-start", sm: "flex-end" }}
+                justifyContent="space-between"
+              >
                 <Avatar
-                  src={
-                    values.photo || (personnel?.imagePath ? `${(process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "")}/${personnel.imagePath.replace(/^\//, "")}` : undefined)
-                  }
-                  sx={{ width: 100, height: 100 }}
+                  src={profilePreviewSrc}
+                  sx={{
+                    width: 100,
+                    height: 100,
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    fontSize: "1.65rem",
+                    fontWeight: 700,
+                    border: "4px solid rgba(255,255,255,0.94)",
+                    boxShadow: "0 12px 24px rgba(0,0,0,0.14)",
+                  }}
                 >
-                  {!(values.photo || personnel?.imagePath) && <CameraAltIcon sx={{ fontSize: 40 }} />}
+                  {!profilePreviewSrc &&
+                    getPersonnelInitials(values.firstName, values.lastName)}
                 </Avatar>
-              </IconButton>
-            </label>
+
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                  <label htmlFor="personnel-cover-upload">
+                    <Button
+                      component="span"
+                      variant="outlined"
+                      startIcon={<WallpaperIcon />}
+                      disabled={submitting}
+                    >
+                      Cover Photo
+                    </Button>
+                  </label>
+                  <label htmlFor="personnel-photo-upload">
+                    <Button
+                      component="span"
+                      variant="contained"
+                      startIcon={<CameraAltIcon />}
+                      disabled={submitting}
+                    >
+                      Profile Photo
+                    </Button>
+                  </label>
+                </Stack>
+              </Stack>
+            </Box>
           </Box>
 
           {/* Basic Info */}

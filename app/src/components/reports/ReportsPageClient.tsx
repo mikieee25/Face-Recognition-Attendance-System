@@ -36,8 +36,8 @@ interface CalendarPersonnelItem {
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const LEAVE_COLOR = "#CDB4F5";
-const LEAVE_TEXT_COLOR = "#4E3A74";
+const LEAVE_COLOR = "#6F42A6";
+const LEAVE_TEXT_COLOR = "#FFFFFF";
 
 function formatDateParam(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;

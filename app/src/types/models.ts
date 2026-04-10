@@ -29,6 +29,7 @@ export interface Personnel {
   section: PersonnelSection;
   stationId: number;
   imagePath?: string;
+  coverImagePath?: string;
   isActive: boolean;
   dateCreated: string;
   address?: string;

@@ -49,7 +49,7 @@ const STATUS_COLORS: Record<StatusFilter, string> = {
   present: "#2E7D32",
   late: "#F9A825",
   shifting: "#F57C00",
-  on_leave: "#CDB4F5",
+  on_leave: "#6F42A6",
 };
 
 const STATUS_LABELS: Record<StatusFilter, string> = {

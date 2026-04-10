@@ -36,6 +36,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import {
+  buildCoverBackground,
   buildImageUrl,
   formatSectionLabel,
   getPersonnelInitials,
@@ -71,7 +72,7 @@ const DEFAULT_SHIFT_END = "17:00";
 const TYPE_COLORS: Record<ScheduleType, string> = {
   regular: "#ffffff",
   shifting: "#ff9800",
-  leave: "#CDB4F5",
+  leave: "#6F42A6",
 };
 
 function normalizeTimeForInput(value?: string | null): string {
@@ -226,8 +227,12 @@ export default function SchedulePageClient() {
                           alignItems: "flex-end",
                           justifyContent: "space-between",
                           gap: 2,
-                          background:
-                            "linear-gradient(160deg, rgba(198,40,40,0.10) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
+                          backgroundImage: buildCoverBackground(
+                            person.coverImagePath,
+                            "linear-gradient(160deg, rgba(198,40,40,0.10) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)"
+                          ),
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
                         }}
                       >
                         <Avatar
@@ -265,8 +270,8 @@ export default function SchedulePageClient() {
                           sx={
                             scheduleType === "leave"
                               ? {
-                                  bgcolor: "#CDB4F5",
-                                  color: "#4E3A74",
+                                  bgcolor: "#6F42A6",
+                                  color: "#FFFFFF",
                                   fontWeight: 700,
                                 }
                               : { fontWeight: 700 }

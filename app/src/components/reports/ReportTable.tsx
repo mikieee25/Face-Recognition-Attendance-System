@@ -222,7 +222,7 @@ export default function ReportTable({ filters }: ReportTableProps) {
                               <Chip
                                 label="On Leave"
                                 size="small"
-                                sx={{ bgcolor: "#CDB4F5", color: "#4E3A74" }}
+                                sx={{ bgcolor: "#6F42A6", color: "#FFFFFF" }}
                               />
                             );
                           }

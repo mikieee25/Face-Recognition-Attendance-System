@@ -22,6 +22,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import {
+  buildCoverBackground,
   buildImageUrl,
   formatSectionLabel,
   getPersonnelInitials,
@@ -195,8 +196,12 @@ export default function PersonnelDataGrid({
                           alignItems: "flex-end",
                           justifyContent: "space-between",
                           gap: 2,
-                          background:
-                            "linear-gradient(160deg, rgba(198,40,40,0.12) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
+                          backgroundImage: buildCoverBackground(
+                            person.coverImagePath,
+                            "linear-gradient(160deg, rgba(198,40,40,0.12) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)"
+                          ),
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
                         }}
                       >
                         <Avatar
@@ -348,4 +353,3 @@ export default function PersonnelDataGrid({
     </Box>
   );
 }
-

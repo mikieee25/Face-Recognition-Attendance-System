@@ -52,6 +52,7 @@ const makePersonnel = (overrides: Partial<Personnel> = {}): Personnel =>
     dateCreated: new Date(),
     isActive: true,
     imagePath: null,
+    coverImagePath: null,
     station: null as any,
     ...overrides,
   } as Personnel);

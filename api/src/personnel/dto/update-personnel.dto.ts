@@ -60,4 +60,9 @@ export class UpdatePersonnelDto {
   @IsOptional()
   @IsString()
   photo?: string;
+
+  @ApiPropertyOptional({ example: "data:image/png;base64,iVBORw0KGgo..." })
+  @IsOptional()
+  @IsString()
+  coverPhoto?: string;
 }

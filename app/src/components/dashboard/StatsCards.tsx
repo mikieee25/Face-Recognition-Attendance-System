@@ -103,7 +103,7 @@ export default function StatsCards() {
     {
       label: "On Leave",
       value: data?.onLeave,
-      color: "#CDB4F5",
+      color: "#6F42A6",
       icon: <EventBusyIcon />,
     },
   ];

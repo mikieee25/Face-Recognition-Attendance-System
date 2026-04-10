@@ -60,6 +60,14 @@ export class Personnel {
   @Column({ type: "varchar", length: 255, nullable: true, name: "image_path" })
   imagePath: string | null;
 
+  @Column({
+    type: "varchar",
+    length: 255,
+    nullable: true,
+    name: "cover_image_path",
+  })
+  coverImagePath: string | null;
+
   @Column({ type: "tinyint", default: 1, name: "is_active" })
   isActive: boolean;
 }
