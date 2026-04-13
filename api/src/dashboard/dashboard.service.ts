@@ -48,6 +48,8 @@ export interface RecentRecord {
   type: string;
   status: string;
   createdAt: Date;
+  imagePath: string | null;
+  coverImagePath: string | null;
 }
 
 @Injectable()
@@ -58,7 +60,7 @@ export class DashboardService {
     @InjectRepository(Personnel)
     private readonly personnelRepo: Repository<Personnel>,
     @InjectRepository(Schedule)
-    private readonly scheduleRepo: Repository<Schedule>
+    private readonly scheduleRepo: Repository<Schedule>,
   ) {}
 
   /**
@@ -67,7 +69,7 @@ export class DashboardService {
   private getLocalDayStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
       2,
-      "0"
+      "0",
     )}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
@@ -100,7 +102,7 @@ export class DashboardService {
       today.getDate(),
       0,
       0,
-      0
+      0,
     );
     const endOfDay = new Date(
       today.getFullYear(),
@@ -109,7 +111,7 @@ export class DashboardService {
       23,
       59,
       59,
-      999
+      999,
     );
 
     const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
@@ -139,7 +141,7 @@ export class DashboardService {
     const presentIds = new Set(
       Array.from(latestRecordMap.values())
         .filter((r) => r.type === AttendanceType.TimeIn)
-        .map((r) => r.personnelId)
+        .map((r) => r.personnelId),
     );
 
     const dateStr = this.getLocalDayStr(today);
@@ -184,7 +186,7 @@ export class DashboardService {
   async getSummary(
     currentUser: AuthenticatedUser,
     dateFrom?: string,
-    dateTo?: string
+    dateTo?: string,
   ): Promise<DailySummary[]> {
     const now = new Date();
     const to = dateTo ? new Date(dateTo) : now;
@@ -292,7 +294,7 @@ export class DashboardService {
   async getPersonnelStatus(
     currentUser: AuthenticatedUser,
     date?: string,
-    status?: string
+    status?: string,
   ): Promise<PersonnelAttendanceRow[]> {
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(
@@ -301,7 +303,7 @@ export class DashboardService {
       targetDate.getDate(),
       0,
       0,
-      0
+      0,
     );
     const endOfDay = new Date(
       targetDate.getFullYear(),
@@ -310,7 +312,7 @@ export class DashboardService {
       23,
       59,
       59,
-      999
+      999,
     );
 
     const allPersonnel = await this.scopedPersonnelQb(currentUser).getMany();
@@ -337,7 +339,7 @@ export class DashboardService {
     const presentIds = new Set(
       Array.from(latestRecordMap.values())
         .filter((r) => r.type === AttendanceType.TimeIn)
-        .map((r) => r.personnelId)
+        .map((r) => r.personnelId),
     );
 
     const dateStr = this.getLocalDayStr(targetDate);
@@ -416,6 +418,9 @@ export class DashboardService {
       type: r.type,
       status: r.status,
       createdAt: r.createdAt,
+      imagePath: r.personnel?.imagePath ?? null,
+      coverImagePath: r.personnel?.coverImagePath ?? null,
     }));
   }
 }
+

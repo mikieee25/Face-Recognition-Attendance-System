@@ -48,7 +48,7 @@ type StatusFilter = "present" | "late" | "shifting" | "on_leave";
 const STATUS_COLORS: Record<StatusFilter, string> = {
   present: "#2E7D32",
   late: "#F9A825",
-  shifting: "#F57C00",
+  shifting: "#2196f3",
   on_leave: "#6F42A6",
 };
 
@@ -106,21 +106,29 @@ export default function AttendanceSummaryTable() {
   const { data: summaries = [], isLoading } = useQuery<DailySummary[]>({
     queryKey: ["dashboard", "summary", range.dateFrom, range.dateTo],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<DailySummary[]>>("/api/v1/dashboard/summary", {
-        params: { dateFrom: range.dateFrom, dateTo: range.dateTo },
-      });
+      const res = await apiClient.get<ApiEnvelope<DailySummary[]>>(
+        "/api/v1/dashboard/summary",
+        {
+          params: { dateFrom: range.dateFrom, dateTo: range.dateTo },
+        },
+      );
       return res.data.data ?? [];
     },
     enabled: !!range.dateFrom && !!range.dateTo,
     refetchInterval: 3000,
   });
 
-  const { data: personnelList = [], isLoading: personnelLoading } = useQuery<PersonnelRow[]>({
+  const { data: personnelList = [], isLoading: personnelLoading } = useQuery<
+    PersonnelRow[]
+  >({
     queryKey: ["dashboard", "personnel-status", modalDate, modalStatus],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<PersonnelRow[]>>("/api/v1/dashboard/personnel-status", {
-        params: { date: modalDate, status: modalStatus },
-      });
+      const res = await apiClient.get<ApiEnvelope<PersonnelRow[]>>(
+        "/api/v1/dashboard/personnel-status",
+        {
+          params: { date: modalDate, status: modalStatus },
+        },
+      );
       return res.data.data ?? [];
     },
     enabled: modalOpen && !!modalDate,
@@ -155,7 +163,11 @@ export default function AttendanceSummaryTable() {
           <Stack direction="row" spacing={2} alignItems="center">
             <FormControl size="small" sx={{ minWidth: 140 }}>
               <InputLabel>Range</InputLabel>
-              <Select value={preset} label="Range" onChange={(e) => setPreset(e.target.value as RangePreset)}>
+              <Select
+                value={preset}
+                label="Range"
+                onChange={(e) => setPreset(e.target.value as RangePreset)}
+              >
                 <MenuItem value="today">Today</MenuItem>
                 <MenuItem value="this_week">This Week</MenuItem>
                 <MenuItem value="this_month">This Month</MenuItem>
@@ -190,16 +202,28 @@ export default function AttendanceSummaryTable() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.present }}>
+                <TableCell
+                  align="center"
+                  sx={{ fontWeight: 700, color: STATUS_COLORS.present }}
+                >
                   Present
                 </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.late }}>
+                <TableCell
+                  align="center"
+                  sx={{ fontWeight: 700, color: STATUS_COLORS.late }}
+                >
                   Late
                 </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.shifting }}>
+                <TableCell
+                  align="center"
+                  sx={{ fontWeight: 700, color: STATUS_COLORS.shifting }}
+                >
                   Shifting
                 </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, color: STATUS_COLORS.on_leave }}>
+                <TableCell
+                  align="center"
+                  sx={{ fontWeight: 700, color: STATUS_COLORS.on_leave }}
+                >
                   On Leave
                 </TableCell>
               </TableRow>
@@ -218,7 +242,9 @@ export default function AttendanceSummaryTable() {
                 : summaries.map((row) => (
                     <TableRow key={row.date} hover>
                       <TableCell>{formatDate(row.date)}</TableCell>
-                      {(["present", "late", "shifting", "on_leave"] as const).map((s) => (
+                      {(
+                        ["present", "late", "shifting", "on_leave"] as const
+                      ).map((s) => (
                         <TableCell
                           key={s}
                           align="center"
@@ -250,7 +276,12 @@ export default function AttendanceSummaryTable() {
       </Paper>
 
       {/* Modal: personnel list for a specific date + status */}
-      <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle
           sx={{
             display: "flex",
@@ -266,15 +297,24 @@ export default function AttendanceSummaryTable() {
               {modalDate && formatDate(modalDate)}
             </Typography>
           </Box>
-          <IconButton onClick={() => setModalOpen(false)} size="small" aria-label="Close">
+          <IconButton
+            onClick={() => setModalOpen(false)}
+            size="small"
+            aria-label="Close"
+          >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
           {personnelLoading ? (
-            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} variant="text" height={40} />)
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} variant="text" height={40} />
+            ))
           ) : personnelList.length === 0 ? (
-            <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
+            <Typography
+              color="text.secondary"
+              sx={{ py: 2, textAlign: "center" }}
+            >
               No personnel found.
             </Typography>
           ) : (
@@ -302,3 +342,4 @@ export default function AttendanceSummaryTable() {
     </>
   );
 }
+

@@ -37,7 +37,7 @@ const STATUS_CONFIG: Record<
 > = {
   present: { label: "Present", color: "#2E7D32", tint: "#E8F5E9" },
   late: { label: "Late", color: "#F9A825", tint: "#FFF4D6" },
-  shifting: { label: "Shifting", color: "#F57C00", tint: "#FDEBDD" },
+  shifting: { label: "Shifting", color: "#2196f3", tint: "#E3F2FD" },
   on_leave: { label: "On Leave", color: "#6F42A6", tint: "#ECE2F8" },
 };
 
@@ -142,7 +142,7 @@ export default function PersonnelStatusTable() {
                         backgroundImage: buildCoverBackground(
                           person.coverImagePath,
                           `linear-gradient(160deg, ${status.tint} 0%, rgba(255,255,255,0.92) 100%)`,
-                          `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, ${status.tint} 100%)`
+                          `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, ${status.tint} 100%)`,
                         ),
                         backgroundSize: "cover",
                         backgroundPosition: "center",
@@ -250,7 +250,9 @@ export default function PersonnelStatusTable() {
             textAlign: "center",
           }}
         >
-          <Typography variant="body1">No personnel status available.</Typography>
+          <Typography variant="body1">
+            No personnel status available.
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Check back after attendance data is recorded for today.
           </Typography>
@@ -259,3 +261,4 @@ export default function PersonnelStatusTable() {
     </Box>
   );
 }
+

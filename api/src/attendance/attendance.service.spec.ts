@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import * as fs from "fs";
 import {
   BadRequestException,
   ForbiddenException,
@@ -25,6 +26,15 @@ import { CaptureAttendanceDto } from "./dto/capture-attendance.dto";
 import { ManualAttendanceDto } from "./dto/manual-attendance.dto";
 import { UpdateAttendanceDto } from "./dto/update-attendance.dto";
 import { QueryAttendanceDto } from "./dto/query-attendance.dto";
+
+jest.mock("fs", () => {
+  const actual = jest.requireActual("fs");
+  return {
+    ...actual,
+    mkdirSync: jest.fn(),
+    writeFileSync: jest.fn(),
+  };
+});
 
 const VALID_JPEG_PREFIX = "data:image/jpeg;base64,";
 const VALID_IMAGE = VALID_JPEG_PREFIX + "abc123";
@@ -143,6 +153,8 @@ describe("AttendanceService", () => {
       shiftStartTime: "00:00:00",
       shiftEndTime: "23:59:00",
     });
+    jest.mocked(fs.mkdirSync).mockClear();
+    jest.mocked(fs.writeFileSync).mockClear();
   });
 
   // ─── capture ───────────────────────────────────────────────────────────────
@@ -164,14 +176,14 @@ describe("AttendanceService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("routes leave captures to pending approval", async () => {
+    it("confirms high-confidence capture even when schedule is leave", async () => {
       faceService.recognize.mockResolvedValue({
         personnelId: 10,
         confidence: 0.9,
       });
-      const pending = { id: 9, personnelId: 10, confidence: 0.9 };
-      pendingRepo.create.mockReturnValue(pending);
-      pendingRepo.save.mockResolvedValue(pending);
+      const created = mockRecord({ type: AttendanceType.TimeIn });
+      attendanceRepo.create.mockReturnValue(created);
+      attendanceRepo.save.mockResolvedValue(created);
       scheduleRepo.findOne.mockResolvedValue({
         id: 1,
         personnelId: 10,
@@ -183,9 +195,11 @@ describe("AttendanceService", () => {
 
       const result = await service.capture(dto, adminUser);
 
-      expect(result).toBe(pending);
-      expect(attendanceRepo.save).not.toHaveBeenCalled();
-      expect(pendingRepo.save).toHaveBeenCalled();
+      expect(result).toBe(created);
+      expect(attendanceRepo.save).toHaveBeenCalled();
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+      expect(fs.mkdirSync).not.toHaveBeenCalled();
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
     });
 
     it("creates confirmed AttendanceRecord when confidence >= 0.7", async () => {
@@ -377,6 +391,27 @@ describe("AttendanceService", () => {
       expect(createCall.personnelId).toBe(dto.personnelId);
       expect(createCall.attendanceType).toBe("TIME_IN");
       expect(createCall.reviewStatus).toBe("pending");
+    });
+
+    it("stores the uploaded manual photo when provided", async () => {
+      personnelRepo.findOne.mockResolvedValue(mockPersonnel());
+      const pending = {
+        id: 3,
+        personnelId: dto.personnelId,
+        attendanceType: "TIME_IN",
+        reviewStatus: "pending",
+      };
+      pendingRepo.create.mockReturnValue(pending);
+      pendingRepo.save.mockResolvedValue(pending);
+
+      await service.createManual({ ...dto, photo: VALID_IMAGE }, stationUser);
+
+      const createCall = pendingRepo.create.mock.calls[0][0];
+      expect(createCall.imagePath).toMatch(
+        /^uploads\/manual-attendance\/manual_10_\d+\.jpg$/,
+      );
+      expect(fs.mkdirSync).toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
     it("admin can create manual entry for any station's personnel", async () => {

@@ -20,12 +20,6 @@ import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Snackbar from "@mui/material/Snackbar";
@@ -71,7 +65,7 @@ const DEFAULT_SHIFT_END = "17:00";
 
 const TYPE_COLORS: Record<ScheduleType, string> = {
   regular: "#ffffff",
-  shifting: "#ff9800",
+  shifting: "#2196f3",
   leave: "#6F42A6",
 };
 
@@ -229,7 +223,7 @@ export default function SchedulePageClient() {
                           gap: 2,
                           backgroundImage: buildCoverBackground(
                             person.coverImagePath,
-                            "linear-gradient(160deg, rgba(198,40,40,0.10) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)"
+                            "linear-gradient(160deg, rgba(198,40,40,0.10) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
                           ),
                           backgroundSize: "cover",
                           backgroundPosition: "center",
@@ -249,7 +243,10 @@ export default function SchedulePageClient() {
                             boxShadow: "0 10px 22px rgba(0,0,0,0.14)",
                           }}
                         >
-                          {getPersonnelInitials(person.firstName, person.lastName)}
+                          {getPersonnelInitials(
+                            person.firstName,
+                            person.lastName,
+                          )}
                         </Avatar>
                         <Chip
                           label={
@@ -257,24 +254,26 @@ export default function SchedulePageClient() {
                             scheduleType.slice(1)
                           }
                           color={
-                            scheduleType === "shifting"
-                              ? "warning"
-                              : scheduleType === "regular"
-                                ? "success"
-                                : "default"
+                            scheduleType === "regular" ? "success" : "default"
                           }
                           variant={
                             scheduleType === "regular" ? "outlined" : "filled"
                           }
                           size="small"
                           sx={
-                            scheduleType === "leave"
+                            scheduleType === "shifting"
                               ? {
-                                  bgcolor: "#6F42A6",
+                                  bgcolor: "#2196f3",
                                   color: "#FFFFFF",
                                   fontWeight: 700,
                                 }
-                              : { fontWeight: 700 }
+                              : scheduleType === "leave"
+                                ? {
+                                    bgcolor: "#6F42A6",
+                                    color: "#FFFFFF",
+                                    fontWeight: 700,
+                                  }
+                                : { fontWeight: 700 }
                           }
                         />
                       </Box>
@@ -313,7 +312,10 @@ export default function SchedulePageClient() {
 
                         <Stack spacing={1}>
                           <Box>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               Today&apos;s schedule
                             </Typography>
                             <Typography variant="body2">
@@ -322,7 +324,10 @@ export default function SchedulePageClient() {
                             </Typography>
                           </Box>
                           <Box>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               Shift window
                             </Typography>
                             <Typography variant="body2">
@@ -737,3 +742,4 @@ function LegendItem({ type, label }: { type: ScheduleType; label: string }) {
     </Stack>
   );
 }
+

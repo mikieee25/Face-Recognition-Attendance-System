@@ -91,7 +91,7 @@ export class AttendanceService {
     private readonly personnelRepo: Repository<Personnel>,
     @InjectRepository(Schedule)
     private readonly scheduleRepo: Repository<Schedule>,
-    private readonly faceService: FaceService
+    private readonly faceService: FaceService,
   ) {}
 
   /**
@@ -99,18 +99,38 @@ export class AttendanceService {
    */
   private validateImage(image: string): void {
     const hasValidMime = ALLOWED_MIME_PREFIXES.some((prefix) =>
-      image.startsWith(prefix)
+      image.startsWith(prefix),
     );
     if (!hasValidMime) {
       throw new BadRequestException(
-        "Invalid image format. Only JPEG and PNG are supported."
+        "Invalid image format. Only JPEG and PNG are supported.",
       );
     }
     if (image.length > MAX_IMAGE_BASE64_LENGTH) {
       throw new BadRequestException(
-        "Image exceeds the maximum allowed size of 10 MB."
+        "Image exceeds the maximum allowed size of 10 MB.",
       );
     }
+  }
+
+  private saveUploadedImage(
+    image: string,
+    directoryName: string,
+    filenamePrefix: string,
+  ): string {
+    const uploadDir = path.join(process.cwd(), "uploads", directoryName);
+    fs.mkdirSync(uploadDir, { recursive: true });
+
+    const ext = image.startsWith("data:image/png") ? "png" : "jpg";
+    const filename = `${filenamePrefix}_${Date.now()}.${ext}`;
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+
+    fs.writeFileSync(
+      path.join(uploadDir, filename),
+      Buffer.from(base64Data, "base64"),
+    );
+
+    return `uploads/${directoryName}/${filename}`;
   }
 
   /**
@@ -118,7 +138,7 @@ export class AttendanceService {
    * If no prior record → time_in. Otherwise alternates. (Requirement 5.10)
    */
   private async determineAttendanceType(
-    personnelId: number
+    personnelId: number,
   ): Promise<AttendanceType> {
     const lastRecord = await this.attendanceRepo.findOne({
       where: { personnelId, status: AttendanceStatus.Confirmed },
@@ -137,7 +157,7 @@ export class AttendanceService {
   private getLocalDayStr(date: Date): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
       2,
-      "0"
+      "0",
     )}-${String(date.getDate()).padStart(2, "0")}`;
   }
 
@@ -150,7 +170,7 @@ export class AttendanceService {
         0,
         0,
         0,
-        0
+        0,
       ),
       end: new Date(
         date.getFullYear(),
@@ -159,7 +179,7 @@ export class AttendanceService {
         23,
         59,
         59,
-        999
+        999,
       ),
     };
   }
@@ -178,13 +198,13 @@ export class AttendanceService {
       hours,
       minutes,
       seconds ?? 0,
-      0
+      0,
     );
   }
 
   private async getDayAttendanceState(
     personnelId: number,
-    capturedAt: Date
+    capturedAt: Date,
   ): Promise<DayAttendanceState> {
     const { start, end } = this.getLocalDayBounds(capturedAt);
     const confirmedRecords = await this.attendanceRepo.find({
@@ -199,17 +219,17 @@ export class AttendanceService {
     return {
       confirmedRecords,
       hasTimeIn: confirmedRecords.some(
-        (record) => record.type === AttendanceType.TimeIn
+        (record) => record.type === AttendanceType.TimeIn,
       ),
       hasTimeOut: confirmedRecords.some(
-        (record) => record.type === AttendanceType.TimeOut
+        (record) => record.type === AttendanceType.TimeOut,
       ),
     };
   }
 
   private resolveRequestedType(
     dto: CaptureAttendanceDto,
-    dayState: DayAttendanceState
+    dayState: DayAttendanceState,
   ): AttendanceType {
     if (dto.type) {
       return dto.type;
@@ -223,14 +243,12 @@ export class AttendanceService {
       return AttendanceType.TimeOut;
     }
 
-    throw new BadRequestException(
-      "Attendance already completed for today."
-    );
+    throw new BadRequestException("Attendance already completed for today.");
   }
 
   private validateOncePerDayAttendance(
     type: AttendanceType,
-    dayState: DayAttendanceState
+    dayState: DayAttendanceState,
   ): void {
     if (type === AttendanceType.TimeIn && dayState.hasTimeIn) {
       throw new BadRequestException("Time In already recorded for today.");
@@ -238,7 +256,7 @@ export class AttendanceService {
 
     if (type === AttendanceType.TimeOut && !dayState.hasTimeIn) {
       throw new BadRequestException(
-        "Cannot record Time Out. You need to Time In first."
+        "Cannot record Time Out. You need to Time In first.",
       );
     }
 
@@ -249,7 +267,7 @@ export class AttendanceService {
 
   private async getEffectiveSchedule(
     personnel: Personnel,
-    capturedAt: Date
+    capturedAt: Date,
   ): Promise<EffectiveSchedule> {
     const dateStr = this.getLocalDayStr(capturedAt);
     const schedule = await this.scheduleRepo.findOne({
@@ -262,8 +280,7 @@ export class AttendanceService {
     if (schedule) {
       return {
         type: schedule.type,
-        shiftStartTime:
-          schedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
+        shiftStartTime: schedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
         shiftEndTime: schedule.shiftEndTime ?? DEFAULT_SHIFT_END_TIME,
       };
     }
@@ -288,7 +305,7 @@ export class AttendanceService {
   private async validateCaptureDuty(
     personnel: Personnel,
     type: AttendanceType,
-    capturedAt: Date
+    capturedAt: Date,
   ): Promise<DutyValidationResult> {
     if (personnel.section === PersonnelSection.OPERATION) {
       return {
@@ -299,7 +316,7 @@ export class AttendanceService {
 
     const effectiveSchedule = await this.getEffectiveSchedule(
       personnel,
-      capturedAt
+      capturedAt,
     );
 
     if (effectiveSchedule.type === ScheduleType.LEAVE) {
@@ -318,17 +335,17 @@ export class AttendanceService {
 
     const shiftStart = this.buildShiftDate(
       capturedAt,
-      effectiveSchedule.shiftStartTime
+      effectiveSchedule.shiftStartTime,
     );
     const shiftEnd = this.buildShiftDate(
       capturedAt,
-      effectiveSchedule.shiftEndTime
+      effectiveSchedule.shiftEndTime,
     );
     const earliestAllowed = new Date(
-      shiftStart.getTime() - SHIFT_GRACE_MINUTES * 60 * 1000
+      shiftStart.getTime() - SHIFT_GRACE_MINUTES * 60 * 1000,
     );
     const latestAllowed = new Date(
-      shiftEnd.getTime() + SHIFT_GRACE_MINUTES * 60 * 1000
+      shiftEnd.getTime() + SHIFT_GRACE_MINUTES * 60 * 1000,
     );
 
     if (capturedAt < earliestAllowed || capturedAt > latestAllowed) {
@@ -347,7 +364,8 @@ export class AttendanceService {
     personnelId: number,
     type: AttendanceType,
     confidence: number | null,
-    capturedAt?: Date
+    image: string,
+    capturedAt?: Date,
   ): Promise<PendingApproval> {
     const attendanceType =
       type === AttendanceType.TimeIn ? "TIME_IN" : "TIME_OUT";
@@ -355,7 +373,11 @@ export class AttendanceService {
       personnelId,
       attendanceType: attendanceType as "TIME_IN" | "TIME_OUT",
       confidence,
-      imagePath: "",
+      imagePath: this.saveUploadedImage(
+        image,
+        "pending-attendance",
+        `pending_${personnelId}`,
+      ),
       reviewStatus: "pending" as any,
       createdAt: capturedAt,
     });
@@ -369,7 +391,7 @@ export class AttendanceService {
    */
   async capture(
     dto: CaptureAttendanceDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<AttendanceRecord | PendingApproval> {
     // Validate image format and size (Requirements 15.11, 15.12)
     this.validateImage(dto.image);
@@ -403,21 +425,6 @@ export class AttendanceService {
     this.validateOncePerDayAttendance(resolvedType, dayState);
 
     if (confidence >= 0.6) {
-      const dutyValidation = await this.validateCaptureDuty(
-        personnel,
-        resolvedType,
-        capturedAt
-      );
-
-      if (dutyValidation.shouldPend) {
-        return this.createPendingAttendance(
-          personnelId,
-          resolvedType,
-          confidence,
-          capturedAt
-        );
-      }
-
       const record = this.attendanceRepo.create({
         personnelId,
         type: resolvedType,
@@ -434,14 +441,15 @@ export class AttendanceService {
         personnelId,
         resolvedType,
         confidence,
-        capturedAt
+        dto.image,
+        capturedAt,
       );
     } else {
       // Low confidence → HTTP 422 (Requirement 5.7)
       throw new UnprocessableEntityException(
         `Low confidence recognition (${(confidence * 100).toFixed(
-          1
-        )}%). Please try again with better lighting or positioning.`
+          1,
+        )}%). Please try again with better lighting or positioning.`,
       );
     }
   }
@@ -453,7 +461,7 @@ export class AttendanceService {
    */
   async createManual(
     dto: ManualAttendanceDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<PendingApproval> {
     // Validate date is not in the future (Requirement 6.3)
     const entryDate = new Date(dto.date);
@@ -480,7 +488,7 @@ export class AttendanceService {
       personnel.stationId !== currentUser.stationId
     ) {
       throw new ForbiddenException(
-        "You can only create manual entries for your station's personnel."
+        "You can only create manual entries for your station's personnel.",
       );
     }
 
@@ -492,20 +500,11 @@ export class AttendanceService {
     let imagePath = "";
     if (dto.photo) {
       this.validateImage(dto.photo);
-      const uploadDir = path.join(
-        process.cwd(),
-        "uploads",
-        "manual-attendance"
+      imagePath = this.saveUploadedImage(
+        dto.photo,
+        "manual-attendance",
+        `manual_${dto.personnelId}`,
       );
-      fs.mkdirSync(uploadDir, { recursive: true });
-      const ext = dto.photo.startsWith("data:image/png") ? "png" : "jpg";
-      const filename = `manual_${dto.personnelId}_${Date.now()}.${ext}`;
-      const base64Data = dto.photo.replace(/^data:image\/\w+;base64,/, "");
-      fs.writeFileSync(
-        path.join(uploadDir, filename),
-        Buffer.from(base64Data, "base64")
-      );
-      imagePath = `uploads/manual-attendance/${filename}`;
     }
 
     // Route to pending_approval for admin review (Requirements 6.6, 6.7)
@@ -528,7 +527,7 @@ export class AttendanceService {
    */
   async findAll(
     query: QueryAttendanceDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<PaginatedResult<any>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -667,7 +666,7 @@ export class AttendanceService {
   async update(
     id: number,
     dto: UpdateAttendanceDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<AttendanceRecord> {
     const record = await this.attendanceRepo.findOne({
       where: { id },
@@ -684,7 +683,7 @@ export class AttendanceService {
       record.personnel?.stationId !== currentUser.stationId
     ) {
       throw new ForbiddenException(
-        "You can only edit your station's attendance records."
+        "You can only edit your station's attendance records.",
       );
     }
 
@@ -716,7 +715,7 @@ export class AttendanceService {
    */
   async findOne(
     id: number,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<AttendanceRecord> {
     const record = await this.attendanceRepo.findOne({
       where: { id },
@@ -737,3 +736,4 @@ export class AttendanceService {
     return record;
   }
 }
+

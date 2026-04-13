@@ -97,7 +97,7 @@ export default function StatsCards() {
     {
       label: "Shifting",
       value: data?.shifting,
-      color: "#F57C00",
+      color: "#2196f3",
       icon: <SwapHorizIcon />,
     },
     {
