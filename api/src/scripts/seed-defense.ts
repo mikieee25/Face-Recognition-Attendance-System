@@ -1,10 +1,12 @@
 import "reflect-metadata";
 import * as dotenv from "dotenv";
-import * as bcrypt from "bcrypt";
-import { DataSource } from "typeorm";
-import { User, UserRole } from "../database/entities/user.entity";
+import { DataSource, In } from "typeorm";
+import { User } from "../database/entities/user.entity";
 import { Station } from "../stations/station.entity";
-import { Personnel } from "../database/entities/personnel.entity";
+import {
+  Personnel,
+  PersonnelSection,
+} from "../database/entities/personnel.entity";
 import {
   AttendanceRecord,
   AttendanceType,
@@ -35,57 +37,22 @@ const dataSource = new DataSource({
   logging: false,
 });
 
-const SALT_ROUNDS = 12;
-
-async function seedUser(
-  userRepo: ReturnType<typeof dataSource.getRepository<User>>,
-  data: {
-    username: string;
-    email: string;
-    password: string;
-    role: UserRole;
-    stationId: number | null;
-    mustChangePassword?: boolean;
-  }
-) {
-  const hash = await bcrypt.hash(data.password, SALT_ROUNDS);
-  const user = userRepo.create({
-    username: data.username,
-    email: data.email,
-    passwordHash: hash,
-    role: data.role,
-    stationId: data.stationId,
-    isActive: true,
-    mustChangePassword: data.mustChangePassword ?? true,
-  });
-  await userRepo.save(user);
-}
-
-const personnelNames = [
-  "Eric Hermosa",
-  "Roel J. Jintalan",
-  "Danilo Das",
-  "Joseph L. Caubang",
-  "Michelle A Lariosa",
-  "Selina Navarro",
-  "Janet Jasareno",
-  "Gldys J. Bercasio-Rotor",
-  "Shiela Marie L. Jebulan",
-  "Shanna Escultura",
-  "Jacenth Gracilla",
-  "Maria Theresa Venus",
-  "Judy Ann Estropigan",
-  "Senen Legaspi",
-];
-
-const ranks = ["FO1", "FO2", "FO3", "SFO1", "SFO2", "INSP", "CINSP", "SINSP"];
-
-function getRandomItem<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
 function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function buildTimeOnDate(
+  date: Date,
+  startMinutes: number,
+  endMinutes: number
+): Date {
+  const minutes = randomInt(startMinutes, endMinutes);
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const secs = randomInt(0, 59);
+  const result = new Date(date);
+  result.setHours(hours, mins, secs, 0);
+  return result;
 }
 
 async function run() {
@@ -101,13 +68,8 @@ async function run() {
   // Truncate tables
   const tablesToTruncate = [
     "schedule",
-    "face_embeddings",
-    "activity_log",
     "attendance_record",
     "pending_attendance",
-    "personnel",
-    "user",
-    "station",
   ];
 
   for (const table of tablesToTruncate) {
@@ -120,127 +82,59 @@ async function run() {
 
   await queryRunner.query("SET FOREIGN_KEY_CHECKS = 1;");
 
-  const stationRepo = dataSource.getRepository(Station);
-  const userRepo = dataSource.getRepository(User);
   const personnelRepo = dataSource.getRepository(Personnel);
   const attendanceRepo = dataSource.getRepository(AttendanceRecord);
 
-  // Seed stations
-  const stationDefs = [
-    { name: "Sorsogon Central", location: "CENTRAL" },
-    { name: "Talisay", location: "TALISAY" },
-    { name: "Bacon", location: "BACON" },
-    { name: "Abuyog", location: "ABUYOG" },
-  ];
-
-  const stationMap = new Map<string, number>();
-  const stationIds: number[] = [];
-
-  for (const s of stationDefs) {
-    const station = await stationRepo.save(stationRepo.create(s));
-    stationMap.set(s.location, station.id);
-    stationIds.push(station.id);
-  }
-
-  console.log("Seeding admin and station accounts...");
-  // Seed admin & users
-  await seedUser(userRepo, {
-    username: "admin",
-    email: "admin@bfpsorsogon.gov.ph",
-    password: "Admin123!",
-    role: UserRole.Admin,
-    stationId: null,
-  });
-  await seedUser(userRepo, {
-    username: "central_station",
-    email: "central@bfpsorsogon.gov.ph",
-    password: "Station123!",
-    role: UserRole.StationUser,
-    stationId: stationMap.get("CENTRAL") ?? null,
-  });
-  await seedUser(userRepo, {
-    username: "kiosk_central",
-    email: "kioskcentral@bfpsorsogon.gov.ph",
-    password: "Kiosk123!",
-    role: UserRole.Kiosk,
-    stationId: stationMap.get("CENTRAL") ?? null,
-    mustChangePassword: false,
+  console.log("Fetching personnel with IDs 1-14...");
+  const targetPersonnel = await personnelRepo.find({
+    where: { id: In(Array.from({ length: 14 }, (_, i) => i + 1)) },
   });
 
-  console.log("Seeding personnel...");
+  console.log("Seeding attendance records for personnel IDs 1-14...");
   const today = new Date();
+  const startDate = new Date(today.getFullYear(), 2, 9); // March 09
+  const endDate = new Date(today);
 
-  for (const fullName of personnelNames) {
-    const parts = fullName.split(" ");
-    const lastName = parts.pop() || "";
-    const firstName = parts.join(" ");
-
-    const rank = getRandomItem(ranks);
-    const stationId = getRandomItem(stationIds);
-
-    const personnel = await personnelRepo.save(
-      personnelRepo.create({
-        firstName,
-        lastName,
-        rank,
-        stationId,
-        isActive: true,
-        dateCreated: new Date(),
-      })
-    );
-
-    // Generate Attendance Records
+  for (const personnel of targetPersonnel) {
     const attendanceRecordsToInsert = [];
-    for (let i = 35; i >= 0; i--) {
-      const logDate = new Date(today);
-      logDate.setDate(today.getDate() - i);
 
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const logDate = new Date(d);
       const dayOfWeek = logDate.getDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip weekends
 
-      // Maybe randomly absent (10% chance)
-      if (Math.random() < 0.1) continue;
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        continue;
+      }
 
       // Time in between 7:30 and 8:30
-      const timeInHour = 7;
-      const timeInMin = randomInt(30, 59);
-      const timeInSec = randomInt(0, 59);
-      const timeInDate = new Date(logDate);
-      timeInDate.setHours(timeInHour, timeInMin, timeInSec, 0);
+      const timeInDate = buildTimeOnDate(logDate, 7 * 60 + 30, 8 * 60 + 30);
 
       attendanceRecordsToInsert.push({
         personnelId: personnel.id,
         type: AttendanceType.TimeIn,
         status: AttendanceStatus.Confirmed,
         isManual: false,
-        confidence: parseFloat((0.85 + Math.random() * 0.14).toFixed(2)), // 0.85 to 0.99
+        confidence: parseFloat((0.85 + Math.random() * 0.14).toFixed(2)),
         createdAt: timeInDate,
       });
 
-      // Time out between 17:00 and 18:30
-      // 5% chance forgot to time out
-      if (Math.random() > 0.05) {
-        const timeOutHour = randomInt(17, 18);
-        const timeOutMin = randomInt(0, 59);
-        const timeOutSec = randomInt(0, 59);
-        const timeOutDate = new Date(logDate);
-        timeOutDate.setHours(timeOutHour, timeOutMin, timeOutSec, 0);
+      // Time out between 17:00 and 17:30 (no missing out)
+      const timeOutDate = buildTimeOnDate(logDate, 17 * 60, 17 * 60 + 30);
 
-        // Make sure it's after time in
-        if (timeOutDate.getTime() > timeInDate.getTime()) {
-          attendanceRecordsToInsert.push({
-            personnelId: personnel.id,
-            type: AttendanceType.TimeOut,
-            status: AttendanceStatus.Confirmed,
-            isManual: false,
-            confidence: parseFloat((0.85 + Math.random() * 0.14).toFixed(2)),
-            createdAt: timeOutDate,
-          });
-        }
-      }
+      attendanceRecordsToInsert.push({
+        personnelId: personnel.id,
+        type: AttendanceType.TimeOut,
+        status: AttendanceStatus.Confirmed,
+        isManual: false,
+        confidence: parseFloat((0.85 + Math.random() * 0.14).toFixed(2)),
+        createdAt: timeOutDate,
+      });
     }
 
-    // Batch insert for performance
     if (attendanceRecordsToInsert.length > 0) {
       await attendanceRepo.save(
         attendanceRepo.create(attendanceRecordsToInsert)

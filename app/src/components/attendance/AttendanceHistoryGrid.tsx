@@ -67,6 +67,10 @@ function formatClock(iso: string | null | undefined): string {
   });
 }
 
+function formatDateInput(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function buildIssues(summary: DailyAttendanceSummary): string[] {
   const issues: string[] = [];
   if (isMissing(summary.firstIn)) issues.push("Missing Time In");
@@ -104,9 +108,13 @@ export default function AttendanceHistoryGrid() {
   const [rowsPerPage, setRowsPerPage] = useState(12);
 
   // applied filters (used for query)
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
   const [filters, setFilters] = useState<AttendanceFilters>({
-    dateFrom: "",
-    dateTo: "",
+    dateFrom: formatDateInput(monthStart),
+    dateTo: formatDateInput(monthEnd),
     personnelId: "",
   });
 
@@ -114,8 +122,8 @@ export default function AttendanceHistoryGrid() {
   const [hasSearched, setHasSearched] = useState(false);
   const [searchOpen, setSearchOpen] = useState(true);
   const [draftFilters, setDraftFilters] = useState<AttendanceFilters>({
-    dateFrom: "",
-    dateTo: "",
+    dateFrom: formatDateInput(monthStart),
+    dateTo: formatDateInput(monthEnd),
     personnelId: "",
   });
 
@@ -201,11 +209,19 @@ export default function AttendanceHistoryGrid() {
             </Typography>
 
             <FormControl fullWidth>
-              <InputLabel id="search-personnel-label">Personnel</InputLabel>
+              <InputLabel id="search-personnel-label" shrink>
+                Personnel
+              </InputLabel>
               <Select
                 labelId="search-personnel-label"
                 label="Personnel"
                 value={draftFilters.personnelId}
+                displayEmpty
+                renderValue={(selected) => {
+                  if (!selected) return "All Personnel";
+                  const person = personnelList.find((p) => String(p.id) === String(selected));
+                  return person ? `${person.rank} ${person.firstName} ${person.lastName}` : "All Personnel";
+                }}
                 onChange={(e) =>
                   setDraftFilters((prev) => ({
                     ...prev,
@@ -289,11 +305,19 @@ export default function AttendanceHistoryGrid() {
           />
 
           <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel id="filter-personnel-label">Personnel</InputLabel>
+            <InputLabel id="filter-personnel-label" shrink>
+              Personnel
+            </InputLabel>
             <Select
               labelId="filter-personnel-label"
               value={filters.personnelId}
               label="Personnel"
+              displayEmpty
+              renderValue={(selected) => {
+                if (!selected) return "All Personnel";
+                const person = personnelList.find((p) => String(p.id) === String(selected));
+                return person ? `${person.rank} ${person.firstName} ${person.lastName}` : "All Personnel";
+              }}
               onChange={(e) => {
                 setPage(0);
                 setFilters((prev) => ({ ...prev, personnelId: String(e.target.value) }));
