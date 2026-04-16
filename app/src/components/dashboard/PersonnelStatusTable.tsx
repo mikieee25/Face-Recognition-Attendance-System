@@ -1,23 +1,25 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
 import Grid from "@mui/material/Grid";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
+
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import {
-  buildCoverBackground,
-  buildImageUrl,
-  formatSectionLabel,
-} from "@/lib/personnel-display";
+import { buildImageUrl, formatSectionLabel } from "@/lib/personnel-display";
 import type { ApiEnvelope } from "@/types/api";
 
 interface PersonnelRow {
@@ -31,10 +33,7 @@ interface PersonnelRow {
   status: "present" | "late" | "shifting" | "on_leave";
 }
 
-const STATUS_CONFIG: Record<
-  PersonnelRow["status"],
-  { label: string; color: string; tint: string }
-> = {
+const STATUS_CONFIG: Record<PersonnelRow["status"], { label: string; color: string; tint: string }> = {
   present: { label: "Present", color: "#2E7D32", tint: "#E8F5E9" },
   late: { label: "Late", color: "#F9A825", tint: "#FFF4D6" },
   shifting: { label: "Shifting", color: "#2196f3", tint: "#E3F2FD" },
@@ -67,16 +66,46 @@ function StatusCardSkeleton() {
 }
 
 export default function PersonnelStatusTable() {
+  const [statusFilter, setStatusFilter] = useState<PersonnelRow["status"] | "all">("all");
+  const [stationFilter, setStationFilter] = useState<string>("all");
+  const [sectionFilter, setSectionFilter] = useState<string>("all");
+  const [personnelFilter, setPersonnelFilter] = useState<string>("");
+
   const { data: personnel = [], isLoading } = useQuery<PersonnelRow[]>({
     queryKey: ["dashboard", "personnel-status-today"],
     queryFn: async () => {
-      const res = await apiClient.get<ApiEnvelope<PersonnelRow[]>>(
-        "/api/v1/dashboard/personnel-status",
-      );
+      const res = await apiClient.get<ApiEnvelope<PersonnelRow[]>>("/api/v1/dashboard/personnel-status");
       return res.data.data ?? [];
     },
     refetchInterval: 3000,
   });
+
+  const stationOptions = useMemo(() => {
+    const stations = Array.from(new Set(personnel.map((p) => p.stationName).filter(Boolean)));
+    stations.sort((a, b) => a.localeCompare(b));
+    return stations;
+  }, [personnel]);
+
+  const sectionOptions = useMemo(() => {
+    const sections = Array.from(new Set(personnel.map((p) => formatSectionLabel(p.section)).filter(Boolean)));
+    sections.sort((a, b) => a.localeCompare(b));
+    return sections;
+  }, [personnel]);
+
+  const filteredPersonnel = useMemo(() => {
+    const q = personnelFilter.trim().toLowerCase();
+
+    return personnel.filter((p) => {
+      const statusOk = statusFilter === "all" ? true : p.status === statusFilter;
+      const stationOk = stationFilter === "all" ? true : p.stationName === stationFilter;
+      const sectionOk = sectionFilter === "all" ? true : formatSectionLabel(p.section) === sectionFilter;
+
+      const personnelOk =
+        q.length === 0 ? true : `${p.name} ${p.rank} ${p.stationName} ${formatSectionLabel(p.section)}`.toLowerCase().includes(q);
+
+      return statusOk && stationOk && sectionOk && personnelOk;
+    });
+  }, [personnel, personnelFilter, sectionFilter, stationFilter, statusFilter]);
 
   return (
     <Box
@@ -85,8 +114,7 @@ export default function PersonnelStatusTable() {
         borderRadius: 4,
         border: "1px solid",
         borderColor: "divider",
-        background:
-          "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(250,250,250,0.98) 100%)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(250,250,250,0.98) 100%)",
       }}
     >
       <Stack
@@ -94,36 +122,75 @@ export default function PersonnelStatusTable() {
         justifyContent="space-between"
         alignItems={{ sm: "center" }}
         spacing={1}
-        sx={{ mb: 2.5 }}
+        sx={{ mb: 1.5 }}
       >
         <Box>
           <Typography variant="h6">Personnel Status Today</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Live personnel presence in a cleaner, profile-focused view.
-          </Typography>
         </Box>
         <Chip
-          label={`${personnel.length} personnel tracked`}
+          label={`${filteredPersonnel.length} of ${personnel.length} personnel`}
           size="small"
           sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
         />
       </Stack>
 
-      <Grid container spacing={2.5}>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2.5 }}>
+        <TextField label="Search Personnel" value={personnelFilter} onChange={(e) => setPersonnelFilter(e.target.value)} fullWidth />
+
+        <FormControl fullWidth>
+          <InputLabel>Status</InputLabel>
+          <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PersonnelRow["status"] | "all")}>
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="present">Present</MenuItem>
+            <MenuItem value="late">Late</MenuItem>
+            <MenuItem value="shifting">Shifting</MenuItem>
+            <MenuItem value="on_leave">On Leave</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth>
+          <InputLabel>Station</InputLabel>
+          <Select label="Station" value={stationFilter} onChange={(e) => setStationFilter(e.target.value)}>
+            <MenuItem value="all">All</MenuItem>
+            {stationOptions.map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth>
+          <InputLabel>Section</InputLabel>
+          <Select label="Section" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+            <MenuItem value="all">All</MenuItem>
+            {sectionOptions.map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+
+      <Grid container spacing={2}>
         {isLoading
           ? Array.from({ length: 4 }).map((_, index) => (
-              <Grid key={index} size={{ xs: 12, sm: 6, lg: 3 }}>
+              <Grid key={index} size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2.4 }}>
                 <StatusCardSkeleton />
               </Grid>
             ))
-          : personnel.map((person) => {
+          : filteredPersonnel.map((person) => {
               const status = STATUS_CONFIG[person.status] ?? STATUS_CONFIG.late;
+              const coverImage = buildImageUrl(person.coverImagePath);
 
               return (
-                <Grid key={person.personnelId} size={{ xs: 12, sm: 6, lg: 3 }}>
+                <Grid key={person.personnelId} size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2.4 }}>
                   <Card
                     sx={{
                       height: "100%",
+                      width: "100%",
+                      maxWidth: 300,
                       overflow: "hidden",
                       border: "1px solid",
                       borderColor: "divider",
@@ -133,44 +200,29 @@ export default function PersonnelStatusTable() {
                     <Box
                       sx={{
                         position: "relative",
-                        minHeight: 156,
+                        minHeight: 170,
                         px: 2.5,
                         pt: 2.5,
-                        pb: 2,
+                        pb: 2.5,
                         display: "flex",
-                        alignItems: "flex-end",
-                        backgroundImage: buildCoverBackground(
-                          person.coverImagePath,
-                          `linear-gradient(160deg, ${status.tint} 0%, rgba(255,255,255,0.92) 100%)`,
-                          `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, ${status.tint} 100%)`,
-                        ),
+                        justifyContent: "center",
+                        backgroundImage: coverImage ? `url("${coverImage}")` : "none",
+                        backgroundColor: "white",
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                       }}
                     >
-                      <Chip
-                        label={status.label}
-                        size="small"
-                        sx={{
-                          position: "absolute",
-                          top: 16,
-                          right: 16,
-                          backgroundColor: status.color,
-                          color: "#fff",
-                          fontWeight: 700,
-                        }}
-                      />
                       <Avatar
                         src={buildImageUrl(person.imagePath)}
                         alt={person.name}
                         sx={{
-                          width: 76,
-                          height: 76,
+                          width: 130,
+                          height: 130,
                           border: "4px solid rgba(255,255,255,0.92)",
                           boxShadow: "0 12px 24px rgba(0,0,0,0.12)",
                           bgcolor: "primary.main",
                           color: "primary.contrastText",
-                          fontSize: "1.4rem",
+                          fontSize: "2rem",
                           fontWeight: 700,
                         }}
                       >
@@ -183,55 +235,46 @@ export default function PersonnelStatusTable() {
                       </Avatar>
                     </Box>
 
-                    <Box sx={{ p: 2.5 }}>
-                      <Typography variant="h6" sx={{ mb: 0.5 }}>
+                    <Box
+                      sx={(theme) => ({
+                        p: theme.spacing(2.5),
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        textAlign: "center",
+                        gap: theme.spacing(1),
+                      })}
+                    >
+                      <Typography variant="h6" sx={{ wordWrap: "break-word" }}>
                         {person.name}
                       </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        {person.rank}
-                      </Typography>
 
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        flexWrap="wrap"
-                        useFlexGap
-                        sx={{ mb: 2 }}
-                      >
-                        <Chip
-                          icon={<BadgeIcon />}
-                          label={formatSectionLabel(person.section)}
-                          variant="outlined"
-                          size="small"
-                        />
-                        <Chip
-                          icon={<ApartmentIcon />}
-                          label={person.stationName}
-                          variant="outlined"
-                          size="small"
-                        />
+                      <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ color: "text.secondary" }}>
+                        <ApartmentIcon sx={{ fontSize: 18 }} />
+                        <Typography variant="body2" sx={{ wordWrap: "break-word" }}>
+                          {person.stationName}
+                        </Typography>
                       </Stack>
 
-                      <Stack spacing={1}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <AccessTimeIcon
-                            sx={{ fontSize: 18, color: status.color }}
-                          />
-                          <Typography variant="body2" color="text.secondary">
-                            Current status:{" "}
-                            <Box
-                              component="span"
-                              sx={{ color: status.color, fontWeight: 700 }}
-                            >
-                              {status.label}
-                            </Box>
-                          </Typography>
-                        </Stack>
+                      <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ color: "text.secondary" }}>
+                        <BadgeIcon sx={{ fontSize: 18 }} />
+                        <Typography variant="body2" sx={{ wordWrap: "break-word" }}>
+                          {formatSectionLabel(person.section)}
+                        </Typography>
                       </Stack>
+
+                      <Chip
+                        label={status.label}
+                        size="medium"
+                        sx={(theme) => ({
+                          mt: theme.spacing(1.5),
+                          px: theme.spacing(1.5),
+                          borderRadius: theme.spacing(3),
+                          backgroundColor: status.color,
+                          color: "#fff",
+                          fontWeight: 700,
+                        })}
+                      />
                     </Box>
                   </Card>
                 </Grid>
@@ -250,15 +293,30 @@ export default function PersonnelStatusTable() {
             textAlign: "center",
           }}
         >
-          <Typography variant="body1">
-            No personnel status available.
-          </Typography>
+          <Typography variant="body1">No personnel status available.</Typography>
           <Typography variant="body2" color="text.secondary">
             Check back after attendance data is recorded for today.
+          </Typography>
+        </Box>
+      )}
+
+      {!isLoading && personnel.length > 0 && filteredPersonnel.length === 0 && (
+        <Box
+          sx={{
+            mt: 2,
+            borderRadius: 3,
+            border: "1px dashed",
+            borderColor: "divider",
+            p: 4,
+            textAlign: "center",
+          }}
+        >
+          <Typography variant="body1">No results match your filters.</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Try changing Status, Station, Section, or your search keywords.
           </Typography>
         </Box>
       )}
     </Box>
   );
 }
-

@@ -171,6 +171,13 @@ export default function PersonnelProfileModal({ open, onClose, personnel, onFace
           {/* Profile header */}
           <Stack alignItems="center" spacing={1.5} sx={{ pb: 2 }}>
             <Avatar
+              src={
+                personnel.imagePath
+                  ? personnel.imagePath.startsWith("http")
+                    ? personnel.imagePath
+                    : `${process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""}/${personnel.imagePath.replace(/^\//, "")}`
+                  : undefined
+              }
               sx={{
                 width: 80,
                 height: 80,
@@ -179,7 +186,7 @@ export default function PersonnelProfileModal({ open, onClose, personnel, onFace
                 fontWeight: 700,
               }}
             >
-              {initials}
+              {!personnel.imagePath && initials}
             </Avatar>
             <Typography variant="h6" fontWeight={700}>
               {personnel.rank} {personnel.firstName} {personnel.lastName}
