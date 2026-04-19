@@ -169,10 +169,8 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
                           alignItems: "flex-end",
                           justifyContent: "space-between",
                           gap: 2,
-                          backgroundImage: buildCoverBackground(
-                            person.coverImagePath,
-                            "linear-gradient(160deg, rgba(198,40,40,0.12) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
-                          ),
+                          backgroundImage: buildCoverBackground(person.coverImagePath, "none"),
+                          backgroundColor: "#ffffff",
                           backgroundSize: "cover",
                           backgroundPosition: "center",
                         }}

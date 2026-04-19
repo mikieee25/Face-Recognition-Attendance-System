@@ -14,6 +14,7 @@ import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import Pagination from "@mui/material/Pagination";
 
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
@@ -70,6 +71,8 @@ export default function PersonnelStatusTable() {
   const [stationFilter, setStationFilter] = useState<string>("all");
   const [sectionFilter, setSectionFilter] = useState<string>("all");
   const [personnelFilter, setPersonnelFilter] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 12;
 
   const { data: personnel = [], isLoading } = useQuery<PersonnelRow[]>({
     queryKey: ["dashboard", "personnel-status-today"],
@@ -106,6 +109,18 @@ export default function PersonnelStatusTable() {
       return statusOk && stationOk && sectionOk && personnelOk;
     });
   }, [personnel, personnelFilter, sectionFilter, stationFilter, statusFilter]);
+
+  // Reset to first page when filters change
+  useMemo(() => {
+    setPage(1);
+  }, [personnelFilter, sectionFilter, stationFilter, statusFilter]);
+
+  const paginatedPersonnel = useMemo(() => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return filteredPersonnel.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredPersonnel, page, itemsPerPage]);
+
+  const pageCount = Math.ceil(filteredPersonnel.length / itemsPerPage);
 
   return (
     <Box
@@ -175,17 +190,17 @@ export default function PersonnelStatusTable() {
 
       <Grid container spacing={2}>
         {isLoading
-          ? Array.from({ length: 4 }).map((_, index) => (
-              <Grid key={index} size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2.4 }}>
+          ? Array.from({ length: 6 }).map((_, index) => (
+              <Grid key={index} size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}>
                 <StatusCardSkeleton />
               </Grid>
             ))
-          : filteredPersonnel.map((person) => {
+          : paginatedPersonnel.map((person) => {
               const status = STATUS_CONFIG[person.status] ?? STATUS_CONFIG.late;
               const coverImage = buildImageUrl(person.coverImagePath);
 
               return (
-                <Grid key={person.personnelId} size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2.4 }}>
+                <Grid key={person.personnelId} size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}>
                   <Card
                     sx={{
                       height: "100%",
@@ -200,10 +215,10 @@ export default function PersonnelStatusTable() {
                     <Box
                       sx={{
                         position: "relative",
-                        minHeight: 170,
-                        px: 2.5,
-                        pt: 2.5,
-                        pb: 2.5,
+                        minHeight: 120,
+                        px: 2,
+                        pt: 2,
+                        pb: 2,
                         display: "flex",
                         justifyContent: "center",
                         backgroundImage: coverImage ? `url("${coverImage}")` : "none",
@@ -216,13 +231,13 @@ export default function PersonnelStatusTable() {
                         src={buildImageUrl(person.imagePath)}
                         alt={person.name}
                         sx={{
-                          width: 130,
-                          height: 130,
-                          border: "4px solid rgba(255,255,255,0.92)",
-                          boxShadow: "0 12px 24px rgba(0,0,0,0.12)",
+                          width: 120,
+                          height: 120,
+                          border: "3px solid rgba(255,255,255,0.92)",
+                          boxShadow: "0 8px 16px rgba(0,0,0,0.12)",
                           bgcolor: "primary.main",
                           color: "primary.contrastText",
-                          fontSize: "2rem",
+                          fontSize: "1.5rem",
                           fontWeight: 700,
                         }}
                       >
@@ -237,37 +252,37 @@ export default function PersonnelStatusTable() {
 
                     <Box
                       sx={(theme) => ({
-                        p: theme.spacing(2.5),
+                        p: theme.spacing(2),
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
                         textAlign: "center",
-                        gap: theme.spacing(1),
+                        gap: theme.spacing(0.5),
                       })}
                     >
-                      <Typography variant="h6" sx={{ wordWrap: "break-word" }}>
+                      <Typography variant="subtitle1" fontWeight={700} sx={{ wordWrap: "break-word", lineHeight: 1.2, mb: 0.5 }}>
                         {person.name}
                       </Typography>
 
                       <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ color: "text.secondary" }}>
-                        <ApartmentIcon sx={{ fontSize: 18 }} />
-                        <Typography variant="body2" sx={{ wordWrap: "break-word" }}>
+                        <ApartmentIcon sx={{ fontSize: 16 }} />
+                        <Typography variant="caption" sx={{ wordWrap: "break-word" }}>
                           {person.stationName}
                         </Typography>
                       </Stack>
 
                       <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ color: "text.secondary" }}>
-                        <BadgeIcon sx={{ fontSize: 18 }} />
-                        <Typography variant="body2" sx={{ wordWrap: "break-word" }}>
+                        <BadgeIcon sx={{ fontSize: 16 }} />
+                        <Typography variant="caption" sx={{ wordWrap: "break-word" }}>
                           {formatSectionLabel(person.section)}
                         </Typography>
                       </Stack>
 
                       <Chip
                         label={status.label}
-                        size="medium"
+                        size="small"
                         sx={(theme) => ({
-                          mt: theme.spacing(1.5),
+                          mt: theme.spacing(1),
                           px: theme.spacing(1.5),
                           borderRadius: theme.spacing(3),
                           backgroundColor: status.color,
@@ -315,6 +330,12 @@ export default function PersonnelStatusTable() {
           <Typography variant="body2" color="text.secondary">
             Try changing Status, Station, Section, or your search keywords.
           </Typography>
+        </Box>
+      )}
+
+      {!isLoading && pageCount > 1 && (
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+          <Pagination count={pageCount} page={page} onChange={(_, value) => setPage(value)} color="primary" size="large" />
         </Box>
       )}
     </Box>

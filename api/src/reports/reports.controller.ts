@@ -72,4 +72,13 @@ export class ReportsController {
   async getCalendar(@Query() query: QueryCalendarDto, @Request() req: any) {
     return this.reportsService.getCalendar(query, req.user);
   }
+
+  @Get("calendar-date-summary")
+  @ApiOperation({ summary: "Get monthly calendar attendance summary by date" })
+  async getCalendarDateSummary(
+    @Query() query: QueryCalendarDto,
+    @Request() req: any
+  ) {
+    return this.reportsService.getCalendarDateSummary(query, req.user);
+  }
 }

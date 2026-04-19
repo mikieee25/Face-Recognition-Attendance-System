@@ -1,12 +1,13 @@
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-import { getQueryClient } from "@/lib/query-client";
-import StatsCards from "@/components/dashboard/StatsCards";
-import SystemStatsCards from "@/components/dashboard/SystemStatsCards";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import DashboardStatsRow from "@/components/dashboard/DashboardStatsRow";
 import DateTimeCards from "@/components/dashboard/DateTimeCards";
 import PersonnelStatusTable from "@/components/dashboard/PersonnelStatusTable";
+import StatsCards from "@/components/dashboard/StatsCards";
+import SystemStatsCards from "@/components/dashboard/SystemStatsCards";
 import apiClient from "@/lib/api-client";
+import { getQueryClient } from "@/lib/query-client";
 
 export default async function DashboardPage() {
   const queryClient = getQueryClient();
@@ -23,23 +24,17 @@ export default async function DashboardPage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            justifyContent: "space-between",
-            alignItems: { xs: "flex-start", md: "center" },
-            gap: 2,
-          }}
-        >
-          <Typography variant="h4">Dashboard</Typography>
-          <DateTimeCards />
-        </Box>
-        <StatsCards />
-        <SystemStatsCards />
+      <DashboardLayout title="Dashboard" headerRight={<DateTimeCards />}>
+        <DashboardStatsRow>
+          <Box sx={{ flex: "1 1 0", height: "100%" }}>
+            <StatsCards />
+          </Box>
+          <Box sx={{ flex: "1 1 0", height: "100%" }}>
+            <SystemStatsCards />
+          </Box>
+        </DashboardStatsRow>
         <PersonnelStatusTable />
-      </Box>
+      </DashboardLayout>
     </HydrationBoundary>
   );
 }

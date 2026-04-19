@@ -69,6 +69,27 @@ export interface CalendarPersonnelItem {
   calendar: CalendarDay[];
 }
 
+export interface CalendarDayPersonnelDetail {
+  personnelId: number;
+  name: string;
+  rank: string;
+  station: string;
+  imagePath: string | null;
+}
+
+export interface CalendarDateSummaryItem {
+  date: string;
+  isFuture: boolean;
+  presentCount: number;
+  lateCount: number;
+  shiftingCount: number;
+  leaveCount: number;
+  presentPersonnel: CalendarDayPersonnelDetail[];
+  latePersonnel: CalendarDayPersonnelDetail[];
+  shiftingPersonnel: CalendarDayPersonnelDetail[];
+  leavePersonnel: CalendarDayPersonnelDetail[];
+}
+
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -81,6 +102,38 @@ export class ReportsService {
     @InjectRepository(Schedule)
     private readonly scheduleRepo: Repository<Schedule>
   ) {}
+
+  private buildScopedPersonnelQuery(
+    currentUser: AuthenticatedUser,
+    stationId?: number
+  ) {
+    const qb = this.personnelRepo
+      .createQueryBuilder("p")
+      .leftJoinAndSelect("p.station", "station")
+      .where("p.isActive = :isActive", { isActive: true });
+
+    if (currentUser.role === "station_user" && currentUser.stationId) {
+      qb.andWhere("p.stationId = :stationId", {
+        stationId: currentUser.stationId,
+      });
+    } else if (stationId) {
+      qb.andWhere("p.stationId = :stationId", { stationId });
+    }
+
+    return qb;
+  }
+
+  private classifyPersonnelDay(
+    dateStr: string,
+    todayStr: string,
+    scheduleType?: ScheduleType,
+    attended?: boolean
+  ): CalendarDay["status"] {
+    if (dateStr > todayStr) return "future";
+    if (scheduleType === ScheduleType.LEAVE) return "leave";
+    if (scheduleType === ScheduleType.SHIFTING) return "shifting";
+    return attended ? "present" : "late";
+  }
 
   /**
    * Validate that the date range does not exceed 1 year (Requirement 9.12).
@@ -497,20 +550,10 @@ export class ReportsService {
     const endDate = new Date(`${endStr}T23:59:59.999Z`);
 
     // Fetch personnel scoped by role
-    const pQb = this.personnelRepo
-      .createQueryBuilder("p")
-      .leftJoinAndSelect("p.station", "station")
-      .where("p.isActive = :isActive", { isActive: true });
-
-    if (currentUser.role === "station_user" && currentUser.stationId) {
-      pQb.andWhere("p.stationId = :stationId", {
-        stationId: currentUser.stationId,
-      });
-    } else if (query.stationId) {
-      pQb.andWhere("p.stationId = :stationId", { stationId: query.stationId });
-    }
-
-    const personnelList = await pQb.getMany();
+    const personnelList = await this.buildScopedPersonnelQuery(
+      currentUser,
+      query.stationId
+    ).getMany();
     if (personnelList.length === 0) return [];
 
     const personnelIds = personnelList.map((p) => p.id);
@@ -554,32 +597,19 @@ export class ReportsService {
         const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(
           day
         ).padStart(2, "0")}`;
-
-        if (dateStr > todayStr) {
-          calendar.push({ date: dateStr, status: "future" });
-          continue;
-        }
-
         const sched = pSchedules.find((s) => s.date === dateStr);
-        if (sched) {
-          if (sched.type === ScheduleType.LEAVE) {
-            calendar.push({ date: dateStr, status: "leave" });
-            continue;
-          }
-          if (sched.type === ScheduleType.SHIFTING) {
-            calendar.push({ date: dateStr, status: "shifting" });
-            continue;
-          }
-        }
-
         const attended = pAttendance.some((a) =>
           a.createdAt.toISOString().startsWith(dateStr)
         );
-        if (attended) {
-          calendar.push({ date: dateStr, status: "present" });
-        } else {
-          calendar.push({ date: dateStr, status: "late" });
-        }
+        calendar.push({
+          date: dateStr,
+          status: this.classifyPersonnelDay(
+            dateStr,
+            todayStr,
+            sched?.type,
+            attended
+          ),
+        });
       }
 
       results.push({
@@ -593,5 +623,126 @@ export class ReportsService {
     }
 
     return results;
+  }
+
+  async getCalendarDateSummary(
+    query: QueryCalendarDto,
+    currentUser: AuthenticatedUser
+  ): Promise<CalendarDateSummaryItem[]> {
+    const { year, month } = query;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
+    const endStr = `${year}-${String(month).padStart(2, "0")}-${String(
+      daysInMonth
+    ).padStart(2, "0")}`;
+    const startDate = new Date(startStr);
+    const endDate = new Date(`${endStr}T23:59:59.999Z`);
+
+    const personnelList = await this.buildScopedPersonnelQuery(
+      currentUser,
+      query.stationId
+    ).getMany();
+    if (personnelList.length === 0) return [];
+
+    const personnelIds = personnelList.map((p) => p.id);
+    const schedules = await this.scheduleRepo
+      .createQueryBuilder("s")
+      .where("s.personnelId IN (:...personnelIds)", { personnelIds })
+      .andWhere("s.date >= :startStr AND s.date <= :endStr", {
+        startStr,
+        endStr,
+      })
+      .getMany();
+
+    const attendanceRecords = await this.attendanceRepo
+      .createQueryBuilder("ar")
+      .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
+      .andWhere("ar.type = :type", { type: AttendanceType.TimeIn })
+      .andWhere("ar.status = :status", { status: AttendanceStatus.Confirmed })
+      .andWhere("ar.createdAt >= :startDate AND ar.createdAt <= :endDate", {
+        startDate,
+        endDate,
+      })
+      .getMany();
+
+    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 10);
+
+    const scheduleMap = new Map<string, ScheduleType>();
+    for (const schedule of schedules) {
+      scheduleMap.set(`${schedule.personnelId}-${schedule.date}`, schedule.type);
+    }
+
+    const attendanceMap = new Set<string>();
+    for (const record of attendanceRecords) {
+      attendanceMap.add(
+        `${record.personnelId}-${record.createdAt.toISOString().slice(0, 10)}`
+      );
+    }
+
+    const summaryByDate = new Map<string, CalendarDateSummaryItem>();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
+
+      summaryByDate.set(dateStr, {
+        date: dateStr,
+        isFuture: dateStr > todayStr,
+        presentCount: 0,
+        lateCount: 0,
+        shiftingCount: 0,
+        leaveCount: 0,
+        presentPersonnel: [],
+        latePersonnel: [],
+        shiftingPersonnel: [],
+        leavePersonnel: [],
+      });
+    }
+
+    for (const person of personnelList) {
+      const detail: CalendarDayPersonnelDetail = {
+        personnelId: person.id,
+        name: `${person.firstName} ${person.lastName}`,
+        rank: person.rank,
+        station: (person as any).station?.name ?? "",
+        imagePath: person.imagePath ?? null,
+      };
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
+        const scheduleType = scheduleMap.get(`${person.id}-${dateStr}`);
+        const attended = attendanceMap.has(`${person.id}-${dateStr}`);
+        const status = this.classifyPersonnelDay(
+          dateStr,
+          todayStr,
+          scheduleType,
+          attended
+        );
+        const summary = summaryByDate.get(dateStr);
+
+        if (!summary || status === "future") continue;
+
+        if (status === "present") {
+          summary.presentCount += 1;
+          summary.presentPersonnel.push(detail);
+        } else if (status === "late") {
+          summary.lateCount += 1;
+          summary.latePersonnel.push(detail);
+        } else if (status === "shifting") {
+          summary.shiftingCount += 1;
+          summary.shiftingPersonnel.push(detail);
+        } else if (status === "leave") {
+          summary.leaveCount += 1;
+          summary.leavePersonnel.push(detail);
+        }
+      }
+    }
+
+    return Array.from(summaryByDate.values());
   }
 }

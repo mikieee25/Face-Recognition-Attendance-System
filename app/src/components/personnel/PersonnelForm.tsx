@@ -26,10 +26,7 @@ import WallpaperIcon from "@mui/icons-material/Wallpaper";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  buildImageUrl,
-  getPersonnelInitials,
-} from "@/lib/personnel-display";
+import { buildImageUrl, getPersonnelInitials } from "@/lib/personnel-display";
 import type { Personnel, Station } from "@/types/models";
 import type { ApiEnvelope } from "@/types/api";
 
@@ -186,9 +183,7 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
     }
   }
 
-  const handleImageFileChange =
-    (field: "photo" | "coverPhoto") =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = (field: "photo" | "coverPhoto") => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -200,8 +195,7 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
   };
 
   const profilePreviewSrc = values.photo || buildImageUrl(personnel?.imagePath);
-  const coverPreviewSrc =
-    values.coverPhoto || buildImageUrl(personnel?.coverImagePath);
+  const coverPreviewSrc = values.coverPhoto || buildImageUrl(personnel?.coverImagePath);
 
   async function handleSubmit() {
     const validationErrors = validate(values, isAdmin);
@@ -269,7 +263,8 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
               borderColor: "divider",
               backgroundImage: coverPreviewSrc
                 ? `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.74) 100%), url("${coverPreviewSrc}")`
-                : "linear-gradient(160deg, rgba(198,40,40,0.10) 0%, rgba(255,248,248,1) 45%, rgba(245,245,245,1) 100%)",
+                : "none",
+              backgroundColor: "#ffffff",
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
@@ -329,28 +324,17 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
                     boxShadow: "0 12px 24px rgba(0,0,0,0.14)",
                   }}
                 >
-                  {!profilePreviewSrc &&
-                    getPersonnelInitials(values.firstName, values.lastName)}
+                  {!profilePreviewSrc && getPersonnelInitials(values.firstName, values.lastName)}
                 </Avatar>
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
                   <label htmlFor="personnel-cover-upload">
-                    <Button
-                      component="span"
-                      variant="outlined"
-                      startIcon={<WallpaperIcon />}
-                      disabled={submitting}
-                    >
+                    <Button component="span" variant="outlined" startIcon={<WallpaperIcon />} disabled={submitting}>
                       Cover Photo
                     </Button>
                   </label>
                   <label htmlFor="personnel-photo-upload">
-                    <Button
-                      component="span"
-                      variant="contained"
-                      startIcon={<CameraAltIcon />}
-                      disabled={submitting}
-                    >
+                    <Button component="span" variant="contained" startIcon={<CameraAltIcon />} disabled={submitting}>
                       Profile Photo
                     </Button>
                   </label>
@@ -398,7 +382,12 @@ export default function PersonnelForm({ open, onClose, personnel, onSuccess, onE
 
             <FormControl fullWidth required error={Boolean(errors.section)}>
               <InputLabel>Section</InputLabel>
-              <Select value={values.section} label="Section" onChange={(e) => handleChange("section", e.target.value)} disabled={submitting}>
+              <Select
+                value={values.section}
+                label="Section"
+                onChange={(e) => handleChange("section", e.target.value)}
+                disabled={submitting}
+              >
                 <MenuItem value="admin">{formatSectionLabel("admin")}</MenuItem>
                 <MenuItem value="operation">{formatSectionLabel("operation")}</MenuItem>
               </Select>
