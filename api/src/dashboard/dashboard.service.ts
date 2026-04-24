@@ -121,7 +121,7 @@ export class DashboardService {
 
     const personnelIds = allPersonnel.map((p) => p.id);
 
-    // Get today's confirmed records to determine latest status
+    // Any confirmed time-in for the day means the personnel attended today.
     const todayRecords = await this.attendanceRepo
       .createQueryBuilder("ar")
       .where("ar.personnelId IN (:...personnelIds)", { personnelIds })
@@ -131,15 +131,8 @@ export class DashboardService {
       .orderBy("ar.createdAt", "DESC")
       .getMany();
 
-    const latestRecordMap = new Map<number, (typeof todayRecords)[0]>();
-    for (const r of todayRecords) {
-      if (!latestRecordMap.has(r.personnelId)) {
-        latestRecordMap.set(r.personnelId, r);
-      }
-    }
-
-    const presentIds = new Set(
-      Array.from(latestRecordMap.values())
+    const attendedIds = new Set(
+      todayRecords
         .filter((r) => r.type === AttendanceType.TimeIn)
         .map((r) => r.personnelId),
     );
@@ -162,7 +155,7 @@ export class DashboardService {
     let onLeave = 0;
 
     for (const p of allPersonnel) {
-      if (presentIds.has(p.id)) {
+      if (attendedIds.has(p.id)) {
         present++;
       } else {
         const type = scheduleMap.get(p.id);
@@ -211,20 +204,15 @@ export class DashboardService {
       .orderBy("ar.createdAt", "DESC")
       .getMany();
 
-    // Group records by date to find the latest record per day per personnel
-    const latestRecordsByDateAndPersonnel = new Map<
-      string,
-      Map<number, (typeof records)[0]>
-    >();
+    const recordsByDate = new Map<string, Set<number>>();
     for (const r of records) {
-      // Create local date string safely to match summary logic
+      if (r.type !== AttendanceType.TimeIn) continue;
+
       const key = this.getLocalDayStr(r.createdAt);
-      if (!latestRecordsByDateAndPersonnel.has(key))
-        latestRecordsByDateAndPersonnel.set(key, new Map());
-      const dayMap = latestRecordsByDateAndPersonnel.get(key)!;
-      if (!dayMap.has(r.personnelId)) {
-        dayMap.set(r.personnelId, r);
+      if (!recordsByDate.has(key)) {
+        recordsByDate.set(key, new Set());
       }
+      recordsByDate.get(key)!.add(r.personnelId);
     }
 
     const schedules = await this.scheduleRepo.find({
@@ -239,17 +227,6 @@ export class DashboardService {
         scheduleMap.set(s.date, new Map());
       }
       scheduleMap.get(s.date)!.set(s.personnelId, s.type);
-    }
-
-    const recordsByDate = new Map<string, Set<number>>();
-    for (const [date, dayMap] of latestRecordsByDateAndPersonnel.entries()) {
-      const presentSet = new Set<number>();
-      for (const [personnelId, latestRecord] of dayMap.entries()) {
-        if (latestRecord.type === AttendanceType.TimeIn) {
-          presentSet.add(personnelId);
-        }
-      }
-      recordsByDate.set(date, presentSet);
     }
 
     const summaries: DailySummary[] = [];
@@ -329,15 +306,8 @@ export class DashboardService {
       .orderBy("ar.createdAt", "DESC")
       .getMany();
 
-    const latestRecordMap = new Map<number, (typeof records)[0]>();
-    for (const r of records) {
-      if (!latestRecordMap.has(r.personnelId)) {
-        latestRecordMap.set(r.personnelId, r);
-      }
-    }
-
     const presentIds = new Set(
-      Array.from(latestRecordMap.values())
+      records
         .filter((r) => r.type === AttendanceType.TimeIn)
         .map((r) => r.personnelId),
     );
@@ -423,4 +393,3 @@ export class DashboardService {
     }));
   }
 }
-
