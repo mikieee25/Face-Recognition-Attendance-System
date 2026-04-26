@@ -93,6 +93,12 @@ export interface CalendarDateSummaryItem {
 }
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const REPORT_TITLE = "BFP Sorsogon Attendance Report";
+const HEADER_FILL = "FF1E3A5F";
+const HEADER_FONT = "FFFFFFFF";
+const ACCENT_FILL = "FFEAF1FB";
+const BORDER_COLOR = "FFD4DCE8";
+const EVEN_ROW_FILL = "FFF8FAFC";
 
 @Injectable()
 export class ReportsService {
@@ -449,7 +455,7 @@ export class ReportsService {
 
   /**
    * GET /api/v1/reports/export
-   * Generate and stream Excel or CSV file.
+   * Generate and stream Excel file.
    * Requirements: 9.6, 9.7
    */
   async exportReports(
@@ -489,56 +495,179 @@ export class ReportsService {
     // Build export rows with paired time_in/time_out per day per personnel
     const exportRows = this.buildExportRows(records, scheduleMap);
 
-    const format = query.format ?? "excel";
     const workbook = new ExcelJS.Workbook();
+    workbook.creator = "FRAS-BFPSorsogon";
+    workbook.company = "BFP Sorsogon";
+    workbook.created = new Date();
+    workbook.modified = new Date();
     const sheet = workbook.addWorksheet("Attendance Report");
 
-    // Define columns (Requirement 9.7)
+    // Header block
+    sheet.mergeCells("A1:H1");
+    sheet.getCell("A1").value = REPORT_TITLE;
+    sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: HEADER_FONT } };
+    sheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+    sheet.getCell("A1").fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: HEADER_FILL },
+    };
+
+    sheet.mergeCells("A2:H2");
+    sheet.getCell("A2").value = this.buildExportSubtitle(query, currentUser, exportRows.length);
+    sheet.getCell("A2").font = { size: 10, italic: true, color: { argb: "FF475569" } };
+    sheet.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
+
+    sheet.mergeCells("A3:H3");
+    sheet.getCell("A3").value = `Generated on ${this.formatDateTime(new Date())}`;
+    sheet.getCell("A3").font = { size: 10, color: { argb: "FF64748B" } };
+    sheet.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
+
     sheet.columns = [
-      { header: "Personnel Name", key: "personnelName", width: 25 },
-      { header: "Rank", key: "rank", width: 15 },
-      { header: "Section", key: "section", width: 15 },
-      { header: "Station", key: "station", width: 20 },
-      { header: "Date", key: "date", width: 12 },
-      { header: "Time In", key: "timeIn", width: 20 },
-      { header: "Time Out", key: "timeOut", width: 20 },
-      { header: "Status", key: "status", width: 12 },
+      { header: "Personnel Name", key: "personnelName", width: 28 },
+      { header: "Rank", key: "rank", width: 14 },
+      { header: "Section", key: "section", width: 16 },
+      { header: "Station", key: "station", width: 22 },
+      { header: "Date", key: "date", width: 16 },
+      { header: "Time In", key: "timeIn", width: 14 },
+      { header: "Time Out", key: "timeOut", width: 14 },
+      { header: "Status", key: "status", width: 14 },
     ];
 
-    // Style header row
-    const headerRow = sheet.getRow(1);
-    headerRow.font = { bold: true };
+    const headerRow = sheet.getRow(5);
+    headerRow.values = [
+      "Personnel Name",
+      "Rank",
+      "Section",
+      "Station",
+      "Date",
+      "Time In",
+      "Time Out",
+      "Status",
+    ];
+    headerRow.height = 22;
+    headerRow.font = { bold: true, color: { argb: HEADER_FONT } };
+    headerRow.alignment = { horizontal: "center", vertical: "middle" };
     headerRow.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FFD9E1F2" },
+      fgColor: { argb: HEADER_FILL },
     };
+    headerRow.eachCell((cell) => {
+      cell.border = this.buildThinBorder();
+    });
 
-    // Add data rows
     for (const row of exportRows) {
       sheet.addRow(row);
     }
 
-    if (format === "csv") {
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader(
-        "Content-Disposition",
-        'attachment; filename="attendance-report.csv"'
-      );
-      await workbook.csv.write(res);
-    } else {
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      );
-      res.setHeader(
-        "Content-Disposition",
-        'attachment; filename="attendance-report.xlsx"'
-      );
-      await workbook.xlsx.write(res);
+    for (let rowNumber = 6; rowNumber <= sheet.rowCount; rowNumber++) {
+      const row = sheet.getRow(rowNumber);
+      row.height = 20;
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: colNumber >= 5 ? "center" : "left",
+        };
+        cell.border = this.buildThinBorder();
+        if (rowNumber % 2 === 0) {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: EVEN_ROW_FILL },
+          };
+        }
+      });
     }
 
+    if (sheet.rowCount === 5) {
+      sheet.mergeCells("A6:H6");
+      const emptyCell = sheet.getCell("A6");
+      emptyCell.value = "No attendance records found for the selected filters.";
+      emptyCell.alignment = { horizontal: "center", vertical: "middle" };
+      emptyCell.font = { italic: true, color: { argb: "FF64748B" } };
+      emptyCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: ACCENT_FILL },
+      };
+      emptyCell.border = this.buildThinBorder();
+    }
+
+    sheet.views = [{ state: "frozen", ySplit: 5 }];
+    sheet.autoFilter = "A5:H5";
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${this.buildExportFilename(query)}"`
+    );
+    await workbook.xlsx.write(res);
+
     res.end();
+  }
+
+  private buildExportFilename(query: QueryReportsDto): string {
+    const start = query.dateFrom ?? "all";
+    const end = query.dateTo ?? "all";
+    return `attendance-report-${start}-to-${end}.xlsx`;
+  }
+
+  private buildExportSubtitle(
+    query: QueryReportsDto,
+    currentUser: AuthenticatedUser,
+    rowCount: number
+  ): string {
+    const range = query.dateFrom && query.dateTo
+      ? `${query.dateFrom} to ${query.dateTo}`
+      : "All available dates";
+    const stationScope =
+      currentUser.role === "station_user"
+        ? "Station-scoped export"
+        : query.stationId
+          ? `Filtered by station #${query.stationId}`
+          : "All stations";
+    const typeScope = query.type ? `Type: ${query.type.replace("_", " ")}` : "All attendance types";
+    return `${range} | ${stationScope} | ${typeScope} | ${rowCount} record${rowCount === 1 ? "" : "s"}`;
+  }
+
+  private formatDateTime(date: Date): string {
+    return new Intl.DateTimeFormat("en-PH", {
+      year: "numeric",
+      month: "long",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date);
+  }
+
+  private formatDisplayDate(dateStr: string): string {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Intl.DateTimeFormat("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }).format(new Date(year, month - 1, day));
+  }
+
+  private formatSection(section?: string): string {
+    if (!section) return "";
+    return section
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+
+  private buildThinBorder(): Partial<ExcelJS.Borders> {
+    return {
+      top: { style: "thin", color: { argb: BORDER_COLOR } },
+      left: { style: "thin", color: { argb: BORDER_COLOR } },
+      bottom: { style: "thin", color: { argb: BORDER_COLOR } },
+      right: { style: "thin", color: { argb: BORDER_COLOR } },
+    };
   }
 
   /**
@@ -623,9 +752,9 @@ export class ReportsService {
           ? `${personnel.firstName} ${personnel.lastName}`
           : "Unknown",
         rank: personnel?.rank ?? "",
-        section: personnel?.section ?? "",
+        section: this.formatSection(personnel?.section),
         station: station?.name ?? "",
-        date: localDateStr,
+        date: this.formatDisplayDate(localDateStr),
         timeIn: firstIn ? this.formatTime12h(firstIn) : "",
         timeOut: firstOut ? this.formatTime12h(firstOut) : "",
         status: dayStatus,

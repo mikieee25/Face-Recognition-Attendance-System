@@ -50,11 +50,11 @@ export class ReportsController {
 
   /**
    * GET /api/v1/reports/export
-   * Generate and stream Excel/CSV file.
+   * Generate and stream Excel file.
    * Requirements: 9.6, 9.7
    */
   @Get("export")
-  @ApiOperation({ summary: "Export attendance report as Excel or CSV" })
+  @ApiOperation({ summary: "Export attendance report as Excel" })
   async exportReports(
     @Query() query: QueryReportsDto,
     @Request() req: any,

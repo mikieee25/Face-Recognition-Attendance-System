@@ -35,12 +35,12 @@ export class QueryReportsDto {
 
   @ApiPropertyOptional({
     description: "Export format",
-    enum: ["excel", "csv"],
+    enum: ["excel"],
     default: "excel",
   })
   @IsOptional()
-  @IsIn(["excel", "csv"])
-  format?: "excel" | "csv";
+  @IsIn(["excel"])
+  format?: "excel";
 
   @ApiPropertyOptional({ description: "Page number", default: 1 })
   @IsOptional()

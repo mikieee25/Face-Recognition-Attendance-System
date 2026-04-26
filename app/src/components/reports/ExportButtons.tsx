@@ -7,13 +7,11 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
-import DownloadIcon from "@mui/icons-material/Download";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
@@ -33,7 +31,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState(filters.dateFrom ?? "");
   const [dateTo, setDateTo] = useState(filters.dateTo ?? "");
-  const [loadingFormat, setLoadingFormat] = useState<"excel" | "csv" | null>(null);
+  const [loadingFormat, setLoadingFormat] = useState<"excel" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
 
@@ -63,14 +61,14 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
     return true;
   };
 
-  const handleExport = async (format: "excel" | "csv") => {
+  const handleExport = async () => {
     if (!validate()) return;
 
-    setLoadingFormat(format);
+    setLoadingFormat("excel");
     setError(null);
 
     try {
-      const params: Record<string, string> = { format };
+      const params: Record<string, string> = { format: "excel" };
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
       if (filters.stationId) params.stationId = filters.stationId;
@@ -85,7 +83,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
       const contentDisposition = res.headers["content-disposition"] as
         | string
         | undefined;
-      let filename = `attendance-report.${format === "excel" ? "xlsx" : "csv"}`;
+      let filename = "attendance-report.xlsx";
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="?([^"]+)"?/);
         if (match) filename = match[1];
@@ -102,7 +100,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
 
       setDialogOpen(false);
     } catch {
-      setError(`Failed to export ${format.toUpperCase()} file. Please try again.`);
+      setError("Failed to export the Excel file. Please try again.");
     } finally {
       setLoadingFormat(null);
     }
@@ -138,8 +136,8 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
         <DialogContent dividers>
           <Stack spacing={2.5}>
             <Typography variant="body2" color="text.secondary">
-              Choose the date range for the report you want to download. By default
-              this is pre-filled with the currently selected month.
+              Download a polished Excel report using the selected date range. The
+              file will reflect the current filters already applied on this page.
             </Typography>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -191,11 +189,9 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
             Cancel
           </Button>
 
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
           <Button
             id="export-excel-button"
-            variant="outlined"
+            variant="contained"
             size="small"
             startIcon={
               loadingFormat === "excel" ? (
@@ -204,29 +200,11 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
                 <TableChartIcon />
               )
             }
-            onClick={() => handleExport("excel")}
+            onClick={handleExport}
             disabled={loadingFormat !== null}
-            aria-label="Download as Excel"
+            aria-label="Download Excel report"
           >
-            Excel
-          </Button>
-
-          <Button
-            id="export-csv-button"
-            variant="contained"
-            size="small"
-            startIcon={
-              loadingFormat === "csv" ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : (
-                <DownloadIcon />
-              )
-            }
-            onClick={() => handleExport("csv")}
-            disabled={loadingFormat !== null}
-            aria-label="Download as CSV"
-          >
-            CSV
+            Export Excel
           </Button>
         </DialogActions>
       </Dialog>
