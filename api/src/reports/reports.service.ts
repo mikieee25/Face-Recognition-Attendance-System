@@ -462,8 +462,32 @@ export class ReportsService {
     const qb = this.buildBaseQuery(query, currentUser);
     const records = await qb.getMany();
 
+    // Collect unique personnelIds from the fetched records
+    const personnelIds = [...new Set(records.map((r) => r.personnelId))];
+
+    // Build a schedule map keyed by "personnelId-date" -> ScheduleType
+    // so each export row can show the correct day-type status.
+    const scheduleMap = new Map<string, ScheduleType>();
+    if (personnelIds.length > 0) {
+      const schedules = await this.scheduleRepo
+        .createQueryBuilder("s")
+        .where("s.personnelId IN (:...personnelIds)", { personnelIds })
+        .andWhere(
+          query.dateFrom ? "s.date >= :dateFrom" : "1=1",
+          query.dateFrom ? { dateFrom: query.dateFrom } : {}
+        )
+        .andWhere(
+          query.dateTo ? "s.date <= :dateTo" : "1=1",
+          query.dateTo ? { dateTo: query.dateTo } : {}
+        )
+        .getMany();
+      for (const s of schedules) {
+        scheduleMap.set(`${s.personnelId}-${s.date}`, s.type);
+      }
+    }
+
     // Build export rows with paired time_in/time_out per day per personnel
-    const exportRows = this.buildExportRows(records);
+    const exportRows = this.buildExportRows(records, scheduleMap);
 
     const format = query.format ?? "excel";
     const workbook = new ExcelJS.Workbook();
@@ -518,22 +542,53 @@ export class ReportsService {
   }
 
   /**
+   * Format a Date as 12-hour time (e.g. "8:00 AM", "5:00 PM") using local time.
+   */
+  private formatTime12h(d: Date): string {
+    let hours = d.getHours();
+    const minutes = d.getMinutes();
+    const period = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    const minuteStr = String(minutes).padStart(2, "0");
+    return `${hours}:${minuteStr} ${period}`;
+  }
+
+  /**
+   * Derive a human-readable day-type status from the schedule map.
+   * Returns: Regular | Shifting | Leave | Off Duty
+   */
+  private resolveExportStatus(
+    personnelId: number,
+    dateStr: string,
+    scheduleMap: Map<string, ScheduleType>
+  ): string {
+    const scheduleType = scheduleMap.get(`${personnelId}-${dateStr}`);
+    if (!scheduleType) return "Off Duty";
+    if (scheduleType === ScheduleType.REGULAR) return "Regular";
+    if (scheduleType === ScheduleType.SHIFTING) return "Shifting";
+    if (scheduleType === ScheduleType.LEAVE) return "Leave";
+    return "Off Duty";
+  }
+
+  /**
    * Build export rows by pairing time_in/time_out records per personnel per day.
    */
-  private buildExportRows(records: AttendanceRecord[]): any[] {
-    // Group by personnelId + date
+  private buildExportRows(
+    records: AttendanceRecord[],
+    scheduleMap: Map<string, ScheduleType>
+  ): any[] {
+    // Group by personnelId + local date (avoids UTC offset shifting the date for PHT)
     const grouped = new Map<
       string,
-      { record: AttendanceRecord; timeIns: Date[]; timeOuts: Date[] }
+      { record: AttendanceRecord; localDateStr: string; timeIns: Date[]; timeOuts: Date[] }
     >();
 
     for (const record of records) {
-      const personnel = record.personnel;
-      const dateKey = record.createdAt.toISOString().slice(0, 10);
-      const key = `${record.personnelId}-${dateKey}`;
+      const localDate = this.localDateStr(record.createdAt);
+      const key = `${record.personnelId}-${localDate}`;
 
       if (!grouped.has(key)) {
-        grouped.set(key, { record, timeIns: [], timeOuts: [] });
+        grouped.set(key, { record, localDateStr: localDate, timeIns: [], timeOuts: [] });
       }
 
       const group = grouped.get(key)!;
@@ -547,7 +602,7 @@ export class ReportsService {
     const rows: any[] = [];
 
     for (const [, group] of grouped.entries()) {
-      const { record, timeIns, timeOuts } = group;
+      const { record, localDateStr, timeIns, timeOuts } = group;
       const personnel = record.personnel;
       const station = (personnel as any)?.station;
 
@@ -557,6 +612,12 @@ export class ReportsService {
       const firstIn = sortedIns[0] ?? null;
       const firstOut = sortedOuts[0] ?? null;
 
+      const dayStatus = this.resolveExportStatus(
+        record.personnelId,
+        localDateStr,
+        scheduleMap
+      );
+
       rows.push({
         personnelName: personnel
           ? `${personnel.firstName} ${personnel.lastName}`
@@ -564,14 +625,10 @@ export class ReportsService {
         rank: personnel?.rank ?? "",
         section: personnel?.section ?? "",
         station: station?.name ?? "",
-        date: record.createdAt.toISOString().slice(0, 10),
-        timeIn: firstIn
-          ? firstIn.toISOString().replace("T", " ").slice(0, 19)
-          : "",
-        timeOut: firstOut
-          ? firstOut.toISOString().replace("T", " ").slice(0, 19)
-          : "",
-        status: record.status,
+        date: localDateStr,
+        timeIn: firstIn ? this.formatTime12h(firstIn) : "",
+        timeOut: firstOut ? this.formatTime12h(firstOut) : "",
+        status: dayStatus,
       });
     }
 
