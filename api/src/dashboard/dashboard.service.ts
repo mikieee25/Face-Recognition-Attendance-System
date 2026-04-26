@@ -38,7 +38,7 @@ export interface PersonnelAttendanceRow {
   imagePath: string | null;
   coverImagePath: string | null;
   section: string;
-  status: "present" | "late" | "shifting" | "on_leave";
+  status: "present" | "late" | "shifting" | "on_leave" | "off_duty";
 }
 
 export interface RecentRecord {
@@ -163,7 +163,7 @@ export class DashboardService {
           shifting++;
         } else if (type === ScheduleType.LEAVE) {
           onLeave++;
-        } else {
+        } else if (type === ScheduleType.REGULAR) {
           late++;
         }
       }
@@ -251,7 +251,7 @@ export class DashboardService {
             shifting++;
           } else if (type === ScheduleType.LEAVE) {
             onLeave++;
-          } else {
+          } else if (type === ScheduleType.REGULAR) {
             late++;
           }
         }
@@ -334,8 +334,10 @@ export class DashboardService {
           personnelStatus = "shifting";
         } else if (type === ScheduleType.LEAVE) {
           personnelStatus = "on_leave";
-        } else {
+        } else if (type === ScheduleType.REGULAR) {
           personnelStatus = "late";
+        } else {
+          personnelStatus = "off_duty";
         }
       }
 

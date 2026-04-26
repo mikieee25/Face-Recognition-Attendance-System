@@ -20,11 +20,11 @@ import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
 import BatchScheduleModal from "./BatchScheduleModal";
 import apiClient from "@/lib/api-client";
-import { buildCoverBackground, buildImageUrl, formatSectionLabel, getPersonnelInitials } from "@/lib/personnel-display";
+import { buildImageUrl, formatSectionLabel, getPersonnelInitials } from "@/lib/personnel-display";
 import type { ApiEnvelope } from "@/types/api";
 import type { Personnel, Station } from "@/types/models";
 
-type ScheduleType = "regular" | "shifting" | "leave";
+type ScheduleType = "regular" | "shifting" | "leave" | "off_duty";
 
 interface ScheduleDto {
   id?: number;
@@ -40,38 +40,29 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-const DEFAULT_SHIFT_START = "08:00";
-const DEFAULT_SHIFT_END = "17:00";
-
-function normalizeTimeForInput(value?: string | null): string {
-  if (!value) return DEFAULT_SHIFT_START;
-  return value.slice(0, 5);
-}
-
-function formatShiftRange(start?: string, end?: string): string {
-  return `${normalizeTimeForInput(start)} - ${normalizeTimeForInput(end ?? DEFAULT_SHIFT_END)}`;
-}
+const SCHEDULE_LABEL: Record<ScheduleType, string> = {
+  regular: "Regular",
+  shifting: "Shifting",
+  leave: "On Leave",
+  off_duty: "Off Duty",
+};
 
 function ScheduleSelectCardSkeleton() {
   return (
     <Card
       sx={{
-        height: "100%",
         border: "1px solid",
         borderColor: "divider",
       }}
     >
-      <Skeleton variant="rectangular" height={136} />
-      <CardContent>
-        <Skeleton variant="text" width="60%" height={32} />
-        <Skeleton variant="text" width="40%" />
-        <Stack direction="row" spacing={1} sx={{ mt: 2, mb: 2 }}>
-          <Skeleton variant="rounded" width={88} height={28} />
-          <Skeleton variant="rounded" width={110} height={28} />
-        </Stack>
-        <Skeleton variant="text" />
-        <Skeleton variant="text" width="75%" />
-      </CardContent>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, p: 1.5 }}>
+        <Skeleton variant="circular" width={40} height={40} sx={{ flexShrink: 0 }} />
+        <Box sx={{ flex: 1 }}>
+          <Skeleton variant="text" width="55%" height={20} />
+          <Skeleton variant="text" width="35%" height={16} />
+        </Box>
+        <Skeleton variant="rounded" width={64} height={22} />
+      </Box>
     </Card>
   );
 }
@@ -139,7 +130,7 @@ export default function SchedulePageClient() {
         const stationName = stationMap.get(person.stationId) ?? `Station #${person.stationId}`;
         const sectionName = formatSectionLabel(person.section);
         const todaySched = allSchedules.find((schedule) => schedule.personnelId === person.id && schedule.date === todayStr);
-        const scheduleType = todaySched?.type ?? "regular";
+        const scheduleType = todaySched?.type ?? "off_duty";
         const stationOk = stationFilter === "all" ? true : stationName === stationFilter;
         const sectionOk = sectionFilter === "all" ? true : sectionName === sectionFilter;
         const scheduleTypeOk = scheduleTypeFilter === "all" ? true : scheduleType === scheduleTypeFilter;
@@ -228,7 +219,7 @@ export default function SchedulePageClient() {
           </Stack>
 
           {isLoadingPersonnel || isLoadingAllSchedules ? (
-            <Grid container spacing={2.5}>
+            <Grid container spacing={1.5}>
               {Array.from({ length: 8 }).map((_, index) => (
                 <Grid key={index} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                   <ScheduleSelectCardSkeleton />
@@ -236,116 +227,99 @@ export default function SchedulePageClient() {
               ))}
             </Grid>
           ) : (
-            <Grid container spacing={2.5}>
+            <Grid container spacing={1.5}>
               {filteredPersonnel.map((person) => {
                 const todaySched = allSchedules.find((schedule) => schedule.personnelId === person.id && schedule.date === todayStr);
-                const scheduleType = todaySched?.type ?? "regular";
-                const shiftStartTime = todaySched?.shiftStartTime ?? DEFAULT_SHIFT_START;
-                const shiftEndTime = todaySched?.shiftEndTime ?? DEFAULT_SHIFT_END;
+                const scheduleType = todaySched?.type ?? "off_duty";
+                const isSelected = selectedPersonnelIds.includes(person.id);
 
                 return (
                   <Grid key={person.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                     <Card
                       sx={{
                         height: "100%",
-                        border: selectedPersonnelIds.includes(person.id) ? "2px solid" : "1px solid",
-                        borderColor: selectedPersonnelIds.includes(person.id) ? "primary.main" : "divider",
-                        boxShadow: "0 16px 36px rgba(24, 33, 52, 0.08)",
-                        transition: "all 0.2s ease-in-out",
+                        border: isSelected ? "2px solid" : "1px solid",
+                        borderColor: isSelected ? "primary.main" : "divider",
+                        bgcolor: isSelected ? "primary.50" : "background.paper",
+                        boxShadow: isSelected ? "0 0 0 3px rgba(25,118,210,0.12)" : "none",
+                        transition: "all 0.15s ease-in-out",
                         cursor: "pointer",
+                        "&:hover": { borderColor: "primary.light", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" },
                       }}
                       onClick={() => handleTogglePersonnel(person.id)}
                     >
-                      <Box
-                        sx={{
-                          px: 2,
-                          pt: 2,
-                          pb: 1.5,
-                          minHeight: 120,
-                          display: "flex",
-                          alignItems: "flex-end",
-                          justifyContent: "space-between",
-                          gap: 2,
-                          position: "relative",
-                          backgroundImage: buildCoverBackground(person.coverImagePath, "none"),
-                          backgroundColor: "#ffffff",
-                          backgroundSize: "cover",
-                          backgroundPosition: "center",
-                        }}
-                      >
+                      <Box sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                        px: 2.5,
+                        py: 2,
+                        height: "100%",
+                      }}>
+                        {/* Checkbox */}
                         <Checkbox
-                          checked={selectedPersonnelIds.includes(person.id)}
+                          checked={isSelected}
                           size="small"
                           disableRipple
-                          sx={{
-                            position: "absolute",
-                            top: 8,
-                            right: 8,
-                            p: 0.5,
-                            bgcolor: "rgba(255,255,255,0.7)",
-                            backdropFilter: "blur(4px)",
-                            borderRadius: 1,
-                            "&:hover": { bgcolor: "rgba(255,255,255,0.9)" },
-                          }}
+                          sx={{ p: 0, flexShrink: 0, alignSelf: "flex-start", mt: 0.5 }}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => handleTogglePersonnel(person.id)}
                         />
+
+                        {/* Avatar */}
                         <Avatar
                           src={buildImageUrl(person.imagePath)}
                           alt={`${person.firstName} ${person.lastName}`}
                           sx={{
-                            width: 64,
-                            height: 64,
+                            width: 88,
+                            height: 88,
+                            flexShrink: 0,
                             bgcolor: "primary.main",
                             color: "primary.contrastText",
-                            fontSize: "1.45rem",
+                            fontSize: "1.7rem",
                             fontWeight: 700,
-                            border: "4px solid rgba(255,255,255,0.94)",
-                            boxShadow: "0 10px 22px rgba(0,0,0,0.14)",
                           }}
                         >
                           {getPersonnelInitials(person.firstName, person.lastName)}
                         </Avatar>
+
+                        {/* Info */}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.3, fontSize: "1rem" }}>
+                            {person.firstName} {person.lastName}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                            {person.rank}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+                            {formatSectionLabel(person.section)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {stationMap.get(person.stationId) ?? `Station #${person.stationId}`}
+                          </Typography>
+                        </Box>
+
+                        {/* Schedule badge */}
+                        <Chip
+                          label={SCHEDULE_LABEL[scheduleType] ?? scheduleType}
+                          size="small"
+                          sx={{
+                            flexShrink: 0,
+                            alignSelf: "flex-start",
+                            mt: 0.5,
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            bgcolor: scheduleType === "regular" ? "#e8f5e9"
+                              : scheduleType === "shifting" ? "#e3f2fd"
+                              : scheduleType === "leave" ? "#ede7f6"
+                              : "#eceff1",
+                            color: scheduleType === "regular" ? "#2e7d32"
+                              : scheduleType === "shifting" ? "#1565c0"
+                              : scheduleType === "leave" ? "#6f42a6"
+                              : "#546e7a",
+                          }}
+                        />
                       </Box>
-
-                      <CardContent>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6" sx={{ mb: 0.5, lineHeight: 1.2 }}>
-                              {person.firstName} {person.lastName}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {person.rank || "No rank assigned"}
-                            </Typography>
-
-                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
-                              <Chip label={formatSectionLabel(person.section)} variant="outlined" size="small" />
-                              <Chip
-                                label={stationMap.get(person.stationId) ?? `Station #${person.stationId}`}
-                                variant="outlined"
-                                size="small"
-                              />
-                            </Stack>
-                          </Box>
-
-                          <Box sx={{ textAlign: "right" }}>
-                            <Box sx={{ mb: 1 }}>
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ whiteSpace: "nowrap" }}>
-                                Today&apos;s Schedule
-                              </Typography>
-                              <Typography variant="body2" fontWeight={500}>
-                                {scheduleType.charAt(0).toUpperCase() + scheduleType.slice(1)}
-                              </Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ whiteSpace: "nowrap" }}>
-                                Shift Window
-                              </Typography>
-                              <Typography variant="body2" fontWeight={500} sx={{ whiteSpace: "nowrap" }}>
-                                {formatShiftRange(shiftStartTime, shiftEndTime)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Stack>
-                      </CardContent>
                     </Card>
                   </Grid>
                 );

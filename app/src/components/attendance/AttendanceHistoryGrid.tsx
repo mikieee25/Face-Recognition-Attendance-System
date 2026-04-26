@@ -409,7 +409,7 @@ export default function AttendanceHistoryGrid() {
                       <TableHead>
                         <TableRow>
                           <TableCell>Date</TableCell>
-                          <TableCell sx={{ width: 56 }}>Photo</TableCell>
+                          <TableCell sx={{ width: 88 }}>Photo</TableCell>
                           <TableCell>Personnel</TableCell>
                           <TableCell>Time In</TableCell>
                           <TableCell>Time Out</TableCell>
@@ -432,10 +432,10 @@ export default function AttendanceHistoryGrid() {
                                 <Avatar
                                   src={buildImageUrl(p?.imagePath)}
                                   sx={{
-                                    width: 32,
-                                    height: 32,
+                                    width: 56,
+                                    height: 56,
                                     bgcolor: "primary.main",
-                                    fontSize: 14,
+                                    fontSize: 22,
                                     fontWeight: 700,
                                   }}
                                 >

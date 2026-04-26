@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import config
 import database
+import anti_spoof
 import face_recognizer
 from routes.health import router as health_router
 from routes.recognize import router as recognize_router
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
 
     # Load ML models (synchronous but only runs once)
     face_recognizer.load_model()
+    anti_spoof.load_model()
 
     # Create DB pool
     await database.create_pool()

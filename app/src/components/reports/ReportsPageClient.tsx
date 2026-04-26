@@ -24,7 +24,7 @@ import ExportButtons from "./ExportButtons";
 
 interface CalendarDay {
   date: string;
-  status: "present" | "late" | "leave" | "shifting" | "future";
+  status: "present" | "late" | "leave" | "shifting" | "off_duty" | "future";
 }
 
 interface CalendarPersonnelItem {
@@ -51,10 +51,12 @@ interface CalendarDateSummaryItem {
   lateCount: number;
   shiftingCount: number;
   leaveCount: number;
+  offDutyCount: number;
   presentPersonnel: CalendarDayPersonnelDetail[];
   latePersonnel: CalendarDayPersonnelDetail[];
   shiftingPersonnel: CalendarDayPersonnelDetail[];
   leavePersonnel: CalendarDayPersonnelDetail[];
+  offDutyPersonnel: CalendarDayPersonnelDetail[];
 }
 
 type ReportView = "personnel" | "date";
@@ -65,6 +67,7 @@ const STATUS_META = {
   late: { label: "Late", color: "#f9a825", textColor: "#fff" },
   leave: { label: "Leave", color: "#6F42A6", textColor: "#fff" },
   shifting: { label: "Shifting", color: "#2196f3", textColor: "#fff" },
+  off_duty: { label: "Off Duty", color: "#cfd8dc", textColor: "#455a64" },
   future: { label: "Future", color: "#f5f5f5", textColor: "text.secondary" },
 } as const;
 const DATE_VIEW_STATUS_SECTIONS = [
@@ -72,6 +75,7 @@ const DATE_VIEW_STATUS_SECTIONS = [
   { key: "latePersonnel", countKey: "lateCount", label: "Late", color: "#f9a825" },
   { key: "shiftingPersonnel", countKey: "shiftingCount", label: "Shifting", color: "#2196f3" },
   { key: "leavePersonnel", countKey: "leaveCount", label: "On Leave", color: "#6F42A6" },
+  { key: "offDutyPersonnel", countKey: "offDutyCount", label: "Off Duty", color: "#78909c" },
 ] as const;
 
 function formatDateParam(year: number, month: number, day: number): string {
@@ -92,12 +96,12 @@ function buildImageSrc(imagePath: string | null): string | undefined {
   return `${process.env.NEXT_PUBLIC_API_URL || ""}${imagePath}`;
 }
 
-function getStatusColor(status: CalendarDay["status"]) {
-  return STATUS_META[status].color;
+function getStatusColor(status: string) {
+  return (STATUS_META[status as CalendarDay["status"]] ?? STATUS_META.off_duty).color;
 }
 
-function getStatusTextColor(status: CalendarDay["status"]) {
-  return STATUS_META[status].textColor;
+function getStatusTextColor(status: string) {
+  return (STATUS_META[status as CalendarDay["status"]] ?? STATUS_META.off_duty).textColor;
 }
 
 function PersonnelCard({ item, year, month }: { item: CalendarPersonnelItem; year: number; month: number }) {
@@ -213,7 +217,7 @@ function DateSummaryCalendar({
 
       {summary.map((item) => {
         const dayNumber = parseInt(item.date.split("-")[2], 10);
-        const total = item.presentCount + item.lateCount + item.shiftingCount + item.leaveCount;
+        const total = item.presentCount + item.lateCount + item.shiftingCount + item.leaveCount + item.offDutyCount;
 
         return (
           <Paper
@@ -271,6 +275,11 @@ function DateSummaryCalendar({
                 <Typography variant="caption" sx={{ color: "#6F42A6", fontWeight: 700 }}>
                   {item.leaveCount} on leave
                 </Typography>
+                {item.offDutyCount > 0 && (
+                  <Typography variant="caption" sx={{ color: "#78909c", fontWeight: 700 }}>
+                    {item.offDutyCount} off duty
+                  </Typography>
+                )}
               </Stack>
             )}
           </Paper>
@@ -559,12 +568,13 @@ export default function ReportsPageClient() {
       </Stack>
 
       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
-        {[
-          { label: "Present", status: "present" as const },
-          { label: "Late", status: "late" as const },
-          { label: "Leave", status: "leave" as const },
-          { label: "Shifting", status: "shifting" as const },
-        ].map((legend) => (
+          {[
+            { label: "Present", status: "present" as const },
+            { label: "Late", status: "late" as const },
+            { label: "Leave", status: "leave" as const },
+            { label: "Shifting", status: "shifting" as const },
+            { label: "Off Duty", status: "off_duty" as const },
+          ].map((legend) => (
           <Stack key={legend.status} direction="row" alignItems="center" spacing={1}>
             <Box
               sx={{

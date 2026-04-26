@@ -31,7 +31,7 @@ interface PersonnelRow {
   imagePath: string | null;
   coverImagePath: string | null;
   section: string;
-  status: "present" | "late" | "shifting" | "on_leave";
+  status: "present" | "late" | "shifting" | "on_leave" | "off_duty";
 }
 
 const STATUS_CONFIG: Record<PersonnelRow["status"], { label: string; color: string; tint: string }> = {
@@ -39,6 +39,7 @@ const STATUS_CONFIG: Record<PersonnelRow["status"], { label: string; color: stri
   late: { label: "Late", color: "#F9A825", tint: "#FFF4D6" },
   shifting: { label: "Shifting", color: "#2196f3", tint: "#E3F2FD" },
   on_leave: { label: "On Leave", color: "#6F42A6", tint: "#ECE2F8" },
+  off_duty: { label: "Off Duty", color: "#607d8b", tint: "#ECEFF1" },
 };
 
 function StatusCardSkeleton() {
@@ -98,22 +99,32 @@ export default function PersonnelStatusTable() {
   const filteredPersonnel = useMemo(() => {
     const q = personnelFilter.trim().toLowerCase();
 
-    return personnel.filter((p) => {
-      const statusOk = statusFilter === "all" ? true : p.status === statusFilter;
-      const stationOk = stationFilter === "all" ? true : p.stationName === stationFilter;
-      const sectionOk = sectionFilter === "all" ? true : formatSectionLabel(p.section) === sectionFilter;
+    const STATUS_ORDER: Record<PersonnelRow["status"], number> = {
+      present: 0,
+      late: 1,
+      shifting: 2,
+      on_leave: 3,
+      off_duty: 4,
+    };
 
-      const personnelOk =
-        q.length === 0 ? true : `${p.name} ${p.rank} ${p.stationName} ${formatSectionLabel(p.section)}`.toLowerCase().includes(q);
+    return personnel
+      .filter((p) => {
+        const statusOk = statusFilter === "all" ? true : p.status === statusFilter;
+        const stationOk = stationFilter === "all" ? true : p.stationName === stationFilter;
+        const sectionOk = sectionFilter === "all" ? true : formatSectionLabel(p.section) === sectionFilter;
 
-      return statusOk && stationOk && sectionOk && personnelOk;
-    });
+        const personnelOk =
+          q.length === 0 ? true : `${p.name} ${p.rank} ${p.stationName} ${formatSectionLabel(p.section)}`.toLowerCase().includes(q);
+
+        return statusOk && stationOk && sectionOk && personnelOk;
+      })
+      .sort((a, b) => {
+        const statusDiff = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+        if (statusDiff !== 0) return statusDiff;
+        return a.name.localeCompare(b.name);
+      });
   }, [personnel, personnelFilter, sectionFilter, stationFilter, statusFilter]);
 
-  // Reset to first page when filters change
-  useMemo(() => {
-    setPage(1);
-  }, [personnelFilter, sectionFilter, stationFilter, statusFilter]);
 
   const paginatedPersonnel = useMemo(() => {
     const startIndex = (page - 1) * itemsPerPage;
@@ -150,22 +161,23 @@ export default function PersonnelStatusTable() {
       </Stack>
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2.5 }}>
-        <TextField label="Search Personnel" value={personnelFilter} onChange={(e) => setPersonnelFilter(e.target.value)} fullWidth />
+        <TextField label="Search Personnel" value={personnelFilter} onChange={(e) => { setPersonnelFilter(e.target.value); setPage(1); }} fullWidth />
 
         <FormControl fullWidth>
           <InputLabel>Status</InputLabel>
-          <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PersonnelRow["status"] | "all")}>
+          <Select label="Status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as PersonnelRow["status"] | "all"); setPage(1); }}>
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="present">Present</MenuItem>
             <MenuItem value="late">Late</MenuItem>
             <MenuItem value="shifting">Shifting</MenuItem>
             <MenuItem value="on_leave">On Leave</MenuItem>
+            <MenuItem value="off_duty">Off Duty</MenuItem>
           </Select>
         </FormControl>
 
         <FormControl fullWidth>
           <InputLabel>Station</InputLabel>
-          <Select label="Station" value={stationFilter} onChange={(e) => setStationFilter(e.target.value)}>
+          <Select label="Station" value={stationFilter} onChange={(e) => { setStationFilter(e.target.value); setPage(1); }}>
             <MenuItem value="all">All</MenuItem>
             {stationOptions.map((s) => (
               <MenuItem key={s} value={s}>
@@ -177,7 +189,7 @@ export default function PersonnelStatusTable() {
 
         <FormControl fullWidth>
           <InputLabel>Section</InputLabel>
-          <Select label="Section" value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
+          <Select label="Section" value={sectionFilter} onChange={(e) => { setSectionFilter(e.target.value); setPage(1); }}>
             <MenuItem value="all">All</MenuItem>
             {sectionOptions.map((s) => (
               <MenuItem key={s} value={s}>

@@ -37,13 +37,20 @@ const DAYS_OF_WEEK = [
   { label: "Sat", value: 6 },
 ];
 
-export default function BatchScheduleModal({ open, onClose, personnelIds, onSuccess }: Props) {
+export default function BatchScheduleModal({
+  open,
+  onClose,
+  personnelIds,
+  onSuccess,
+}: Props) {
   const queryClient = useQueryClient();
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri default
-  const [scheduleType, setScheduleType] = useState<"regular" | "shifting" | "leave">("regular");
+  const [scheduleType, setScheduleType] = useState<
+    "regular" | "shifting" | "leave"
+  >("regular");
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("17:00");
 
@@ -51,8 +58,14 @@ export default function BatchScheduleModal({ open, onClose, personnelIds, onSucc
     mutationFn: async () => {
       if (!startDate || !endDate) return;
 
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      // Parse date strings by splitting to avoid UTC midnight offset shifting day-of-week (PHT = UTC+8)
+      const parseLocalDate = (str: string) => {
+        const [y, m, d] = str.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      };
+
+      const start = parseLocalDate(startDate);
+      const end = parseLocalDate(endDate);
       const targetDates: string[] = [];
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -64,18 +77,24 @@ export default function BatchScheduleModal({ open, onClose, personnelIds, onSucc
       }
 
       if (targetDates.length === 0) {
-        throw new Error("No dates match the selected days of the week in the given range.");
+        throw new Error(
+          "No dates match the selected days of the week in the given range.",
+        );
       }
 
       const schedules = targetDates.map((date) => ({
         date,
         type: scheduleType,
         shiftStartTime: startTime,
-        shiftEndTime: endTime,
+        ...(scheduleType !== "shifting" ? { shiftEndTime: endTime } : {}),
       }));
 
       // Fire requests for all personnel in parallel
-      await Promise.all(personnelIds.map((id) => apiClient.post(`/api/v1/schedule/personnel/${id}`, { schedules })));
+      await Promise.all(
+        personnelIds.map((id) =>
+          apiClient.post(`/api/v1/schedule/personnel/${id}`, { schedules }),
+        ),
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
@@ -88,11 +107,18 @@ export default function BatchScheduleModal({ open, onClose, personnelIds, onSucc
   });
 
   const handleToggleDay = (dayValue: number) => {
-    setSelectedDays((prev) => (prev.includes(dayValue) ? prev.filter((d) => d !== dayValue) : [...prev, dayValue]));
+    setSelectedDays((prev) =>
+      prev.includes(dayValue)
+        ? prev.filter((d) => d !== dayValue)
+        : [...prev, dayValue],
+    );
   };
 
   const isFormValid =
-    startDate && endDate && new Date(startDate) <= new Date(endDate) && (scheduleType === "leave" || selectedDays.length > 0);
+    startDate &&
+    endDate &&
+    new Date(startDate) <= new Date(endDate) &&
+    (scheduleType === "leave" || selectedDays.length > 0);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -127,11 +153,24 @@ export default function BatchScheduleModal({ open, onClose, personnelIds, onSucc
               <Typography variant="subtitle2" gutterBottom>
                 Apply to Days of Week:
               </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 1.5 }}
+              >
+                This applies the selected schedule only to the checked days
+                within the chosen date range.
+              </Typography>
               <FormGroup row>
                 {DAYS_OF_WEEK.map((day) => (
                   <FormControlLabel
                     key={day.value}
-                    control={<Checkbox checked={selectedDays.includes(day.value)} onChange={() => handleToggleDay(day.value)} />}
+                    control={
+                      <Checkbox
+                        checked={selectedDays.includes(day.value)}
+                        onChange={() => handleToggleDay(day.value)}
+                      />
+                    }
                     label={day.label}
                   />
                 ))}
@@ -144,7 +183,11 @@ export default function BatchScheduleModal({ open, onClose, personnelIds, onSucc
             <Select
               value={scheduleType}
               label="Schedule Type"
-              onChange={(e) => setScheduleType(e.target.value as "regular" | "shifting" | "leave")}
+              onChange={(e) =>
+                setScheduleType(
+                  e.target.value as "regular" | "shifting" | "leave",
+                )
+              }
             >
               <MenuItem value="regular">Regular</MenuItem>
               <MenuItem value="shifting">Shifting</MenuItem>
@@ -162,14 +205,16 @@ export default function BatchScheduleModal({ open, onClose, personnelIds, onSucc
                 onChange={(e) => setStartTime(e.target.value)}
                 InputLabelProps={{ shrink: true }}
               />
-              <TextField
-                label="End Time"
-                type="time"
-                fullWidth
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
+              {scheduleType === "regular" ? (
+                <TextField
+                  label="End Time"
+                  type="time"
+                  fullWidth
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              ) : null}
             </Stack>
           )}
         </Stack>
@@ -178,10 +223,15 @@ export default function BatchScheduleModal({ open, onClose, personnelIds, onSucc
         <Button onClick={onClose} disabled={mutation.isPending}>
           Cancel
         </Button>
-        <Button variant="contained" disabled={!isFormValid || mutation.isPending} onClick={() => mutation.mutate()}>
+        <Button
+          variant="contained"
+          disabled={!isFormValid || mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
           {mutation.isPending ? "Saving..." : "Save Batch"}
         </Button>
       </DialogActions>
     </Dialog>
   );
 }
+

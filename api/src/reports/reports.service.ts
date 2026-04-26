@@ -57,7 +57,7 @@ export interface MonthlySummaryItem {
 
 export interface CalendarDay {
   date: string;
-  status: "present" | "late" | "leave" | "shifting" | "future";
+  status: "present" | "absent" | "late" | "leave" | "shifting" | "off_duty" | "future";
 }
 
 export interface CalendarPersonnelItem {
@@ -84,10 +84,12 @@ export interface CalendarDateSummaryItem {
   lateCount: number;
   shiftingCount: number;
   leaveCount: number;
+  offDutyCount: number;
   presentPersonnel: CalendarDayPersonnelDetail[];
   latePersonnel: CalendarDayPersonnelDetail[];
   shiftingPersonnel: CalendarDayPersonnelDetail[];
   leavePersonnel: CalendarDayPersonnelDetail[];
+  offDutyPersonnel: CalendarDayPersonnelDetail[];
 }
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
@@ -132,6 +134,8 @@ export class ReportsService {
     if (dateStr > todayStr) return "future";
     if (scheduleType === ScheduleType.LEAVE) return "leave";
     if (scheduleType === ScheduleType.SHIFTING) return "shifting";
+    if (!scheduleType) return "off_duty";
+    // Regular schedule: present if attended, late if no-show
     return attended ? "present" : "late";
   }
 
@@ -314,31 +318,68 @@ export class ReportsService {
 
     for (const [key, group] of grouped.entries()) {
       const [personnelIdStr, yearStr, monthStr] = key.split("-");
+      const personnelId = parseInt(personnelIdStr, 10);
       const year = parseInt(yearStr, 10);
       const month = parseInt(monthStr, 10);
       const { personnel, station, timeIns, timeOuts } = group;
 
-      // Days present: distinct days with at least one confirmed time_in
+      // Days present: distinct local dates with at least one confirmed time_in
       const confirmedTimeIns = timeIns.filter(
         (r) => r.status === AttendanceStatus.Confirmed
       );
       const presentDays = new Set(
-        confirmedTimeIns.map((r) => r.createdAt.toISOString().slice(0, 10))
+        confirmedTimeIns.map((r) => this.localDateStr(r.createdAt))
       );
       const daysPresent = presentDays.size;
 
-      // Working days in the month (Mon–Fri)
-      const workingDays = this.countWorkingDays(year, month);
-      const daysAbsent = Math.max(0, workingDays - daysPresent);
+      // Days absent: only count days where a REGULAR schedule was assigned
+      // (excludes leave, shifting, and days with no schedule)
+      const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const endStr = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+      const scheduledDays = await this.scheduleRepo.find({
+        where: {
+          personnelId,
+          type: ScheduleType.REGULAR,
+        },
+        select: ["date"],
+      });
+      // Filter to only dates within the queried month
+      const regularDates = new Set(
+        scheduledDays.map((s) => s.date).filter((d) => d >= startStr && d <= endStr)
+      );
+      const daysAbsent = Math.max(
+        0,
+        [...regularDates].filter((d) => !presentDays.has(d)).length
+      );
 
-      // Late arrivals: time_in after shift_start_time
+      // Late arrivals: confirmed time_ins after shift start time
+      // Fetch schedules to compare against — 1-minute grace to avoid rounding issues
+      const scheduleRows = await this.scheduleRepo.find({
+        where: { personnelId, type: ScheduleType.REGULAR },
+        select: ["date", "shiftStartTime"],
+      });
+      const scheduleByDate = new Map(scheduleRows.map((s) => [s.date, s.shiftStartTime]));
       let lateArrivals = 0;
+      for (const r of confirmedTimeIns) {
+        const dateStr = this.localDateStr(r.createdAt);
+        const shiftStartStr = scheduleByDate.get(dateStr);
+        if (!shiftStartStr) continue;
+        const [shH, shM] = shiftStartStr.split(":").map(Number);
+        const shiftStart = new Date(r.createdAt);
+        shiftStart.setHours(shH, shM, 0, 0);
+        // 1-minute grace to avoid flagging punctual check-ins as late
+        const graceMs = 60 * 1000;
+        if (r.createdAt.getTime() > shiftStart.getTime() + graceMs) {
+          lateArrivals++;
+        }
+      }
 
       // Total hours worked: pair each time_in with next time_out on same day
       const totalHoursWorked = this.calculateTotalHours(timeIns, timeOuts);
 
       results.push({
-        personnelId: parseInt(personnelIdStr, 10),
+        personnelId,
         personnelName: `${personnel.firstName} ${personnel.lastName}`,
         rank: personnel.rank,
         station: station?.name ?? "",
@@ -352,6 +393,13 @@ export class ReportsService {
     }
 
     return results;
+  }
+
+  /**
+   * Helper: format a Date as local YYYY-MM-DD (avoids UTC offset shifting the date).
+   */
+  private localDateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
   /**
@@ -376,17 +424,17 @@ export class ReportsService {
   ): number {
     let totalMs = 0;
 
-    // Group time_outs by date
+    // Group time_outs by local date (avoid UTC date shift for PHT)
     const timeOutsByDate = new Map<string, Date[]>();
     for (const r of timeOuts) {
-      const dateKey = r.createdAt.toISOString().slice(0, 10);
+      const dateKey = this.localDateStr(r.createdAt);
       if (!timeOutsByDate.has(dateKey)) timeOutsByDate.set(dateKey, []);
       timeOutsByDate.get(dateKey)!.push(r.createdAt);
     }
 
-    // For each time_in, find the next time_out on the same day
+    // For each time_in, find the next time_out on the same local day
     for (const r of timeIns) {
-      const dateKey = r.createdAt.toISOString().slice(0, 10);
+      const dateKey = this.localDateStr(r.createdAt);
       const outs = timeOutsByDate.get(dateKey) ?? [];
       const nextOut = outs
         .filter((t) => t > r.createdAt)
@@ -546,8 +594,9 @@ export class ReportsService {
     const endStr = `${year}-${String(month).padStart(2, "0")}-${String(
       daysInMonth
     ).padStart(2, "0")}`;
-    const startDate = new Date(startStr);
-    const endDate = new Date(`${endStr}T23:59:59.999Z`);
+    // Use local midnight bounds to avoid UTC offset shifting dates (e.g. PHT = UTC+8)
+    const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endDate = new Date(year, month - 1, daysInMonth, 23, 59, 59, 999);
 
     // Fetch personnel scoped by role
     const personnelList = await this.buildScopedPersonnelQuery(
@@ -598,9 +647,12 @@ export class ReportsService {
           day
         ).padStart(2, "0")}`;
         const sched = pSchedules.find((s) => s.date === dateStr);
-        const attended = pAttendance.some((a) =>
-          a.createdAt.toISOString().startsWith(dateStr)
-        );
+        // Compare using local date string to avoid UTC offset shifting the date
+        const attended = pAttendance.some((a) => {
+          const d = a.createdAt;
+          const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          return localDateStr === dateStr;
+        });
         calendar.push({
           date: dateStr,
           status: this.classifyPersonnelDay(
@@ -635,8 +687,9 @@ export class ReportsService {
     const endStr = `${year}-${String(month).padStart(2, "0")}-${String(
       daysInMonth
     ).padStart(2, "0")}`;
-    const startDate = new Date(startStr);
-    const endDate = new Date(`${endStr}T23:59:59.999Z`);
+    // Use local midnight bounds to avoid UTC offset shifting dates (e.g. PHT = UTC+8)
+    const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endDate = new Date(year, month - 1, daysInMonth, 23, 59, 59, 999);
 
     const personnelList = await this.buildScopedPersonnelQuery(
       currentUser,
@@ -676,9 +729,10 @@ export class ReportsService {
 
     const attendanceMap = new Set<string>();
     for (const record of attendanceRecords) {
-      attendanceMap.add(
-        `${record.personnelId}-${record.createdAt.toISOString().slice(0, 10)}`
-      );
+      // Use local date to avoid UTC offset shifting the date (e.g. PHT = UTC+8)
+      const d = record.createdAt;
+      const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      attendanceMap.add(`${record.personnelId}-${localDate}`);
     }
 
     const summaryByDate = new Map<string, CalendarDateSummaryItem>();
@@ -695,10 +749,12 @@ export class ReportsService {
         lateCount: 0,
         shiftingCount: 0,
         leaveCount: 0,
+        offDutyCount: 0,
         presentPersonnel: [],
         latePersonnel: [],
         shiftingPersonnel: [],
         leavePersonnel: [],
+        offDutyPersonnel: [],
       });
     }
 
@@ -739,6 +795,9 @@ export class ReportsService {
         } else if (status === "leave") {
           summary.leaveCount += 1;
           summary.leavePersonnel.push(detail);
+        } else if (status === "off_duty") {
+          summary.offDutyCount += 1;
+          summary.offDutyPersonnel.push(detail);
         }
       }
     }

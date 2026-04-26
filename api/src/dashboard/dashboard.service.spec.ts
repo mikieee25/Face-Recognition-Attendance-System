@@ -150,4 +150,27 @@ describe("DashboardService", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.status).toBe("present");
   });
+
+  it("does not count unscheduled personnel as late in dashboard stats", async () => {
+    const personnel = makePersonnel();
+    personnelRepo.createQueryBuilder.mockReturnValue(makePersonnelQb([personnel]));
+    attendanceRepo.createQueryBuilder.mockReturnValue(makeAttendanceQb([]));
+    scheduleRepo.find.mockResolvedValue([]);
+
+    const result = await service.getStats(adminUser);
+
+    expect(result).toEqual({ present: 0, late: 0, shifting: 0, onLeave: 0 });
+  });
+
+  it("returns off_duty status when personnel has no schedule for the selected day", async () => {
+    const personnel = makePersonnel();
+    personnelRepo.createQueryBuilder.mockReturnValue(makePersonnelQb([personnel]));
+    attendanceRepo.createQueryBuilder.mockReturnValue(makeAttendanceQb([]));
+    scheduleRepo.find.mockResolvedValue([]);
+
+    const result = await service.getPersonnelStatus(adminUser, "2026-04-26");
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.status).toBe("off_duty");
+  });
 });

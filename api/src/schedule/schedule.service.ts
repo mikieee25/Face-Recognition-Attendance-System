@@ -59,39 +59,29 @@ export class ScheduleService {
         item.shiftStartTime,
         DEFAULT_SHIFT_START_TIME
       );
-      const shiftEndTime = normalizeTime(
-        item.shiftEndTime,
-        DEFAULT_SHIFT_END_TIME
-      );
-      const shouldDelete =
-        item.type === ScheduleType.REGULAR &&
-        shiftStartTime === DEFAULT_SHIFT_START_TIME &&
-        shiftEndTime === DEFAULT_SHIFT_END_TIME;
+      const shiftEndTime =
+        item.type === ScheduleType.SHIFTING
+          ? shiftStartTime
+          : normalizeTime(item.shiftEndTime, DEFAULT_SHIFT_END_TIME);
 
       let record = await this.scheduleRepo.findOne({
         where: { personnelId, date: item.date },
       });
 
       if (record) {
-        if (shouldDelete) {
-          await this.scheduleRepo.delete({ id: record.id });
-        } else {
-          record.type = item.type;
-          record.shiftStartTime = shiftStartTime;
-          record.shiftEndTime = shiftEndTime;
-          await this.scheduleRepo.save(record);
-        }
+        record.type = item.type;
+        record.shiftStartTime = shiftStartTime;
+        record.shiftEndTime = shiftEndTime;
+        await this.scheduleRepo.save(record);
       } else {
-        if (!shouldDelete) {
-          record = this.scheduleRepo.create({
-            personnelId,
-            date: item.date,
-            type: item.type,
-            shiftStartTime,
-            shiftEndTime,
-          });
-          await this.scheduleRepo.save(record);
-        }
+        record = this.scheduleRepo.create({
+          personnelId,
+          date: item.date,
+          type: item.type,
+          shiftStartTime,
+          shiftEndTime,
+        });
+        await this.scheduleRepo.save(record);
       }
     }
     return { success: true };

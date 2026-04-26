@@ -337,6 +337,113 @@ describe("AttendanceService", () => {
         ),
       );
     });
+
+    it("allows Time Out during an active 72-hour shifting window", async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 3, 4, 7, 45, 0));
+
+      faceService.recognize.mockResolvedValue({
+        personnelId: 10,
+        confidence: 0.9,
+      });
+      scheduleRepo.findOne.mockImplementation(async ({ where }: any) => {
+        if (where.date === "2026-04-04") {
+          return null;
+        }
+
+        if (where.date === "2026-04-03") {
+          return null;
+        }
+
+        if (where.date === "2026-04-02") {
+          return null;
+        }
+
+        if (where.date === "2026-04-01") {
+          return {
+            id: 1,
+            personnelId: 10,
+            date: "2026-04-01",
+            type: ScheduleType.SHIFTING,
+            shiftStartTime: "08:00:00",
+            shiftEndTime: "08:00:00",
+          };
+        }
+
+        return null;
+      });
+      attendanceRepo.find.mockResolvedValue([
+        mockRecord({
+          type: AttendanceType.TimeIn,
+          createdAt: new Date(2026, 3, 1, 8, 5, 0),
+        }),
+      ]);
+      const created = mockRecord({
+        type: AttendanceType.TimeOut,
+        createdAt: new Date(2026, 3, 4, 7, 45, 0),
+      });
+      attendanceRepo.create.mockReturnValue(created);
+      attendanceRepo.save.mockResolvedValue(created);
+
+      await service.capture(dto, adminUser);
+
+      const createCall = attendanceRepo.create.mock.calls[0][0];
+      expect(createCall.type).toBe(AttendanceType.TimeOut);
+      expect(attendanceRepo.save).toHaveBeenCalled();
+
+      jest.useRealTimers();
+    });
+
+    it("routes expired shifting captures to pending approval", async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 3, 4, 9, 0, 0));
+
+      faceService.recognize.mockResolvedValue({
+        personnelId: 10,
+        confidence: 0.9,
+      });
+      scheduleRepo.findOne.mockImplementation(async ({ where }: any) => {
+        if (where.date === "2026-04-04") {
+          return null;
+        }
+
+        if (where.date === "2026-04-03") {
+          return null;
+        }
+
+        if (where.date === "2026-04-02") {
+          return null;
+        }
+
+        if (where.date === "2026-04-01") {
+          return {
+            id: 1,
+            personnelId: 10,
+            date: "2026-04-01",
+            type: ScheduleType.SHIFTING,
+            shiftStartTime: "08:00:00",
+            shiftEndTime: "08:00:00",
+          };
+        }
+
+        return null;
+      });
+      attendanceRepo.find.mockResolvedValue([
+        mockRecord({
+          type: AttendanceType.TimeIn,
+          createdAt: new Date(2026, 3, 1, 8, 5, 0),
+        }),
+      ]);
+      const pending = { id: 1, personnelId: 10, confidence: 0.9 };
+      pendingRepo.create.mockReturnValue(pending);
+      pendingRepo.save.mockResolvedValue(pending);
+
+      const result = await service.capture(dto, adminUser);
+
+      expect(result).toBe(pending);
+      expect(pendingRepo.save).toHaveBeenCalled();
+      expect(attendanceRepo.save).not.toHaveBeenCalled();
+
+      jest.useRealTimers();
+    });
   });
 
   // ─── createManual ──────────────────────────────────────────────────────────

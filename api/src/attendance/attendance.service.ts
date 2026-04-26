@@ -14,7 +14,7 @@ import {
   AttendanceStatus,
   AttendanceType,
 } from "../database/entities/attendance.entity";
-import { PendingApproval } from "../database/entities/pending-attendance.entity";
+import { PendingApproval, PendingReviewStatus } from "../database/entities/pending-attendance.entity";
 import {
   Personnel,
   PersonnelSection,
@@ -38,11 +38,14 @@ const ALLOWED_MIME_PREFIXES = [
   "data:image/png;base64,",
 ];
 const SHIFT_GRACE_MINUTES = 30;
+const SHIFTING_DUTY_HOURS = 72;
+const SHIFTING_LOOKBACK_DAYS = 3;
 
 interface DayAttendanceState {
   confirmedRecords: AttendanceRecord[];
   hasTimeIn: boolean;
   hasTimeOut: boolean;
+  scopeLabel: "today" | "current shift";
 }
 
 interface DutyValidationResult {
@@ -54,6 +57,8 @@ interface EffectiveSchedule {
   type: ScheduleType | "off_duty";
   shiftStartTime: string;
   shiftEndTime: string;
+  windowStart?: Date;
+  windowEnd?: Date;
 }
 
 export interface AuthenticatedUser {
@@ -202,16 +207,41 @@ export class AttendanceService {
     );
   }
 
+  private shiftDateByDays(date: Date, days: number): Date {
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate() + days,
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds(),
+      date.getMilliseconds(),
+    );
+  }
+
+  private buildShiftingWindow(date: Date, startTime: string): {
+    start: Date;
+    end: Date;
+  } {
+    const start = this.buildShiftDate(date, startTime);
+    const end = new Date(
+      start.getTime() + SHIFTING_DUTY_HOURS * 60 * 60 * 1000,
+    );
+
+    return { start, end };
+  }
+
   private async getDayAttendanceState(
     personnelId: number,
-    capturedAt: Date,
+    windowStart: Date,
+    windowEnd: Date,
+    scopeLabel: DayAttendanceState["scopeLabel"],
   ): Promise<DayAttendanceState> {
-    const { start, end } = this.getLocalDayBounds(capturedAt);
     const confirmedRecords = await this.attendanceRepo.find({
       where: {
         personnelId,
         status: AttendanceStatus.Confirmed,
-        createdAt: Between(start, end),
+        createdAt: Between(windowStart, windowEnd),
       },
       order: { createdAt: "ASC" },
     });
@@ -224,6 +254,7 @@ export class AttendanceService {
       hasTimeOut: confirmedRecords.some(
         (record) => record.type === AttendanceType.TimeOut,
       ),
+      scopeLabel,
     };
   }
 
@@ -243,7 +274,11 @@ export class AttendanceService {
       return AttendanceType.TimeOut;
     }
 
-    throw new BadRequestException("Attendance already completed for today.");
+    throw new BadRequestException(
+      dayState.scopeLabel === "today"
+        ? "Attendance already completed for today."
+        : "Attendance already completed for the current shift.",
+    );
   }
 
   private validateOncePerDayAttendance(
@@ -251,17 +286,27 @@ export class AttendanceService {
     dayState: DayAttendanceState,
   ): void {
     if (type === AttendanceType.TimeIn && dayState.hasTimeIn) {
-      throw new BadRequestException("Time In already recorded for today.");
+      throw new BadRequestException(
+        dayState.scopeLabel === "today"
+          ? "Time In already recorded for today."
+          : "Time In already recorded for the current shift.",
+      );
     }
 
     if (type === AttendanceType.TimeOut && !dayState.hasTimeIn) {
       throw new BadRequestException(
-        "Cannot record Time Out. You need to Time In first.",
+        dayState.scopeLabel === "today"
+          ? "Cannot record Time Out. You need to Time In first."
+          : "Cannot record Time Out. You need to Time In first for the current shift.",
       );
     }
 
     if (type === AttendanceType.TimeOut && dayState.hasTimeOut) {
-      throw new BadRequestException("Time Out already recorded for today.");
+      throw new BadRequestException(
+        dayState.scopeLabel === "today"
+          ? "Time Out already recorded for today."
+          : "Time Out already recorded for the current shift.",
+      );
     }
   }
 
@@ -278,10 +323,55 @@ export class AttendanceService {
     });
 
     if (schedule) {
+      if (schedule.type === ScheduleType.SHIFTING) {
+        const { start, end } = this.buildShiftingWindow(
+          capturedAt,
+          schedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
+        );
+
+        return {
+          type: schedule.type,
+          shiftStartTime: schedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
+          shiftEndTime: schedule.shiftEndTime ?? DEFAULT_SHIFT_END_TIME,
+          windowStart: start,
+          windowEnd: end,
+        };
+      }
+
       return {
         type: schedule.type,
         shiftStartTime: schedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
         shiftEndTime: schedule.shiftEndTime ?? DEFAULT_SHIFT_END_TIME,
+      };
+    }
+
+    for (let lookbackDays = 1; lookbackDays <= SHIFTING_LOOKBACK_DAYS; lookbackDays += 1) {
+      const candidateDate = this.shiftDateByDays(capturedAt, -lookbackDays);
+      const candidateSchedule = await this.scheduleRepo.findOne({
+        where: {
+          personnelId: personnel.id,
+          date: this.getLocalDayStr(candidateDate),
+          type: ScheduleType.SHIFTING,
+        },
+      });
+
+      if (!candidateSchedule) {
+        continue;
+      }
+
+      const { start, end } = this.buildShiftingWindow(
+        candidateDate,
+        candidateSchedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
+      );
+
+      return {
+        type: candidateSchedule.type,
+        shiftStartTime:
+          candidateSchedule.shiftStartTime ?? DEFAULT_SHIFT_START_TIME,
+        shiftEndTime:
+          candidateSchedule.shiftEndTime ?? DEFAULT_SHIFT_END_TIME,
+        windowStart: start,
+        windowEnd: end,
       };
     }
 
@@ -306,6 +396,7 @@ export class AttendanceService {
     personnel: Personnel,
     type: AttendanceType,
     capturedAt: Date,
+    effectiveSchedule: EffectiveSchedule,
   ): Promise<DutyValidationResult> {
     if (personnel.section === PersonnelSection.OPERATION) {
       return {
@@ -313,11 +404,6 @@ export class AttendanceService {
         reason: "Operation personnel attendance requires admin review.",
       };
     }
-
-    const effectiveSchedule = await this.getEffectiveSchedule(
-      personnel,
-      capturedAt,
-    );
 
     if (effectiveSchedule.type === ScheduleType.LEAVE) {
       return {
@@ -333,14 +419,16 @@ export class AttendanceService {
       };
     }
 
-    const shiftStart = this.buildShiftDate(
-      capturedAt,
-      effectiveSchedule.shiftStartTime,
-    );
-    const shiftEnd = this.buildShiftDate(
-      capturedAt,
-      effectiveSchedule.shiftEndTime,
-    );
+    const shiftStart =
+      effectiveSchedule.type === ScheduleType.SHIFTING &&
+      effectiveSchedule.windowStart
+        ? effectiveSchedule.windowStart
+        : this.buildShiftDate(capturedAt, effectiveSchedule.shiftStartTime);
+    const shiftEnd =
+      effectiveSchedule.type === ScheduleType.SHIFTING &&
+      effectiveSchedule.windowEnd
+        ? effectiveSchedule.windowEnd
+        : this.buildShiftDate(capturedAt, effectiveSchedule.shiftEndTime);
     const earliestAllowed = new Date(
       shiftStart.getTime() - SHIFT_GRACE_MINUTES * 60 * 1000,
     );
@@ -378,7 +466,7 @@ export class AttendanceService {
         "pending-attendance",
         `pending_${personnelId}`,
       ),
-      reviewStatus: "pending" as any,
+      reviewStatus: PendingReviewStatus.Pending,
       createdAt: capturedAt,
     });
     return this.pendingRepo.save(pending);
@@ -420,11 +508,49 @@ export class AttendanceService {
       throw new NotFoundException(`Personnel #${personnelId} not found`);
     }
 
-    const dayState = await this.getDayAttendanceState(personnelId, capturedAt);
+    const effectiveSchedule = await this.getEffectiveSchedule(
+      personnel,
+      capturedAt,
+    );
+    const attendanceWindow =
+      effectiveSchedule.type === ScheduleType.SHIFTING &&
+      effectiveSchedule.windowStart &&
+      effectiveSchedule.windowEnd
+        ? {
+            start: effectiveSchedule.windowStart,
+            end: effectiveSchedule.windowEnd,
+            scopeLabel: "current shift" as const,
+          }
+        : {
+            ...this.getLocalDayBounds(capturedAt),
+            scopeLabel: "today" as const,
+          };
+    const dayState = await this.getDayAttendanceState(
+      personnelId,
+      attendanceWindow.start,
+      attendanceWindow.end,
+      attendanceWindow.scopeLabel,
+    );
     const resolvedType = this.resolveRequestedType(dto, dayState);
     this.validateOncePerDayAttendance(resolvedType, dayState);
+    const dutyValidation = await this.validateCaptureDuty(
+      personnel,
+      resolvedType,
+      capturedAt,
+      effectiveSchedule,
+    );
 
     if (confidence >= 0.6) {
+      if (dutyValidation.shouldPend) {
+        return this.createPendingAttendance(
+          personnelId,
+          resolvedType,
+          confidence,
+          dto.image,
+          capturedAt,
+        );
+      }
+
       const record = this.attendanceRepo.create({
         personnelId,
         type: resolvedType,
@@ -513,7 +639,7 @@ export class AttendanceService {
       attendanceType: attendanceType as "TIME_IN" | "TIME_OUT",
       confidence: null,
       imagePath,
-      reviewStatus: "pending" as any,
+      reviewStatus: PendingReviewStatus.Pending,
       createdAt: entryDate,
     });
 
@@ -736,4 +862,3 @@ export class AttendanceService {
     return record;
   }
 }
-

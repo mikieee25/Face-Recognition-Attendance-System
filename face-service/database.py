@@ -89,6 +89,7 @@ async def get_embeddings_by_station(station_id: int) -> list[tuple[int, np.ndarr
                     SELECT fe.personnel_id, fe.embedding
                     FROM face_embeddings fe
                     JOIN personnel p ON p.id = fe.personnel_id
+                    WHERE p.is_active = 1
                     """
                 )
             else:
@@ -98,6 +99,7 @@ async def get_embeddings_by_station(station_id: int) -> list[tuple[int, np.ndarr
                     FROM face_embeddings fe
                     JOIN personnel p ON p.id = fe.personnel_id
                     WHERE p.station_id = %s
+                      AND p.is_active = 1
                     """,
                     (station_id,),
                 )
