@@ -145,13 +145,26 @@ describe("AttendanceService", () => {
     faceService = module.get(FaceService);
     attendanceRepo.find.mockResolvedValue([]);
     personnelRepo.findOne.mockResolvedValue(mockPersonnel());
-    scheduleRepo.findOne.mockResolvedValue({
-      id: 1,
-      personnelId: 10,
-      date: new Date().toISOString().slice(0, 10),
-      type: ScheduleType.REGULAR,
-      shiftStartTime: "00:00:00",
-      shiftEndTime: "23:59:00",
+    scheduleRepo.findOne.mockImplementation(async ({ where }: any) => {
+      if (!where?.date) {
+        return {
+          id: 1,
+          personnelId: 10,
+          date: new Date().toISOString().slice(0, 10),
+          type: ScheduleType.REGULAR,
+          shiftStartTime: "00:00:00",
+          shiftEndTime: "23:59:00",
+        };
+      }
+
+      return {
+        id: 1,
+        personnelId: 10,
+        date: where.date,
+        type: ScheduleType.REGULAR,
+        shiftStartTime: "00:00:00",
+        shiftEndTime: "23:59:00",
+      };
     });
     jest.mocked(fs.mkdirSync).mockClear();
     jest.mocked(fs.writeFileSync).mockClear();
@@ -176,30 +189,36 @@ describe("AttendanceService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("confirms high-confidence capture even when schedule is leave", async () => {
+    it("routes off-duty capture to pending approval", async () => {
       faceService.recognize.mockResolvedValue({
         personnelId: 10,
         confidence: 0.9,
       });
-      const created = mockRecord({ type: AttendanceType.TimeIn });
-      attendanceRepo.create.mockReturnValue(created);
-      attendanceRepo.save.mockResolvedValue(created);
-      scheduleRepo.findOne.mockResolvedValue({
-        id: 1,
-        personnelId: 10,
-        date: new Date().toISOString().slice(0, 10),
-        type: ScheduleType.LEAVE,
-        shiftStartTime: "08:00:00",
-        shiftEndTime: "17:00:00",
+      scheduleRepo.findOne.mockImplementation(async ({ where }: any) => {
+        if (where?.date) {
+          return null;
+        }
+
+        return {
+          id: 2,
+          personnelId: 10,
+          date: "2026-04-01",
+          type: ScheduleType.REGULAR,
+          shiftStartTime: "08:00:00",
+          shiftEndTime: "17:00:00",
+        };
       });
+      const pending = { id: 1, personnelId: 10, confidence: 0.9 };
+      pendingRepo.create.mockReturnValue(pending);
+      pendingRepo.save.mockResolvedValue(pending);
 
       const result = await service.capture(dto, adminUser);
 
-      expect(result).toBe(created);
-      expect(attendanceRepo.save).toHaveBeenCalled();
-      expect(pendingRepo.save).not.toHaveBeenCalled();
-      expect(fs.mkdirSync).not.toHaveBeenCalled();
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      expect(result).toBe(pending);
+      expect(attendanceRepo.save).not.toHaveBeenCalled();
+      expect(pendingRepo.save).toHaveBeenCalled();
+      expect(fs.mkdirSync).toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
     it("creates confirmed AttendanceRecord when confidence >= 0.7", async () => {

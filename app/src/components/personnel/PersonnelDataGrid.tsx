@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -9,11 +9,16 @@ import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
+import FormControl from "@mui/material/FormControl";
 import Grid from "@mui/material/Grid";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TablePagination from "@mui/material/TablePagination";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
@@ -67,6 +72,9 @@ function LoadingCard() {
 export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onViewProfile }: PersonnelDataGridProps) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
+  const [personnelFilter, setPersonnelFilter] = useState("");
+  const [stationFilter, setStationFilter] = useState("all");
+  const [sectionFilter, setSectionFilter] = useState("all");
 
   const { data: stationsData } = useQuery({
     queryKey: ["stations"],
@@ -75,16 +83,53 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
       return res.data.data ?? [];
     },
   });
-  const stationMap = new Map((stationsData ?? []).map((s) => [s.id, s.name]));
+  const stationMap = useMemo(
+    () => new Map((stationsData ?? []).map((s) => [s.id, s.name])),
+    [stationsData],
+  );
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["personnel"],
     queryFn: () => fetchPersonnel(),
   });
 
-  const allRows = data ?? [];
-  const total = allRows.length;
-  const rows = allRows.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
+  const allRows = useMemo(() => data ?? [], [data]);
+
+  const stationOptions = useMemo(() => {
+    return Array.from(new Set(allRows.map((person) => stationMap.get(person.stationId)).filter(Boolean))) as string[];
+  }, [allRows, stationMap]);
+
+  const sectionOptions = useMemo(() => {
+    return Array.from(new Set(allRows.map((person) => formatSectionLabel(person.section)).filter(Boolean)));
+  }, [allRows]);
+
+  const filteredRows = useMemo(() => {
+    const q = personnelFilter.trim().toLowerCase();
+
+    return [...allRows]
+      .sort((a, b) => {
+        const firstNameCompare = a.firstName.localeCompare(b.firstName, undefined, { sensitivity: "base" });
+        if (firstNameCompare !== 0) {
+          return firstNameCompare;
+        }
+
+        return a.lastName.localeCompare(b.lastName, undefined, { sensitivity: "base" });
+      })
+      .filter((person) => {
+        const fullName = `${person.firstName} ${person.lastName}`.toLowerCase();
+        const rank = person.rank.toLowerCase();
+        const stationName = stationMap.get(person.stationId) ?? "";
+        const sectionLabel = formatSectionLabel(person.section);
+        const matchesPersonnel = !q || fullName.includes(q) || rank.includes(q);
+        const matchesStation = stationFilter === "all" || stationName === stationFilter;
+        const matchesSection = sectionFilter === "all" || sectionLabel === sectionFilter;
+
+        return matchesPersonnel && matchesStation && matchesSection;
+      });
+  }, [allRows, personnelFilter, sectionFilter, stationFilter, stationMap]);
+
+  const total = filteredRows.length;
+  const rows = filteredRows.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
 
   const handlePageChange = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -131,6 +176,71 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
 
         {!isLoading && !isError && (
           <>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              justifyContent="space-between"
+              alignItems={{ sm: "center" }}
+              spacing={1}
+              sx={{ mb: 2 }}
+            >
+              <Typography variant="h6">Browse Personnel</Typography>
+              <Chip
+                label={`${filteredRows.length} of ${allRows.length} personnel`}
+                size="small"
+                sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
+              />
+            </Stack>
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2.5 }}>
+              <TextField
+                label="Search Personnel"
+                value={personnelFilter}
+                onChange={(e) => {
+                  setPersonnelFilter(e.target.value);
+                  setPage(0);
+                }}
+                fullWidth
+              />
+
+              <FormControl fullWidth>
+                <InputLabel>Station</InputLabel>
+                <Select
+                  label="Station"
+                  value={stationFilter}
+                  onChange={(e) => {
+                    setStationFilter(e.target.value);
+                    setPage(0);
+                  }}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  {stationOptions.map((station) => (
+                    <MenuItem key={station} value={station}>
+                      {station}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth>
+                <InputLabel>Section</InputLabel>
+                <Select
+                  label="Section"
+                  value={sectionFilter}
+                  onChange={(e) => {
+                    setSectionFilter(e.target.value);
+                    setPage(0);
+                  }}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  {sectionOptions.map((section) => (
+                    <MenuItem key={section} value={section}>
+                      {section}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+
             {rows.length === 0 ? (
               <Box
                 sx={{
@@ -144,7 +254,7 @@ export default function PersonnelDataGrid({ onEdit, onFaceRegister, onAdd, onVie
                 }}
               >
                 <Typography variant="body1" color="text.secondary">
-                  No personnel found.
+                  {allRows.length === 0 ? "No personnel found." : "No results match your filters."}
                 </Typography>
               </Box>
             ) : (

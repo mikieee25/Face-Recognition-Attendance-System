@@ -375,6 +375,20 @@ export class AttendanceService {
       };
     }
 
+    const hasCustomSchedule = await this.scheduleRepo.findOne({
+      where: {
+        personnelId: personnel.id,
+      },
+    });
+
+    if (hasCustomSchedule) {
+      return {
+        type: "off_duty",
+        shiftStartTime: DEFAULT_SHIFT_START_TIME,
+        shiftEndTime: DEFAULT_SHIFT_END_TIME,
+      };
+    }
+
     if (personnel.section === PersonnelSection.ADMIN) {
       const dayOfWeek = capturedAt.getDay();
       const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
