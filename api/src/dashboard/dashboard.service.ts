@@ -312,46 +312,20 @@ export class DashboardService {
         .map((r) => r.personnelId),
     );
 
-    const dateStr = this.getLocalDayStr(targetDate);
-    const schedules = await this.scheduleRepo.find({
-      where: {
-        date: dateStr,
-        personnelId: In(personnelIds),
-      },
-    });
-    const scheduleMap = new Map<number, ScheduleType>();
-    for (const s of schedules) {
-      scheduleMap.set(s.personnelId, s.type);
-    }
-
-    const rows: PersonnelAttendanceRow[] = allPersonnel.map((p) => {
-      let personnelStatus: PersonnelAttendanceRow["status"];
-      if (presentIds.has(p.id)) {
-        personnelStatus = "present";
-      } else {
-        const type = scheduleMap.get(p.id);
-        if (type === ScheduleType.SHIFTING) {
-          personnelStatus = "shifting";
-        } else if (type === ScheduleType.LEAVE) {
-          personnelStatus = "on_leave";
-        } else if (type === ScheduleType.REGULAR) {
-          personnelStatus = "late";
-        } else {
-          personnelStatus = "off_duty";
-        }
-      }
-
-      return {
-        personnelId: p.id,
-        name: `${p.firstName} ${p.lastName}`,
-        rank: p.rank,
-        stationName: (p as any).station?.name ?? "Unknown",
-        imagePath: p.imagePath ?? null,
-        coverImagePath: p.coverImagePath ?? null,
-        section: p.section,
-        status: personnelStatus,
-      };
-    });
+    const rows: PersonnelAttendanceRow[] = allPersonnel
+      .filter((p) => presentIds.has(p.id))
+      .map((p) => {
+        return {
+          personnelId: p.id,
+          name: `${p.firstName} ${p.lastName}`,
+          rank: p.rank,
+          stationName: (p as any).station?.name ?? "Unknown",
+          imagePath: p.imagePath ?? null,
+          coverImagePath: p.coverImagePath ?? null,
+          section: p.section,
+          status: "present",
+        };
+      });
 
     // Filter by status if provided
     if (status) {
