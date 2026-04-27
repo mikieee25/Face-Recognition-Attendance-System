@@ -346,11 +346,6 @@ function FaceCameraModal({
                 >
                   {resultData.success ? (resultData.action ?? "Attendance Recorded") : "Recognition Failed"}
                 </Typography>
-                {!resultData.success && (
-                  <Typography color="text.secondary" sx={{ mt: 1 }}>
-                    {resultData.error ?? "Please try again."}
-                  </Typography>
-                )}
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     Closing in {autoClose}s…
@@ -684,9 +679,6 @@ export default function EvaluationKiosk({ onProceedToSurvey }: Props) {
               <Typography variant="body2" fontWeight={700} color={lastResult.success ? "#25a961" : "#dc3545"}>
                 {lastResult.success ? (lastResult.action ?? "Success") : "Failed"}
               </Typography>
-              {!lastResult.success && (
-                <Typography variant="caption" color="text.secondary">{lastResult.error}</Typography>
-              )}
             </Box>
             {lastResult.status && (
               <Chip

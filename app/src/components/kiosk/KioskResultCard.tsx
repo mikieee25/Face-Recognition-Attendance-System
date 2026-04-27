@@ -92,11 +92,6 @@ export default function KioskResultCard({ result, onDismiss }: Props) {
         </Stack>
       )}
 
-      {!isSuccess && (
-        <Typography variant="body2" color="text.primary" sx={{ mt: 1 }}>
-          {result.error ?? "Please try again."}
-        </Typography>
-      )}
     </Paper>
   );
 }

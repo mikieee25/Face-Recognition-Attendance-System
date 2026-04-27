@@ -832,12 +832,6 @@ export default function KioskCameraModal({
                 {resultData.personnelName}
               </Typography>
             )}
-            {!resultData.success && (
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                {resultData.error ?? "Please try again."}
-              </Typography>
-            )}
-
             <Box sx={{ mt: 3 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 Closing in {autoClose}s…
@@ -865,4 +859,3 @@ export default function KioskCameraModal({
     </Dialog>
   );
 }
-
