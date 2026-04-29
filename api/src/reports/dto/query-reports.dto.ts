@@ -42,6 +42,38 @@ export class QueryReportsDto {
   @IsIn(["excel"])
   format?: "excel";
 
+  @ApiPropertyOptional({
+    description: "Report period grouping for exports",
+    enum: ["daily", "weekly", "monthly", "yearly"],
+    default: "monthly",
+  })
+  @IsOptional()
+  @IsIn(["daily", "weekly", "monthly", "yearly"])
+  reportPeriod?: "daily" | "weekly" | "monthly" | "yearly";
+
+  @ApiPropertyOptional({
+    description: "Derived DTR status filter for exports",
+    enum: ["present", "late", "absent", "leave", "shifting", "off_duty", "scheduled"],
+  })
+  @IsOptional()
+  @IsIn(["present", "late", "absent", "leave", "shifting", "off_duty", "scheduled"])
+  exportStatus?: "present" | "late" | "absent" | "leave" | "shifting" | "off_duty" | "scheduled";
+
+  @ApiPropertyOptional({ description: "Prepared by name/designation for export signature block" })
+  @IsOptional()
+  @IsString()
+  preparedBy?: string;
+
+  @ApiPropertyOptional({ description: "Certified correct by name/designation for export signature block" })
+  @IsOptional()
+  @IsString()
+  certifiedBy?: string;
+
+  @ApiPropertyOptional({ description: "Approved by name/designation for export signature block" })
+  @IsOptional()
+  @IsString()
+  approvedBy?: string;
+
   @ApiPropertyOptional({ description: "Page number", default: 1 })
   @IsOptional()
   @Type(() => Number)

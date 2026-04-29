@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -16,6 +21,8 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import apiClient from "@/lib/api-client";
+import type { ApiEnvelope } from "@/types/api";
+import type { Personnel } from "@/types/models";
 
 interface ExportButtonsProps {
   filters: {
@@ -27,18 +34,53 @@ interface ExportButtonsProps {
   };
 }
 
+type ReportPeriod = "daily" | "weekly" | "monthly" | "yearly";
+type ExportStatus =
+  | ""
+  | "present"
+  | "late"
+  | "absent"
+  | "leave"
+  | "shifting"
+  | "off_duty"
+  | "scheduled";
+
+async function fetchPersonnel(): Promise<Personnel[]> {
+  const res =
+    await apiClient.get<ApiEnvelope<Personnel[]>>("/api/v1/personnel");
+  return res.data.data ?? [];
+}
+
 export default function ExportButtons({ filters }: ExportButtonsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState(filters.dateFrom ?? "");
   const [dateTo, setDateTo] = useState(filters.dateTo ?? "");
+  const [personnelId, setPersonnelId] = useState(filters.personnelId ?? "");
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("monthly");
+  const [exportStatus, setExportStatus] = useState<ExportStatus>("");
+  const [preparedBy, setPreparedBy] = useState("");
+  const [certifiedBy, setCertifiedBy] = useState("");
+  const [approvedBy, setApprovedBy] = useState("");
   const [loadingFormat, setLoadingFormat] = useState<"excel" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
+
+  const { data: personnelList = [] } = useQuery({
+    queryKey: ["personnel", "export-list"],
+    queryFn: fetchPersonnel,
+    enabled: dialogOpen,
+  });
 
   const handleOpen = () => {
     // Reset to current month defaults every time dialog opens
     setDateFrom(filters.dateFrom ?? "");
     setDateTo(filters.dateTo ?? "");
+    setPersonnelId(filters.personnelId ?? "");
+    setReportPeriod("monthly");
+    setExportStatus("");
+    setPreparedBy("");
+    setCertifiedBy("");
+    setApprovedBy("");
     setDateError(null);
     setDialogOpen(true);
   };
@@ -72,8 +114,12 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
       if (filters.stationId) params.stationId = filters.stationId;
-      if (filters.personnelId) params.personnelId = filters.personnelId;
-      if (filters.type) params.type = filters.type;
+      if (personnelId) params.personnelId = personnelId;
+      params.reportPeriod = reportPeriod;
+      if (exportStatus) params.exportStatus = exportStatus;
+      if (preparedBy.trim()) params.preparedBy = preparedBy.trim();
+      if (certifiedBy.trim()) params.certifiedBy = certifiedBy.trim();
+      if (approvedBy.trim()) params.approvedBy = approvedBy.trim();
 
       const res = await apiClient.get("/api/v1/reports/export", {
         params,
@@ -122,7 +168,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
       <Dialog
         open={dialogOpen}
         onClose={handleClose}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
         aria-labelledby="export-dialog-title"
       >
@@ -136,9 +182,98 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
         <DialogContent dividers>
           <Stack spacing={2.5}>
             <Typography variant="body2" color="text.secondary">
-              Download a polished Excel report using the selected date range. The
-              file will reflect the current filters already applied on this page.
+              Download a COA-ready DTR Excel workbook. You can export one
+              personnel or all personnel, with daily, weekly, monthly, and
+              yearly summary tabs included. Use status filtering to answer
+              questions like who was late or absent for the selected period.
             </Typography>
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="export-personnel-label">Personnel</InputLabel>
+                <Select
+                  labelId="export-personnel-label"
+                  value={personnelId}
+                  label="Personnel"
+                  onChange={(e) => setPersonnelId(e.target.value as string)}
+                >
+                  <MenuItem value="">All Personnel</MenuItem>
+                  {personnelList.map((person) => (
+                    <MenuItem key={person.id} value={String(person.id)}>
+                      {person.rank} {person.firstName} {person.lastName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel id="export-period-label">Report Period</InputLabel>
+                <Select
+                  labelId="export-period-label"
+                  value={reportPeriod}
+                  label="Report Period"
+                  onChange={(e) =>
+                    setReportPeriod(e.target.value as ReportPeriod)
+                  }
+                >
+                  <MenuItem value="daily">Daily</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                  <MenuItem value="monthly">Monthly</MenuItem>
+                  <MenuItem value="yearly">Yearly</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+
+            <FormControl size="small" fullWidth>
+              <InputLabel id="export-status-label">Export Status</InputLabel>
+              <Select
+                labelId="export-status-label"
+                value={exportStatus}
+                label="Export Status"
+                onChange={(e) => setExportStatus(e.target.value as ExportStatus)}
+              >
+                <MenuItem value="">All Statuses</MenuItem>
+                <MenuItem value="present">Present only</MenuItem>
+                <MenuItem value="late">Late only</MenuItem>
+                <MenuItem value="absent">Absent only</MenuItem>
+                <MenuItem value="leave">Leave only</MenuItem>
+                <MenuItem value="shifting">Shifting only</MenuItem>
+                <MenuItem value="off_duty">Off Duty only</MenuItem>
+                <MenuItem value="scheduled">Scheduled only</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Signature Fields
+              </Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Prepared By"
+                  size="small"
+                  fullWidth
+                  value={preparedBy}
+                  onChange={(e) => setPreparedBy(e.target.value)}
+                  placeholder="Name / designation"
+                />
+                <TextField
+                  label="Certified Correct By"
+                  size="small"
+                  fullWidth
+                  value={certifiedBy}
+                  onChange={(e) => setCertifiedBy(e.target.value)}
+                  placeholder="Name / designation"
+                />
+              </Stack>
+              <TextField
+                label="Approved By"
+                size="small"
+                fullWidth
+                value={approvedBy}
+                onChange={(e) => setApprovedBy(e.target.value)}
+                placeholder="Name / designation"
+              />
+            </Stack>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField

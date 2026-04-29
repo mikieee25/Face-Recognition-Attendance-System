@@ -24,7 +24,7 @@ import ExportButtons from "./ExportButtons";
 
 interface CalendarDay {
   date: string;
-  status: "present" | "late" | "leave" | "shifting" | "off_duty" | "future";
+  status: "present" | "late" | "absent" | "leave" | "shifting" | "off_duty" | "future";
 }
 
 interface CalendarPersonnelItem {
@@ -49,11 +49,13 @@ interface CalendarDateSummaryItem {
   isFuture: boolean;
   presentCount: number;
   lateCount: number;
+  absentCount: number;
   shiftingCount: number;
   leaveCount: number;
   offDutyCount: number;
   presentPersonnel: CalendarDayPersonnelDetail[];
   latePersonnel: CalendarDayPersonnelDetail[];
+  absentPersonnel: CalendarDayPersonnelDetail[];
   shiftingPersonnel: CalendarDayPersonnelDetail[];
   leavePersonnel: CalendarDayPersonnelDetail[];
   offDutyPersonnel: CalendarDayPersonnelDetail[];
@@ -65,6 +67,7 @@ const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const STATUS_META = {
   present: { label: "Present", color: "#4caf50", textColor: "#fff" },
   late: { label: "Late", color: "#f9a825", textColor: "#fff" },
+  absent: { label: "Absent", color: "#c62828", textColor: "#fff" },
   leave: { label: "Leave", color: "#6F42A6", textColor: "#fff" },
   shifting: { label: "Shifting", color: "#2196f3", textColor: "#fff" },
   off_duty: { label: "Off Duty", color: "#cfd8dc", textColor: "#455a64" },
@@ -73,6 +76,7 @@ const STATUS_META = {
 const DATE_VIEW_STATUS_SECTIONS = [
   { key: "presentPersonnel", countKey: "presentCount", label: "Present", color: "#4caf50" },
   { key: "latePersonnel", countKey: "lateCount", label: "Late", color: "#f9a825" },
+  { key: "absentPersonnel", countKey: "absentCount", label: "Absent", color: "#c62828" },
   { key: "shiftingPersonnel", countKey: "shiftingCount", label: "Shifting", color: "#2196f3" },
   { key: "leavePersonnel", countKey: "leaveCount", label: "On Leave", color: "#6F42A6" },
   { key: "offDutyPersonnel", countKey: "offDutyCount", label: "Off Duty", color: "#78909c" },
@@ -217,7 +221,7 @@ function DateSummaryCalendar({
 
       {summary.map((item) => {
         const dayNumber = parseInt(item.date.split("-")[2], 10);
-        const total = item.presentCount + item.lateCount + item.shiftingCount + item.leaveCount + item.offDutyCount;
+        const total = item.presentCount + item.lateCount + item.absentCount + item.shiftingCount + item.leaveCount + item.offDutyCount;
 
         return (
           <Paper
@@ -268,6 +272,9 @@ function DateSummaryCalendar({
                 </Typography>
                 <Typography variant="caption" sx={{ color: "#f9a825", fontWeight: 700 }}>
                   {item.lateCount} late
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#c62828", fontWeight: 700 }}>
+                  {item.absentCount} absent
                 </Typography>
                 <Typography variant="caption" sx={{ color: "#2196f3", fontWeight: 700 }}>
                   {item.shiftingCount} shifting
@@ -388,9 +395,15 @@ export default function ReportsPageClient() {
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [selectedDate, setSelectedDate] = useState<CalendarDateSummaryItem | null>(null);
   const daysInMonth = new Date(year, month, 0).getDate();
+  const isCurrentMonth =
+    year === now.getFullYear() && month === now.getMonth() + 1;
   const exportFilters = {
     dateFrom: formatDateParam(year, month, 1),
-    dateTo: formatDateParam(year, month, daysInMonth),
+    dateTo: formatDateParam(
+      year,
+      month,
+      isCurrentMonth ? now.getDate() : daysInMonth
+    ),
     stationId: "",
     personnelId: "",
     type: "",
@@ -441,7 +454,7 @@ export default function ReportsPageClient() {
   const viewDescription =
     view === "personnel"
       ? "Review the whole month per personnel."
-      : "Click a date to inspect who is present, late, shifting, or on leave.";
+      : "Click a date to inspect who is present, late, absent, shifting, or on leave.";
 
   const selectedDateData = useMemo(() => {
     if (!selectedDate || !dateSummaryData) return null;
@@ -571,6 +584,7 @@ export default function ReportsPageClient() {
           {[
             { label: "Present", status: "present" as const },
             { label: "Late", status: "late" as const },
+            { label: "Absent", status: "absent" as const },
             { label: "Leave", status: "leave" as const },
             { label: "Shifting", status: "shifting" as const },
             { label: "Off Duty", status: "off_duty" as const },
