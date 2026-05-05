@@ -101,6 +101,8 @@ const HEADER_FONT = "FFFFFFFF";
 const ACCENT_FILL = "FFEAF1FB";
 const BORDER_COLOR = "FFD4DCE8";
 const EVEN_ROW_FILL = "FFF8FAFC";
+const REPORT_TIME_ZONE = "Asia/Manila";
+const REPORT_TIME_ZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 type ReportPeriod = NonNullable<QueryReportsDto["reportPeriod"]>;
 type ExportStatus = NonNullable<QueryReportsDto["exportStatus"]>;
@@ -229,14 +231,14 @@ export class ReportsService {
 
     if (query.dateFrom) {
       qb.andWhere("ar.createdAt >= :dateFrom", {
-        dateFrom: new Date(query.dateFrom),
+        dateFrom: this.parseLocalDate(query.dateFrom),
       });
     }
 
     if (query.dateTo) {
-      const end = new Date(query.dateTo);
-      end.setHours(23, 59, 59, 999);
-      qb.andWhere("ar.createdAt <= :dateTo", { dateTo: end });
+      qb.andWhere("ar.createdAt <= :dateTo", {
+        dateTo: this.parseLocalDate(query.dateTo, true),
+      });
     }
 
     return qb;
@@ -257,7 +259,7 @@ export class ReportsService {
       rank: personnel?.rank ?? "",
       section: personnel?.section ?? "",
       station: station?.name ?? "",
-      date: record.createdAt.toISOString().slice(0, 10),
+      date: this.localDateStr(record.createdAt),
       timeIn:
         record.type === AttendanceType.TimeIn
           ? record.createdAt.toISOString()
@@ -328,10 +330,8 @@ export class ReportsService {
     for (const record of records) {
       const personnel = record.personnel;
       if (!personnel) continue;
-      const d = record.createdAt;
-      const key = `${record.personnelId}-${d.getFullYear()}-${
-        d.getMonth() + 1
-      }`;
+      const monthKey = this.localDateStr(record.createdAt).slice(0, 7);
+      const key = `${record.personnelId}-${monthKey}`;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
@@ -401,9 +401,7 @@ export class ReportsService {
         const dateStr = this.localDateStr(r.createdAt);
         const shiftStartStr = scheduleByDate.get(dateStr);
         if (!shiftStartStr) continue;
-        const [shH, shM] = shiftStartStr.split(":").map(Number);
-        const shiftStart = new Date(r.createdAt);
-        shiftStart.setHours(shH, shM, 0, 0);
+        const shiftStart = this.parseLocalDateTime(dateStr, shiftStartStr);
         const graceMs = SHIFT_GRACE_MINUTES * 60 * 1000;
         if (r.createdAt.getTime() > shiftStart.getTime() + graceMs) {
           lateArrivals++;
@@ -431,10 +429,17 @@ export class ReportsService {
   }
 
   /**
-   * Helper: format a Date as local YYYY-MM-DD (avoids UTC offset shifting the date).
+   * Helper: format a Date as report-local YYYY-MM-DD (avoids UTC offset shifting the date).
    */
   private localDateStr(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: REPORT_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(d);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
   }
 
   /**
@@ -663,6 +668,7 @@ export class ReportsService {
 
   private formatDateTime(date: Date): string {
     return new Intl.DateTimeFormat("en-PH", {
+      timeZone: REPORT_TIME_ZONE,
       year: "numeric",
       month: "long",
       day: "2-digit",
@@ -672,12 +678,12 @@ export class ReportsService {
   }
 
   private formatDisplayDate(dateStr: string): string {
-    const [year, month, day] = dateStr.split("-").map(Number);
     return new Intl.DateTimeFormat("en-PH", {
+      timeZone: REPORT_TIME_ZONE,
       year: "numeric",
       month: "short",
       day: "2-digit",
-    }).format(new Date(year, month - 1, day));
+    }).format(this.parseLocalDate(dateStr));
   }
 
   private formatSection(section?: string): string {
@@ -710,20 +716,19 @@ export class ReportsService {
    * Format a Date as 12-hour time (e.g. "8:00 AM", "5:00 PM") using local time.
    */
   private formatTime12h(d: Date): string {
-    let hours = d.getHours();
-    const minutes = d.getMinutes();
-    const period = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    const minuteStr = String(minutes).padStart(2, "0");
-    return `${hours}:${minuteStr} ${period}`;
+    return new Intl.DateTimeFormat("en-PH", {
+      timeZone: REPORT_TIME_ZONE,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(d);
   }
 
   private resolveExportDateRange(query: QueryReportsDto): ExportDateRange {
     const now = new Date();
-    const startStr =
-      query.dateFrom ??
-      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const endStr = query.dateTo ?? this.localDateStr(now);
+    const todayStr = this.localDateStr(now);
+    const startStr = query.dateFrom ?? `${todayStr.slice(0, 7)}-01`;
+    const endStr = query.dateTo ?? todayStr;
 
     return {
       startStr,
@@ -735,25 +740,43 @@ export class ReportsService {
 
   private parseLocalDate(dateStr: string, endOfDay = false): Date {
     const [year, month, day] = dateStr.split("-").map(Number);
+    const utcTime =
+      Date.UTC(
+        year,
+        month - 1,
+        day,
+        endOfDay ? 23 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 999 : 0
+      ) - REPORT_TIME_ZONE_OFFSET_MS;
+    return new Date(utcTime);
+  }
+
+  private parseLocalDateTime(dateStr: string, timeStr: string): Date {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const [hours, minutes, seconds] = timeStr.split(":").map(Number);
     return new Date(
-      year,
-      month - 1,
-      day,
-      endOfDay ? 23 : 0,
-      endOfDay ? 59 : 0,
-      endOfDay ? 59 : 0,
-      endOfDay ? 999 : 0
+      Date.UTC(year, month - 1, day, hours, minutes, seconds ?? 0) -
+        REPORT_TIME_ZONE_OFFSET_MS
     );
+  }
+
+  private addLocalDays(dateStr: string, days: number): string {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const next = new Date(
+      Date.UTC(year, month - 1, day + days) - REPORT_TIME_ZONE_OFFSET_MS
+    );
+    return this.localDateStr(next);
   }
 
   private listDateStrings(range: ExportDateRange): string[] {
     const dates: string[] = [];
-    const cursor = this.parseLocalDate(range.startStr);
-    const end = this.parseLocalDate(range.endStr);
+    let cursor = range.startStr;
 
-    while (cursor.getTime() <= end.getTime()) {
-      dates.push(this.localDateStr(cursor));
-      cursor.setDate(cursor.getDate() + 1);
+    while (cursor <= range.endStr) {
+      dates.push(cursor);
+      cursor = this.addLocalDays(cursor, 1);
     }
 
     return dates;
@@ -781,9 +804,7 @@ export class ReportsService {
     shiftStartTime: string,
     firstIn: Date
   ): boolean {
-    const shiftStart = this.parseLocalDate(dateStr);
-    const [hours, minutes, seconds] = shiftStartTime.split(":").map(Number);
-    shiftStart.setHours(hours, minutes, seconds ?? 0, 0);
+    const shiftStart = this.parseLocalDateTime(dateStr, shiftStartTime);
     const graceMs = SHIFT_GRACE_MINUTES * 60 * 1000;
     return firstIn.getTime() > shiftStart.getTime() + graceMs;
   }
@@ -1257,18 +1278,16 @@ export class ReportsService {
   }
 
   private getSummaryKey(row: DtrExportRow, period: ReportPeriod): string {
-    const date = this.parseLocalDate(row.date);
     if (period === "daily") return row.date;
     if (period === "monthly") return row.date.slice(0, 7);
     if (period === "yearly") return row.date.slice(0, 4);
 
-    const weekStart = new Date(date);
-    const day = weekStart.getDay();
+    const [year, month, date] = row.date.split("-").map(Number);
+    const day = new Date(Date.UTC(year, month - 1, date)).getUTCDay();
     const diff = day === 0 ? -6 : 1 - day;
-    weekStart.setDate(weekStart.getDate() + diff);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    return `${this.localDateStr(weekStart)} to ${this.localDateStr(weekEnd)}`;
+    const weekStart = this.addLocalDays(row.date, diff);
+    const weekEnd = this.addLocalDays(weekStart, 6);
+    return `${weekStart} to ${weekEnd}`;
   }
 
   private writeSummaryWorksheet(
@@ -1718,9 +1737,7 @@ export class ReportsService {
       })
       .getMany();
 
-    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 10);
+    const todayStr = this.localDateStr(new Date());
 
     const scheduleMap = new Map<string, Schedule>();
     for (const schedule of schedules) {
@@ -1729,9 +1746,7 @@ export class ReportsService {
 
     const attendanceMap = new Map<string, Date>();
     for (const record of attendanceRecords) {
-      // Use local date to avoid UTC offset shifting the date (e.g. PHT = UTC+8)
-      const d = record.createdAt;
-      const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const localDate = this.localDateStr(record.createdAt);
       const key = `${record.personnelId}-${localDate}`;
       const previous = attendanceMap.get(key);
       if (!previous || record.createdAt < previous) {
