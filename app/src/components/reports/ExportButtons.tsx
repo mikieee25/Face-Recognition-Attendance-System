@@ -22,7 +22,7 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import apiClient from "@/lib/api-client";
 import type { ApiEnvelope } from "@/types/api";
-import type { Personnel } from "@/types/models";
+import type { Personnel, Station } from "@/types/models";
 
 interface ExportButtonsProps {
   filters: {
@@ -51,11 +51,18 @@ async function fetchPersonnel(): Promise<Personnel[]> {
   return res.data.data ?? [];
 }
 
+async function fetchStations(): Promise<Station[]> {
+  const res = await apiClient.get<ApiEnvelope<Station[]>>("/api/v1/stations");
+  return res.data.data ?? [];
+}
+
 export default function ExportButtons({ filters }: ExportButtonsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState(filters.dateFrom ?? "");
   const [dateTo, setDateTo] = useState(filters.dateTo ?? "");
   const [personnelId, setPersonnelId] = useState(filters.personnelId ?? "");
+  const [stationId, setStationId] = useState(filters.stationId ?? "");
+  const [sector, setSector] = useState("");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("monthly");
   const [exportStatus, setExportStatus] = useState<ExportStatus>("");
   const [preparedBy, setPreparedBy] = useState("");
@@ -71,11 +78,19 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
     enabled: dialogOpen,
   });
 
+  const { data: stationList = [] } = useQuery({
+    queryKey: ["stations", "export-list"],
+    queryFn: fetchStations,
+    enabled: dialogOpen,
+  });
+
   const handleOpen = () => {
     // Reset to current month defaults every time dialog opens
     setDateFrom(filters.dateFrom ?? "");
     setDateTo(filters.dateTo ?? "");
     setPersonnelId(filters.personnelId ?? "");
+    setStationId(filters.stationId ?? "");
+    setSector("");
     setReportPeriod("monthly");
     setExportStatus("");
     setPreparedBy("");
@@ -113,8 +128,9 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
       const params: Record<string, string> = { format: "excel" };
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
-      if (filters.stationId) params.stationId = filters.stationId;
+      if (stationId) params.stationId = stationId;
       if (personnelId) params.personnelId = personnelId;
+      if (sector) params.sector = sector;
       params.reportPeriod = reportPeriod;
       if (exportStatus) params.exportStatus = exportStatus;
       if (preparedBy.trim()) params.preparedBy = preparedBy.trim();
@@ -224,13 +240,48 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
               </FormControl>
             </Stack>
 
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="export-station-label">Station</InputLabel>
+                <Select
+                  labelId="export-station-label"
+                  value={stationId}
+                  label="Station"
+                  onChange={(e) => setStationId(e.target.value as string)}
+                >
+                  <MenuItem value="">All Stations</MenuItem>
+                  {stationList.map((station) => (
+                    <MenuItem key={station.id} value={String(station.id)}>
+                      {station.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel id="export-sector-label">Sector</InputLabel>
+                <Select
+                  labelId="export-sector-label"
+                  value={sector}
+                  label="Sector"
+                  onChange={(e) => setSector(e.target.value as string)}
+                >
+                  <MenuItem value="">All Sectors</MenuItem>
+                  <MenuItem value="administrative">Administrative</MenuItem>
+                  <MenuItem value="operational">Operational</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+
             <FormControl size="small" fullWidth>
               <InputLabel id="export-status-label">Export Status</InputLabel>
               <Select
                 labelId="export-status-label"
                 value={exportStatus}
                 label="Export Status"
-                onChange={(e) => setExportStatus(e.target.value as ExportStatus)}
+                onChange={(e) =>
+                  setExportStatus(e.target.value as ExportStatus)
+                }
               >
                 <MenuItem value="">All Statuses</MenuItem>
                 <MenuItem value="present">Present only</MenuItem>

@@ -57,7 +57,14 @@ export interface MonthlySummaryItem {
 
 export interface CalendarDay {
   date: string;
-  status: "present" | "late" | "absent" | "leave" | "shifting" | "off_duty" | "future";
+  status:
+    | "present"
+    | "late"
+    | "absent"
+    | "leave"
+    | "shifting"
+    | "off_duty"
+    | "future";
 }
 
 export interface CalendarPersonnelItem {
@@ -126,7 +133,14 @@ interface DtrExportRow {
   timeIn: string;
   timeOut: string;
   hoursWorked: number;
-  status: "Present" | "Late" | "Absent" | "Leave" | "Shifting" | "Off Duty" | "Scheduled";
+  status:
+    | "Present"
+    | "Late"
+    | "Absent"
+    | "Leave"
+    | "Shifting"
+    | "Off Duty"
+    | "Scheduled";
   remarks: string;
 }
 
@@ -138,12 +152,13 @@ export class ReportsService {
     @InjectRepository(Personnel)
     private readonly personnelRepo: Repository<Personnel>,
     @InjectRepository(Schedule)
-    private readonly scheduleRepo: Repository<Schedule>
+    private readonly scheduleRepo: Repository<Schedule>,
   ) {}
 
   private buildScopedPersonnelQuery(
     currentUser: AuthenticatedUser,
-    stationId?: number
+    stationId?: number,
+    sector?: "administrative" | "operational",
   ) {
     const qb = this.personnelRepo
       .createQueryBuilder("p")
@@ -158,6 +173,13 @@ export class ReportsService {
       qb.andWhere("p.stationId = :stationId", { stationId });
     }
 
+    if (sector) {
+      const sectionValue = sector === "administrative" ? "admin" : "operation";
+      qb.andWhere("p.section = :section", {
+        section: sectionValue,
+      });
+    }
+
     return qb;
   }
 
@@ -165,7 +187,7 @@ export class ReportsService {
     dateStr: string,
     todayStr: string,
     schedule?: Schedule,
-    firstIn?: Date | null
+    firstIn?: Date | null,
   ): CalendarDay["status"] {
     if (dateStr > todayStr) return "future";
     if (!schedule) return "off_duty";
@@ -200,7 +222,7 @@ export class ReportsService {
    */
   private buildBaseQuery(
     query: QueryReportsDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ) {
     const qb = this.attendanceRepo
       .createQueryBuilder("ar")
@@ -222,6 +244,14 @@ export class ReportsService {
     if (query.personnelId) {
       qb.andWhere("ar.personnelId = :personnelId", {
         personnelId: query.personnelId,
+      });
+    }
+
+    if (query.sector) {
+      const sectionValue =
+        query.sector === "administrative" ? "admin" : "operation";
+      qb.andWhere("personnel.section = :section", {
+        section: sectionValue,
       });
     }
 
@@ -282,7 +312,7 @@ export class ReportsService {
    */
   async getReports(
     query: QueryReportsDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<PaginatedResult<ReportItem>> {
     this.validateDateRange(query.dateFrom, query.dateTo);
 
@@ -309,7 +339,7 @@ export class ReportsService {
    */
   async getMonthlySummary(
     query: QueryReportsDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<MonthlySummaryItem[]> {
     this.validateDateRange(query.dateFrom, query.dateTo);
 
@@ -361,10 +391,10 @@ export class ReportsService {
 
       // Days present: distinct local dates with at least one confirmed time_in
       const confirmedTimeIns = timeIns.filter(
-        (r) => r.status === AttendanceStatus.Confirmed
+        (r) => r.status === AttendanceStatus.Confirmed,
       );
       const presentDays = new Set(
-        confirmedTimeIns.map((r) => this.localDateStr(r.createdAt))
+        confirmedTimeIns.map((r) => this.localDateStr(r.createdAt)),
       );
       const daysPresent = presentDays.size;
 
@@ -372,7 +402,9 @@ export class ReportsService {
       // (excludes leave, shifting, and days with no schedule)
       const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
       const daysInMonth = new Date(year, month, 0).getDate();
-      const endStr = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+      const endStr = `${year}-${String(month).padStart(2, "0")}-${String(
+        daysInMonth,
+      ).padStart(2, "0")}`;
       const scheduledDays = await this.scheduleRepo.find({
         where: {
           personnelId,
@@ -382,11 +414,13 @@ export class ReportsService {
       });
       // Filter to only dates within the queried month
       const regularDates = new Set(
-        scheduledDays.map((s) => s.date).filter((d) => d >= startStr && d <= endStr)
+        scheduledDays
+          .map((s) => s.date)
+          .filter((d) => d >= startStr && d <= endStr),
       );
       const daysAbsent = Math.max(
         0,
-        [...regularDates].filter((d) => !presentDays.has(d)).length
+        [...regularDates].filter((d) => !presentDays.has(d)).length,
       );
 
       // Late arrivals: confirmed time_ins after shift start time
@@ -395,7 +429,9 @@ export class ReportsService {
         where: { personnelId, type: ScheduleType.REGULAR },
         select: ["date", "shiftStartTime"],
       });
-      const scheduleByDate = new Map(scheduleRows.map((s) => [s.date, s.shiftStartTime]));
+      const scheduleByDate = new Map(
+        scheduleRows.map((s) => [s.date, s.shiftStartTime]),
+      );
       let lateArrivals = 0;
       for (const r of confirmedTimeIns) {
         const dateStr = this.localDateStr(r.createdAt);
@@ -438,7 +474,9 @@ export class ReportsService {
       month: "2-digit",
       day: "2-digit",
     }).formatToParts(d);
-    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    const values = Object.fromEntries(
+      parts.map((part) => [part.type, part.value]),
+    );
     return `${values.year}-${values.month}-${values.day}`;
   }
 
@@ -460,7 +498,7 @@ export class ReportsService {
    */
   private calculateTotalHours(
     timeIns: AttendanceRecord[],
-    timeOuts: AttendanceRecord[]
+    timeOuts: AttendanceRecord[],
   ): number {
     let totalMs = 0;
 
@@ -495,7 +533,7 @@ export class ReportsService {
   async exportReports(
     query: QueryReportsDto,
     currentUser: AuthenticatedUser,
-    res: Response
+    res: Response,
   ): Promise<void> {
     this.validateDateRange(query.dateFrom, query.dateTo);
     const range = this.resolveExportDateRange(query);
@@ -503,7 +541,8 @@ export class ReportsService {
 
     const personnelQb = this.buildScopedPersonnelQuery(
       currentUser,
-      query.stationId
+      query.stationId,
+      query.sector,
     ).orderBy("p.lastName", "ASC");
     if (query.personnelId) {
       personnelQb.andWhere("p.id = :personnelId", {
@@ -545,13 +584,8 @@ export class ReportsService {
             .getMany();
 
     const exportRows = this.filterExportRowsByStatus(
-      this.buildDtrExportRows(
-      personnelList,
-      records,
-      schedules,
-      range
-      ),
-      query.exportStatus
+      this.buildDtrExportRows(personnelList, records, schedules, range),
+      query.exportStatus,
     );
 
     const workbook = new ExcelJS.Workbook();
@@ -568,7 +602,7 @@ export class ReportsService {
         query,
         currentUser,
         range,
-        period
+        period,
       );
     } else {
       this.writeDtrWorksheet(
@@ -577,13 +611,28 @@ export class ReportsService {
         query,
         currentUser,
         range,
-        period
+        period,
       );
     }
     this.writeSummaryWorksheet(workbook, "Daily Summary", exportRows, "daily");
-    this.writeSummaryWorksheet(workbook, "Weekly Summary", exportRows, "weekly");
-    this.writeSummaryWorksheet(workbook, "Monthly Summary", exportRows, "monthly");
-    this.writeSummaryWorksheet(workbook, "Yearly Summary", exportRows, "yearly");
+    this.writeSummaryWorksheet(
+      workbook,
+      "Weekly Summary",
+      exportRows,
+      "weekly",
+    );
+    this.writeSummaryWorksheet(
+      workbook,
+      "Monthly Summary",
+      exportRows,
+      "monthly",
+    );
+    this.writeSummaryWorksheet(
+      workbook,
+      "Yearly Summary",
+      exportRows,
+      "yearly",
+    );
     this.writeExceptionsSummaryWorksheet(workbook, exportRows);
     this.writeAuditTrailWorksheet(
       workbook,
@@ -591,19 +640,19 @@ export class ReportsService {
       currentUser,
       range,
       exportRows,
-      personnelList
+      personnelList,
     );
 
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${this.buildExportFilename(
         query,
-        personnelList.length === 1 ? personnelList[0] : undefined
-      )}"`
+        personnelList.length === 1 ? personnelList[0] : undefined,
+      )}"`,
     );
     await workbook.xlsx.write(res);
 
@@ -612,14 +661,14 @@ export class ReportsService {
 
   private buildExportFilename(
     query: QueryReportsDto,
-    personnel?: Personnel
+    personnel?: Personnel,
   ): string {
     const start = query.dateFrom ?? "all";
     const end = query.dateTo ?? "all";
     const period = query.reportPeriod ?? "monthly";
     const scope = personnel
       ? this.slugifyFilenamePart(
-          `${personnel.rank}-${personnel.firstName}-${personnel.lastName}`
+          `${personnel.rank}-${personnel.firstName}-${personnel.lastName}`,
         )
       : "all-personnel";
     const status = query.exportStatus ?? "all-statuses";
@@ -638,17 +687,18 @@ export class ReportsService {
   private buildExportSubtitle(
     query: QueryReportsDto,
     currentUser: AuthenticatedUser,
-    rowCount: number
+    rowCount: number,
   ): string {
-    const range = query.dateFrom && query.dateTo
-      ? `${query.dateFrom} to ${query.dateTo}`
-      : "All available dates";
+    const range =
+      query.dateFrom && query.dateTo
+        ? `${query.dateFrom} to ${query.dateTo}`
+        : "All available dates";
     const stationScope =
       currentUser.role === "station_user"
         ? "Station-scoped export"
         : query.stationId
-          ? `Filtered by station #${query.stationId}`
-          : "All stations";
+        ? `Filtered by station #${query.stationId}`
+        : "All stations";
     const personnelScope = query.personnelId
       ? `Personnel #${query.personnelId}`
       : "All personnel";
@@ -656,7 +706,9 @@ export class ReportsService {
     const statusScope = query.exportStatus
       ? `Status: ${this.formatExportStatus(query.exportStatus)}`
       : "All statuses";
-    return `${range} | ${stationScope} | ${personnelScope} | ${periodScope} | ${statusScope} | ${rowCount} personnel-day${rowCount === 1 ? "" : "s"}`;
+    return `${range} | ${stationScope} | ${personnelScope} | ${periodScope} | ${statusScope} | ${rowCount} personnel-day${
+      rowCount === 1 ? "" : "s"
+    }`;
   }
 
   private formatExportStatus(status: ExportStatus): string {
@@ -748,7 +800,7 @@ export class ReportsService {
         endOfDay ? 23 : 0,
         endOfDay ? 59 : 0,
         endOfDay ? 59 : 0,
-        endOfDay ? 999 : 0
+        endOfDay ? 999 : 0,
       ) - REPORT_TIME_ZONE_OFFSET_MS;
     return new Date(utcTime);
   }
@@ -758,14 +810,14 @@ export class ReportsService {
     const [hours, minutes, seconds] = timeStr.split(":").map(Number);
     return new Date(
       Date.UTC(year, month - 1, day, hours, minutes, seconds ?? 0) -
-        REPORT_TIME_ZONE_OFFSET_MS
+        REPORT_TIME_ZONE_OFFSET_MS,
     );
   }
 
   private addLocalDays(dateStr: string, days: number): string {
     const [year, month, day] = dateStr.split("-").map(Number);
     const next = new Date(
-      Date.UTC(year, month - 1, day + days) - REPORT_TIME_ZONE_OFFSET_MS
+      Date.UTC(year, month - 1, day + days) - REPORT_TIME_ZONE_OFFSET_MS,
     );
     return this.localDateStr(next);
   }
@@ -784,7 +836,7 @@ export class ReportsService {
 
   private formatDayName(dateStr: string): string {
     return new Intl.DateTimeFormat("en-PH", { weekday: "short" }).format(
-      this.parseLocalDate(dateStr)
+      this.parseLocalDate(dateStr),
     );
   }
 
@@ -794,22 +846,28 @@ export class ReportsService {
       schedule.type === ScheduleType.REGULAR
         ? "Regular"
         : schedule.type === ScheduleType.SHIFTING
-          ? "Shifting"
-          : "Leave";
-    return `${label} ${schedule.shiftStartTime.slice(0, 5)}-${schedule.shiftEndTime.slice(0, 5)}`;
+        ? "Shifting"
+        : "Leave";
+    return `${label} ${schedule.shiftStartTime.slice(
+      0,
+      5,
+    )}-${schedule.shiftEndTime.slice(0, 5)}`;
   }
 
   private isLateTimeIn(
     dateStr: string,
     shiftStartTime: string,
-    firstIn: Date
+    firstIn: Date,
   ): boolean {
     const shiftStart = this.parseLocalDateTime(dateStr, shiftStartTime);
     const graceMs = SHIFT_GRACE_MINUTES * 60 * 1000;
     return firstIn.getTime() > shiftStart.getTime() + graceMs;
   }
 
-  private calculateRowHours(firstIn: Date | null, lastOut: Date | null): number {
+  private calculateRowHours(
+    firstIn: Date | null,
+    lastOut: Date | null,
+  ): number {
     if (!firstIn || !lastOut || lastOut <= firstIn) return 0;
     const hours = (lastOut.getTime() - firstIn.getTime()) / (1000 * 60 * 60);
     return Math.round(hours * 100) / 100;
@@ -818,7 +876,7 @@ export class ReportsService {
   private resolveDtrStatus(
     dateStr: string,
     schedule: Schedule | undefined,
-    firstIn: Date | null
+    firstIn: Date | null,
   ): DtrExportRow["status"] {
     if (!schedule) return "Off Duty";
     if (schedule.type === ScheduleType.LEAVE) return "Leave";
@@ -834,11 +892,14 @@ export class ReportsService {
     personnelList: Personnel[],
     records: AttendanceRecord[],
     schedules: Schedule[],
-    range: ExportDateRange
+    range: ExportDateRange,
   ): DtrExportRow[] {
     const dateStrings = this.listDateStrings(range);
     const scheduleMap = new Map<string, Schedule>();
-    const attendanceMap = new Map<string, { timeIns: Date[]; timeOuts: Date[] }>();
+    const attendanceMap = new Map<
+      string,
+      { timeIns: Date[]; timeOuts: Date[] }
+    >();
 
     for (const schedule of schedules) {
       scheduleMap.set(`${schedule.personnelId}-${schedule.date}`, schedule);
@@ -867,10 +928,10 @@ export class ReportsService {
         const key = `${person.id}-${date}`;
         const attendance = attendanceMap.get(key);
         const timeIns = [...(attendance?.timeIns ?? [])].sort(
-          (a, b) => a.getTime() - b.getTime()
+          (a, b) => a.getTime() - b.getTime(),
         );
         const timeOuts = [...(attendance?.timeOuts ?? [])].sort(
-          (a, b) => a.getTime() - b.getTime()
+          (a, b) => a.getTime() - b.getTime(),
         );
         const firstIn = timeIns[0] ?? null;
         const lastOut = timeOuts[timeOuts.length - 1] ?? null;
@@ -894,10 +955,10 @@ export class ReportsService {
             status === "Absent"
               ? "No confirmed time-in for scheduled duty"
               : status === "Late"
-                ? `Time-in exceeded ${SHIFT_GRACE_MINUTES}-minute grace period`
-                : status === "Scheduled"
-                  ? "Future scheduled duty"
-                  : "",
+              ? `Time-in exceeded ${SHIFT_GRACE_MINUTES}-minute grace period`
+              : status === "Scheduled"
+              ? "Future scheduled duty"
+              : "",
         });
       }
     }
@@ -907,7 +968,7 @@ export class ReportsService {
 
   private filterExportRowsByStatus(
     rows: DtrExportRow[],
-    exportStatus?: ExportStatus
+    exportStatus?: ExportStatus,
   ): DtrExportRow[] {
     if (!exportStatus) return rows;
 
@@ -927,7 +988,11 @@ export class ReportsService {
   private styleHeaderRow(row: ExcelJS.Row): void {
     row.height = 22;
     row.font = { bold: true, color: { argb: HEADER_FONT } };
-    row.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    row.alignment = {
+      horizontal: "center",
+      vertical: "middle",
+      wrapText: true,
+    };
     row.fill = {
       type: "pattern",
       pattern: "solid",
@@ -942,7 +1007,7 @@ export class ReportsService {
     sheet: ExcelJS.Worksheet,
     title: string,
     subtitle: string,
-    lastColumn: string
+    lastColumn: string,
   ): void {
     sheet.mergeCells(`A1:${lastColumn}1`);
     sheet.getCell("A1").value = title;
@@ -975,7 +1040,9 @@ export class ReportsService {
     };
 
     sheet.mergeCells(`A3:${lastColumn}3`);
-    sheet.getCell("A3").value = `Generated on ${this.formatDateTime(new Date())}`;
+    sheet.getCell("A3").value = `Generated on ${this.formatDateTime(
+      new Date(),
+    )}`;
     sheet.getCell("A3").font = { size: 10, color: { argb: "FF64748B" } };
     sheet.getCell("A3").alignment = {
       horizontal: "center",
@@ -989,19 +1056,22 @@ export class ReportsService {
     query: QueryReportsDto,
     currentUser: AuthenticatedUser,
     range: ExportDateRange,
-    period: ReportPeriod
+    period: ReportPeriod,
   ): void {
     const sheet = workbook.addWorksheet("DTR Form");
     this.writeTitleBlock(
       sheet,
       "Daily Time Record",
       this.buildExportSubtitle(query, currentUser, rows.length),
-      "K"
+      "K",
     );
 
     sheet.mergeCells("A4:K4");
-    sheet.getCell("A4").value =
-      `Primary report period: ${period.toUpperCase()} | Coverage: ${range.startStr} to ${range.endStr}`;
+    sheet.getCell(
+      "A4",
+    ).value = `Primary report period: ${period.toUpperCase()} | Coverage: ${
+      range.startStr
+    } to ${range.endStr}`;
     sheet.getCell("A4").font = { bold: true, color: { argb: "FF1F2937" } };
     sheet.getCell("A4").alignment = { horizontal: "center" };
     sheet.getCell("A4").fill = {
@@ -1088,10 +1158,18 @@ export class ReportsService {
     sheet.getCell(`A${signatureStart + 1}`).value = query.preparedBy ?? "";
     sheet.getCell(`E${signatureStart + 1}`).value = query.certifiedBy ?? "";
     sheet.getCell(`I${signatureStart + 1}`).value = query.approvedBy ?? "";
-    for (const cellRef of [`A${signatureStart + 1}`, `E${signatureStart + 1}`, `I${signatureStart + 1}`]) {
+    for (const cellRef of [
+      `A${signatureStart + 1}`,
+      `E${signatureStart + 1}`,
+      `I${signatureStart + 1}`,
+    ]) {
       sheet.getCell(cellRef).alignment = { horizontal: "center" };
     }
-    for (const cellRef of [`A${signatureStart + 2}`, `E${signatureStart + 2}`, `I${signatureStart + 2}`]) {
+    for (const cellRef of [
+      `A${signatureStart + 2}`,
+      `E${signatureStart + 2}`,
+      `I${signatureStart + 2}`,
+    ]) {
       sheet.getCell(cellRef).border = {
         bottom: { style: "thin", color: { argb: "FF1F2937" } },
       };
@@ -1108,7 +1186,7 @@ export class ReportsService {
     query: QueryReportsDto,
     currentUser: AuthenticatedUser,
     range: ExportDateRange,
-    period: ReportPeriod
+    period: ReportPeriod,
   ): void {
     const sheet = workbook.addWorksheet("DTR Form");
     const fullName = `${personnel.firstName} ${personnel.lastName}`;
@@ -1153,12 +1231,15 @@ export class ReportsService {
     sheet.getCell("B6").font = { size: 9 };
 
     sheet.mergeCells("A8:C8");
-    sheet.getCell("A8").value = `For the period of ${range.startStr} to ${range.endStr}`;
+    sheet.getCell(
+      "A8",
+    ).value = `For the period of ${range.startStr} to ${range.endStr}`;
     sheet.getCell("A8").font = { italic: true, size: 9 };
 
     sheet.mergeCells("D8:I8");
-    sheet.getCell("D8").value =
-      `${personnel.rank} | ${station} | Primary report period: ${period.toUpperCase()}`;
+    sheet.getCell("D8").value = `${
+      personnel.rank
+    } | ${station} | Primary report period: ${period.toUpperCase()}`;
     sheet.getCell("D8").alignment = { horizontal: "right" };
     sheet.getCell("D8").font = { size: 9 };
 
@@ -1186,7 +1267,11 @@ export class ReportsService {
     for (let rowNumber = 10; rowNumber <= 11; rowNumber++) {
       const row = sheet.getRow(rowNumber);
       row.font = { bold: true, size: 9 };
-      row.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      row.alignment = {
+        horizontal: "center",
+        vertical: "middle",
+        wrapText: true,
+      };
       for (let col = 1; col <= 9; col++) {
         row.getCell(col).border = this.buildMediumBorder();
       }
@@ -1225,7 +1310,9 @@ export class ReportsService {
           cell.fill = {
             type: "pattern",
             pattern: "solid",
-            fgColor: { argb: row.status === "Absent" ? "FFFFE5E5" : "FFFFF4D6" },
+            fgColor: {
+              argb: row.status === "Absent" ? "FFFFE5E5" : "FFFFF4D6",
+            },
           };
         }
       });
@@ -1256,7 +1343,8 @@ export class ReportsService {
       bottom: { style: "medium", color: { argb: "FF111827" } },
     };
     sheet.mergeCells(`B${footerRow + 8}:H${footerRow + 8}`);
-    sheet.getCell(`B${footerRow + 8}`).value = "Verified as to the prescribed office hours";
+    sheet.getCell(`B${footerRow + 8}`).value =
+      "Verified as to the prescribed office hours";
     sheet.getCell(`B${footerRow + 8}`).alignment = { horizontal: "center" };
 
     sheet.pageSetup = {
@@ -1294,14 +1382,14 @@ export class ReportsService {
     workbook: ExcelJS.Workbook,
     sheetName: string,
     rows: DtrExportRow[],
-    period: ReportPeriod
+    period: ReportPeriod,
   ): void {
     const sheet = workbook.addWorksheet(sheetName);
     this.writeTitleBlock(
       sheet,
       `${sheetName} - COA Attendance Summary`,
       "Derived from confirmed attendance, schedule assignments, late arrivals after grace period, and absent no-time-in personnel-days.",
-      "J"
+      "J",
     );
 
     sheet.columns = [
@@ -1406,14 +1494,14 @@ export class ReportsService {
 
   private writeExceptionsSummaryWorksheet(
     workbook: ExcelJS.Workbook,
-    rows: DtrExportRow[]
+    rows: DtrExportRow[],
   ): void {
     const sheet = workbook.addWorksheet("Exceptions Summary");
     this.writeTitleBlock(
       sheet,
       "Exceptions Summary",
       "Late, absent, missing time-out, incomplete, and schedule exception records for COA review.",
-      "H"
+      "H",
     );
 
     sheet.columns = [
@@ -1514,9 +1602,12 @@ export class ReportsService {
   }
 
   private buildExceptionRemark(row: DtrExportRow, exception: string): string {
-    if (exception === "Missing Time Out") return "Confirmed time-in with no matching time-out.";
-    if (exception === "Missing Time In") return "Confirmed time-out with no matching time-in.";
-    if (exception === "No Schedule") return "Attendance was recorded but no schedule was assigned.";
+    if (exception === "Missing Time Out")
+      return "Confirmed time-in with no matching time-out.";
+    if (exception === "Missing Time In")
+      return "Confirmed time-out with no matching time-in.";
+    if (exception === "No Schedule")
+      return "Attendance was recorded but no schedule was assigned.";
     return row.remarks;
   }
 
@@ -1526,14 +1617,14 @@ export class ReportsService {
     currentUser: AuthenticatedUser,
     range: ExportDateRange,
     rows: DtrExportRow[],
-    personnelList: Personnel[]
+    personnelList: Personnel[],
   ): void {
     const sheet = workbook.addWorksheet("Audit Trail");
     this.writeTitleBlock(
       sheet,
       "Audit Trail",
       "Export provenance and filters used to generate this workbook.",
-      "B"
+      "B",
     );
 
     sheet.columns = [
@@ -1560,18 +1651,37 @@ export class ReportsService {
       ["Generated At", this.formatDateTime(new Date())],
       ["Generated By User ID", String(currentUser.id)],
       ["User Role", currentUser.role],
-      ["User Station ID", currentUser.stationId ? String(currentUser.stationId) : "All/None"],
+      [
+        "User Station ID",
+        currentUser.stationId ? String(currentUser.stationId) : "All/None",
+      ],
       ["Coverage", `${range.startStr} to ${range.endStr}`],
       ["Report Period", query.reportPeriod ?? "monthly"],
-      ["Export Status Filter", query.exportStatus ? this.formatExportStatus(query.exportStatus) : "All statuses"],
+      [
+        "Export Status Filter",
+        query.exportStatus
+          ? this.formatExportStatus(query.exportStatus)
+          : "All statuses",
+      ],
       ["Personnel Scope", personnelValue],
-      ["Station Filter", query.stationId ? String(query.stationId) : "All stations"],
+      [
+        "Station Filter",
+        query.stationId ? String(query.stationId) : "All stations",
+      ],
       ["Total Export Rows", String(rows.length)],
-      ["Status Counts", Object.entries(rowsByStatus).map(([status, count]) => `${status}: ${count}`).join(", ") || "None"],
+      [
+        "Status Counts",
+        Object.entries(rowsByStatus)
+          .map(([status, count]) => `${status}: ${count}`)
+          .join(", ") || "None",
+      ],
       ["Prepared By", query.preparedBy ?? ""],
       ["Certified By", query.certifiedBy ?? ""],
       ["Approved By", query.approvedBy ?? ""],
-      ["Notes", "Absent and Late are derived from assigned regular schedules and confirmed time-in records."],
+      [
+        "Notes",
+        "Absent and Late are derived from assigned regular schedules and confirmed time-in records.",
+      ],
     ];
 
     for (const [field, value] of auditRows) {
@@ -1600,7 +1710,7 @@ export class ReportsService {
    */
   async getCalendar(
     query: QueryCalendarDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<CalendarPersonnelItem[]> {
     const { year, month } = query;
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -1608,7 +1718,7 @@ export class ReportsService {
     // Determine the date range for the month
     const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
     const endStr = `${year}-${String(month).padStart(2, "0")}-${String(
-      daysInMonth
+      daysInMonth,
     ).padStart(2, "0")}`;
     // Use local midnight bounds to avoid UTC offset shifting dates (e.g. PHT = UTC+8)
     const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
@@ -1617,7 +1727,7 @@ export class ReportsService {
     // Fetch personnel scoped by role
     const personnelList = await this.buildScopedPersonnelQuery(
       currentUser,
-      query.stationId
+      query.stationId,
     ).getMany();
     if (personnelList.length === 0) return [];
 
@@ -1654,7 +1764,7 @@ export class ReportsService {
     for (const p of personnelList) {
       const pSchedules = schedules.filter((s) => s.personnelId === p.id);
       const pAttendance = attendanceRecords.filter(
-        (a) => a.personnelId === p.id
+        (a) => a.personnelId === p.id,
       );
       const firstInByDate = new Map<string, Date>();
       for (const attendance of pAttendance) {
@@ -1668,18 +1778,13 @@ export class ReportsService {
       const calendar: CalendarDay[] = [];
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(
-          day
+          day,
         ).padStart(2, "0")}`;
         const sched = pSchedules.find((s) => s.date === dateStr);
         const firstIn = firstInByDate.get(dateStr) ?? null;
         calendar.push({
           date: dateStr,
-          status: this.classifyPersonnelDay(
-            dateStr,
-            todayStr,
-            sched,
-            firstIn
-          ),
+          status: this.classifyPersonnelDay(dateStr, todayStr, sched, firstIn),
         });
       }
 
@@ -1698,13 +1803,13 @@ export class ReportsService {
 
   async getCalendarDateSummary(
     query: QueryCalendarDto,
-    currentUser: AuthenticatedUser
+    currentUser: AuthenticatedUser,
   ): Promise<CalendarDateSummaryItem[]> {
     const { year, month } = query;
     const daysInMonth = new Date(year, month, 0).getDate();
     const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
     const endStr = `${year}-${String(month).padStart(2, "0")}-${String(
-      daysInMonth
+      daysInMonth,
     ).padStart(2, "0")}`;
     // Use local midnight bounds to avoid UTC offset shifting dates (e.g. PHT = UTC+8)
     const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
@@ -1712,7 +1817,7 @@ export class ReportsService {
 
     const personnelList = await this.buildScopedPersonnelQuery(
       currentUser,
-      query.stationId
+      query.stationId,
     ).getMany();
     if (personnelList.length === 0) return [];
 
@@ -1758,7 +1863,7 @@ export class ReportsService {
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(
-        day
+        day,
       ).padStart(2, "0")}`;
 
       summaryByDate.set(dateStr, {
@@ -1790,7 +1895,7 @@ export class ReportsService {
 
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(
-          day
+          day,
         ).padStart(2, "0")}`;
         const schedule = scheduleMap.get(`${person.id}-${dateStr}`);
         const firstIn = attendanceMap.get(`${person.id}-${dateStr}`) ?? null;
@@ -1798,7 +1903,7 @@ export class ReportsService {
           dateStr,
           todayStr,
           schedule,
-          firstIn
+          firstIn,
         );
         const summary = summaryByDate.get(dateStr);
 

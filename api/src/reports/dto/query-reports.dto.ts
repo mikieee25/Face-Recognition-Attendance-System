@@ -26,6 +26,14 @@ export class QueryReportsDto {
   personnelId?: number;
 
   @ApiPropertyOptional({
+    description: "Filter by sector/section",
+    enum: ["administrative", "operational"],
+  })
+  @IsOptional()
+  @IsIn(["administrative", "operational"])
+  sector?: "administrative" | "operational";
+
+  @ApiPropertyOptional({
     description: "Attendance type filter",
     enum: ["time_in", "time_out"],
   })
@@ -53,23 +61,53 @@ export class QueryReportsDto {
 
   @ApiPropertyOptional({
     description: "Derived DTR status filter for exports",
-    enum: ["present", "late", "absent", "leave", "shifting", "off_duty", "scheduled"],
+    enum: [
+      "present",
+      "late",
+      "absent",
+      "leave",
+      "shifting",
+      "off_duty",
+      "scheduled",
+    ],
   })
   @IsOptional()
-  @IsIn(["present", "late", "absent", "leave", "shifting", "off_duty", "scheduled"])
-  exportStatus?: "present" | "late" | "absent" | "leave" | "shifting" | "off_duty" | "scheduled";
+  @IsIn([
+    "present",
+    "late",
+    "absent",
+    "leave",
+    "shifting",
+    "off_duty",
+    "scheduled",
+  ])
+  exportStatus?:
+    | "present"
+    | "late"
+    | "absent"
+    | "leave"
+    | "shifting"
+    | "off_duty"
+    | "scheduled";
 
-  @ApiPropertyOptional({ description: "Prepared by name/designation for export signature block" })
+  @ApiPropertyOptional({
+    description: "Prepared by name/designation for export signature block",
+  })
   @IsOptional()
   @IsString()
   preparedBy?: string;
 
-  @ApiPropertyOptional({ description: "Certified correct by name/designation for export signature block" })
+  @ApiPropertyOptional({
+    description:
+      "Certified correct by name/designation for export signature block",
+  })
   @IsOptional()
   @IsString()
   certifiedBy?: string;
 
-  @ApiPropertyOptional({ description: "Approved by name/designation for export signature block" })
+  @ApiPropertyOptional({
+    description: "Approved by name/designation for export signature block",
+  })
   @IsOptional()
   @IsString()
   approvedBy?: string;
