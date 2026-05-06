@@ -118,6 +118,26 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
     return true;
   };
 
+  const handlePersonnelChange = (newPersonnelId: string) => {
+    setPersonnelId(newPersonnelId);
+    if (newPersonnelId) {
+      const selectedPerson = personnelList.find(
+        (p) => String(p.id) === newPersonnelId,
+      );
+      if (selectedPerson) {
+        setStationId(
+          selectedPerson.stationId ? String(selectedPerson.stationId) : "",
+        );
+        setSector(
+          selectedPerson.section === "admin" ? "administrative" : "operational",
+        );
+      }
+    } else {
+      setStationId("");
+      setSector("");
+    }
+  };
+
   const handleExport = async () => {
     if (!validate()) return;
 
@@ -211,7 +231,9 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
                   labelId="export-personnel-label"
                   value={personnelId}
                   label="Personnel"
-                  onChange={(e) => setPersonnelId(e.target.value as string)}
+                  onChange={(e) =>
+                    handlePersonnelChange(e.target.value as string)
+                  }
                 >
                   <MenuItem value="">All Personnel</MenuItem>
                   {personnelList.map((person) => (
@@ -241,7 +263,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
             </Stack>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <FormControl size="small" fullWidth>
+              <FormControl size="small" fullWidth disabled={!!personnelId}>
                 <InputLabel id="export-station-label">Station</InputLabel>
                 <Select
                   labelId="export-station-label"
@@ -258,7 +280,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
                 </Select>
               </FormControl>
 
-              <FormControl size="small" fullWidth>
+              <FormControl size="small" fullWidth disabled={!!personnelId}>
                 <InputLabel id="export-sector-label">Sector</InputLabel>
                 <Select
                   labelId="export-sector-label"
